@@ -165,3 +165,43 @@ button.primary { font-size: 1rem; padding: 0.7rem 1.2rem; justify-self: start; }
   .dual-preview { grid-template-columns: 1fr; }
 }
 code { color: var(--accent); font-size: 0.85em; }
+
+/* Live hotkey status card */
+.live-card { border: 1px solid #2a3a55; }
+.live-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.live-combo kbd {
+  display: inline-block;
+  background: #0f1115;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 1.05rem;
+  color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace;
+}
+.live-armed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.live-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 0 3px #2a3140;
+}
+.live-dot.on {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px #163526;
+}
+.live-dot.off {
+  background: #666;
+}

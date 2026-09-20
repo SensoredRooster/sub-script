@@ -23,6 +23,37 @@ Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) w
 
 > Later this launcher becomes a single `.exe`. For now, `run-app.bat` is the one-click start.
 
+## Live mode (hotkey while you stream)
+
+One-screen setup for dummies:
+
+1. In **OBS** → Settings → Output → Replay Buffer: turn it **On**. Set the replay length to at least your `buffer_seconds` (default **30**).
+2. Note where OBS saves replays (Output path / Recording path). Either:
+   - Save the **exact replay export `.mp4` path** into `config.yaml` as `live_source`, **or**
+   - Put that folder path in `watch_folder` (sub-script grabs the **newest** video each time).
+3. Confirm in `config.yaml`:
+   ```yaml
+   hotkey: "ctrl+shift+c"
+   buffer_seconds: 30
+   live_source: "C:\\Videos\\Replay.mp4"   # or leave empty
+   watch_folder: "C:\\Videos\\OBS"        # or leave empty if live_source is set
+   auto_enqueue: true
+   notify: true
+   ```
+4. **Double-click `run-app.bat`**, open the home page, click **Start watcher** on the **Live hotkey** card (or run `python -m subscript --watch` in a second terminal).
+5. While streaming, hit **Ctrl+Shift+C**. You should hear a beep / see a toast. sub-script clips the last N seconds → brand → H+V → captions → review queue.
+6. In the app: preview → **Approve** (or Trim / Reject).
+
+If one hotkey fire fails (missing file, ffmpeg hiccup), the app **keeps listening** — check the Live card / console for the error and try again.
+
+CLI-only watch (no browser button):
+
+```bat
+python -m subscript --watch
+```
+
+Optional: `python -m subscript --watch --source path\to\replay.mp4`
+
 ## What Approve does now
 
 Hitting **Approve as-is** (or approving after a trim) builds a **social export pack** under `out\approved\<id>\`:
@@ -76,7 +107,7 @@ Never commit `credentials.json`, `token.json`, or `.env`.
 | Mode | What it does |
 |------|----------------|
 | **App** | Drop a VOD in the browser -> clip -> same review queue |
-| **Live** | Hotkey grabs the last ~30s from a buffer/export -> brand -> review queue |
+| **Live** | Hotkey grabs the last ~30s from a buffer/export -> brand -> H+V -> captions -> review queue |
 | **Review** | Local UI: watch clip, approve, quick trim, or reject |
 
 ## Builder / CLI (optional)
@@ -107,7 +138,11 @@ python -m subscript --app
 
 (`--review` is the same as `--app`.)
 
-Hotkey watch:
+Hotkey watch (uses `live_source` / `watch_folder` from config, or `--source`):
+
+```bat
+python -m subscript --watch
+```
 
 ```bat
 python -m subscript --watch --source path\\to\\buffer-export.mp4
@@ -144,7 +179,9 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 | `ffmpeg not found` | Install via winget/choco, reopen the terminal |
 | `config.yaml not found` | `copy config.example.yaml config.yaml` (or just run `run-app.bat`) |
 | `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\` |
-| Empty review list | Use **Make clip** above the list, then wait for the page to reload |
+| Live hotkey: no source | Set `live_source` or `watch_folder` in `config.yaml` |
+| Live hotkey did nothing | Click **Start watcher** on the Live card; leave `run-app.bat` open |
+| Empty review list | Use **Make clip** or fire the live hotkey, then wait for reload |
 | Browser didn't open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
 | YouTube secrets missing | Follow **Connect YouTube**; put OAuth JSON at `credentials.json` |
 | YouTube login every time | Ensure `token.json` is writable in the project folder (not deleted) |
@@ -153,10 +190,10 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 
 1. Hotkey / file clip + brand + review gate (approve / trim / reject)
 2. Desktop app home: drop VOD -> clip -> review *(shipped)*
-3. Next: real OBS/replay rolling buffer
+3. Live hotkey → OBS replay / watch folder → auto enqueue *(this PR)*
 4. Next: VOD auto chapter/cut suggestions
 5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(shipped)*
-6. YouTube Shorts upload on Approve (OAuth) *(this PR)*
+6. YouTube Shorts upload on Approve (OAuth) *(shipped)*
 7. Later: Whisper / real transcript captions; music bed
 8. Later: Warzone kill-feed OCR for fully hands-off detection
 9. Later: package as `.exe` (PyInstaller) from `run-app.bat`

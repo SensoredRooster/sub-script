@@ -1,0 +1,19 @@
+<section class="card live-card" id="live-hotkey-card">
+  <h2>Live hotkey</h2>
+  <p class="meta">Grab the last {{BUFFER_SECONDS}}s from your OBS replay buffer / watch folder, then auto-queue for review.</p>
+  <div class="live-status-row">
+    <div>
+      <div class="live-combo"><kbd>{{HOTKEY}}</kbd></div>
+      <p class="meta" id="live-source-hint">{{SOURCE_HINT}}</p>
+    </div>
+    <div class="live-armed">
+      <span id="live-dot" class="live-dot {{DOT_CLASS}}" aria-hidden="true"></span>
+      <span id="live-armed-label">{{ARMED_LABEL}}</span>
+    </div>
+  </div>
+  <p class="meta" id="live-msg">{{LIVE_MSG}}</p>
+  <div class="actions">
+    <button type="button" id="live-start" class="ok" {{START_DISABLED}}>Start watcher</button>
+    <button type="button" id="live-stop" class="bad" {{STOP_DISABLED}}>Stop</button>
+  </div>
+</section>
