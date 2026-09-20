@@ -17,6 +17,8 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 4. Drop a VOD (or Choose file) → leave **Last 30 seconds** (or pick custom start + length) → **Make clip**.
 5. Preview the clip → **Approve as-is** / **Trim & approve** / **Reject**.
 
+**Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, hit **Save**. That writes `assets/logo.png` and updates `config.yaml` so every future Make clip auto-brands — no folder hunting.
+
 Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you’re done.
 
 > Later this launcher becomes a single `.exe`. For now, `run-app.bat` is the one-click start.
@@ -36,17 +38,17 @@ Same engine; use when you prefer the terminal.
 Produce a clip into the review queue (last 30 seconds by default):
 
 ```bat
-python -m subscript --source test-clips\your.mp4
+python -m subscript --source test-clips\\your.mp4
 ```
 
 Clip a specific highlight (`--start` + `--duration`; seconds or `HH:MM:SS`):
 
 ```bat
-python -m subscript --source test-clips\vod.mp4 --start 3720 --duration 45
+python -m subscript --source test-clips\\vod.mp4 --start 3720 --duration 45
 ```
 
 ```bat
-python -m subscript --source test-clips\vod.mp4 --start 1:02:00 --duration 00:00:45
+python -m subscript --source test-clips\\vod.mp4 --start 1:02:00 --duration 00:00:45
 ```
 
 Open the app / review UI without the bat file:
@@ -60,7 +62,7 @@ python -m subscript --app
 Hotkey watch:
 
 ```bat
-python -m subscript --watch --source path\to\buffer-export.mp4
+python -m subscript --watch --source path\\to\\buffer-export.mp4
 ```
 
 ## Setup details (Windows-friendly)
@@ -93,7 +95,7 @@ python -m subscript --watch --source path\to\buffer-export.mp4
 |---------|------------|
 | `ffmpeg not found` | Install via winget/choco, reopen the terminal |
 | `config.yaml not found` | `copy config.example.yaml config.yaml` (or just run `run-app.bat`) |
-| `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\` |
+| `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\` |
 | Empty review list | Use **Make clip** above the list, then wait for the page to reload |
 | Browser didn’t open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
 

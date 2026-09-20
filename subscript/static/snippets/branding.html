@@ -1,0 +1,33 @@
+<section class="card branding-card">
+  <h2>Branding</h2>
+  <p class="meta">Upload a PNG logo once. Every new clip gets this watermark automatically.</p>
+  <form id="brand-form" class="brand-form" method="post" action="/brand" enctype="multipart/form-data">
+    <div class="brand-preview-row">
+      <div id="brand-preview-wrap" class="brand-preview-wrap" {{PREVIEW_HIDDEN}}>
+        <img id="brand-preview" class="brand-preview" src="{{LOGO_SRC}}" alt="Current logo">
+      </div>
+      <p id="brand-preview-empty" class="meta" {{EMPTY_HIDDEN}}>No logo yet — branding is skipped until you upload one.</p>
+    </div>
+    <label class="full">Logo (PNG)
+      <input id="brand-logo-input" type="file" name="logo" accept="image/png,.png">
+    </label>
+    <div class="brand-controls">
+      <label>Corner
+        <select name="position" id="brand-position">
+          <option value="top_left" {{POS_TL}}>Top left</option>
+          <option value="top_right" {{POS_TR}}>Top right</option>
+          <option value="bottom_left" {{POS_BL}}>Bottom left</option>
+          <option value="bottom_right" {{POS_BR}}>Bottom right</option>
+        </select>
+      </label>
+      <label>Opacity
+        <input id="brand-opacity" name="opacity" type="range" min="0.1" max="1" step="0.05" value="{{OPACITY}}">
+        <span id="brand-opacity-val" class="meta">{{OPACITY}}</span>
+      </label>
+      <label>Margin (px)
+        <input name="margin_px" type="number" min="0" max="200" step="1" value="{{MARGIN}}">
+      </label>
+    </div>
+    <button type="submit" id="brand-save" class="primary">Save</button>
+  </form>
+</section>

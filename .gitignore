@@ -13,3 +13,6 @@ out/
 credentials.json
 token.json
 client_secret*.json
+assets/logo.png
+assets/*.png
+!assets/.gitkeep

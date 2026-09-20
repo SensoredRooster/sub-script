@@ -1,68 +1,110 @@
 (function () {
   var form = document.getElementById("clip-form");
-  if (!form) return;
+  if (form) {
+    var drop = document.getElementById("drop-zone");
+    var input = document.getElementById("file-input");
+    var label = document.getElementById("file-label");
+    var custom = document.getElementById("custom-fields");
+    var busy = document.getElementById("busy");
+    var btn = document.getElementById("clip-btn");
+    var customRadio = form.querySelector('input[name="mode"][value="custom"]');
 
-  var drop = document.getElementById("drop-zone");
-  var input = document.getElementById("file-input");
-  var label = document.getElementById("file-label");
-  var custom = document.getElementById("custom-fields");
-  var busy = document.getElementById("busy");
-  var btn = document.getElementById("clip-btn");
-  var customRadio = form.querySelector('input[name="mode"][value="custom"]');
+    function setFileName(file) {
+      if (!label) return;
+      label.textContent = file ? file.name : "No file chosen";
+    }
 
-  function setFileName(file) {
-    if (!label) return;
-    label.textContent = file ? file.name : "No file chosen";
-  }
+    function syncCustom() {
+      if (!custom || !customRadio) return;
+      custom.hidden = !customRadio.checked;
+    }
 
-  function syncCustom() {
-    if (!custom || !customRadio) return;
-    custom.hidden = !customRadio.checked;
-  }
-
-  if (input) {
-    input.addEventListener("change", function () {
-      setFileName(input.files && input.files[0]);
-    });
-  }
-
-  if (drop && input) {
-    ["dragenter", "dragover"].forEach(function (ev) {
-      drop.addEventListener(ev, function (e) {
-        e.preventDefault();
-        drop.classList.add("dragover");
+    if (input) {
+      input.addEventListener("change", function () {
+        setFileName(input.files && input.files[0]);
       });
-    });
-    ["dragleave", "drop"].forEach(function (ev) {
-      drop.addEventListener(ev, function (e) {
-        e.preventDefault();
-        drop.classList.remove("dragover");
+    }
+
+    if (drop && input) {
+      ["dragenter", "dragover"].forEach(function (ev) {
+        drop.addEventListener(ev, function (e) {
+          e.preventDefault();
+          drop.classList.add("dragover");
+        });
       });
+      ["dragleave", "drop"].forEach(function (ev) {
+        drop.addEventListener(ev, function (e) {
+          e.preventDefault();
+          drop.classList.remove("dragover");
+        });
+      });
+      drop.addEventListener("drop", function (e) {
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (!files || !files.length) return;
+        var dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+        setFileName(files[0]);
+      });
+      drop.addEventListener("click", function (e) {
+        if (e.target.closest("label")) return;
+        input.click();
+      });
+    }
+
+    form.querySelectorAll('input[name="mode"]').forEach(function (radio) {
+      radio.addEventListener("change", syncCustom);
     });
-    drop.addEventListener("drop", function (e) {
-      var files = e.dataTransfer && e.dataTransfer.files;
-      if (!files || !files.length) return;
-      var dt = new DataTransfer();
-      dt.items.add(files[0]);
-      input.files = dt.files;
-      setFileName(files[0]);
-    });
-    drop.addEventListener("click", function (e) {
-      if (e.target.closest("label")) return;
-      input.click();
+    syncCustom();
+
+    form.addEventListener("submit", function () {
+      if (busy) busy.hidden = false;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Working…";
+      }
     });
   }
 
-  form.querySelectorAll('input[name="mode"]').forEach(function (radio) {
-    radio.addEventListener("change", syncCustom);
-  });
-  syncCustom();
+  // Branding panel
+  var brandForm = document.getElementById("brand-form");
+  if (!brandForm) return;
 
-  form.addEventListener("submit", function () {
-    if (busy) busy.hidden = false;
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "Working…";
+  var opacity = document.getElementById("brand-opacity");
+  var opacityVal = document.getElementById("brand-opacity-val");
+  var logoInput = document.getElementById("brand-logo-input");
+  var preview = document.getElementById("brand-preview");
+  var previewWrap = document.getElementById("brand-preview-wrap");
+  var previewEmpty = document.getElementById("brand-preview-empty");
+  var saveBtn = document.getElementById("brand-save");
+  var objectUrl = null;
+
+  function syncOpacity() {
+    if (!opacity || !opacityVal) return;
+    opacityVal.textContent = opacity.value;
+  }
+
+  if (opacity) {
+    opacity.addEventListener("input", syncOpacity);
+    syncOpacity();
+  }
+
+  if (logoInput) {
+    logoInput.addEventListener("change", function () {
+      var file = logoInput.files && logoInput.files[0];
+      if (!file || !preview) return;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = URL.createObjectURL(file);
+      preview.src = objectUrl;
+      if (previewWrap) previewWrap.hidden = false;
+      if (previewEmpty) previewEmpty.hidden = true;
+    });
+  }
+
+  brandForm.addEventListener("submit", function () {
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving…";
     }
   });
 })();
