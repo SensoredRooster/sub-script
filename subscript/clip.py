@@ -10,7 +10,14 @@ from pathlib import Path
 def require_ffmpeg() -> str:
     exe = shutil.which("ffmpeg")
     if not exe:
-        raise RuntimeError("ffmpeg not found on PATH — install ffmpeg first")
+        raise RuntimeError(
+            "ffmpeg not found on PATH.\n"
+            "  Windows (pick one):\n"
+            "    winget install ffmpeg\n"
+            "    choco install ffmpeg\n"
+            "  Then close and reopen your terminal, and check: ffmpeg -version\n"
+            "  More installs: https://ffmpeg.org/download.html"
+        )
     return exe
 
 
