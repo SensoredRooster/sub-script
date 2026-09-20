@@ -1,0 +1,33 @@
+Install ffmpeg BESIDE SubScript.exe (recommended)
+=================================================
+
+sub-script looks for ffmpeg next to the app first, then on PATH.
+For end users (double-click .exe), ship ffmpeg.exe in the same folder
+so nobody has to edit PATH or open a terminal.
+
+Layout after build:
+
+  dist\SubScript\
+    SubScript.exe          ← double-click this
+    ffmpeg.exe             ← COPY THIS HERE (required for clipping)
+    config.yaml
+    config.example.yaml
+    FFMPEG_BESIDE_APP.txt
+    assets\
+    _internal\             ← PyInstaller runtime (do not delete)
+
+Where to get ffmpeg.exe
+-----------------------
+1. https://www.gyan.dev/ffmpeg/builds/  (essentials zip) — or
+   https://github.com/BtbN/FFmpeg-Builds/releases
+2. Unzip; find bin\ffmpeg.exe
+3. Copy only ffmpeg.exe into dist\SubScript\ (same folder as SubScript.exe)
+
+Alternate layouts also work:
+  dist\SubScript\ffmpeg\bin\ffmpeg.exe
+  dist\SubScript\bin\ffmpeg.exe
+
+Builders: scripts\build_windows.bat prints this reminder after PyInstaller.
+Optional later: Inno Setup can install this whole folder + ffmpeg for users.
+
+Do NOT rely on PATH-only for shipped builds — that causes support tickets.
