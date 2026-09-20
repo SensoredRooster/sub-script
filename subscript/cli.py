@@ -1,4 +1,4 @@
-"""CLI entry: dry-run, hotkey watch, or review UI."""
+"""CLI entry: dry-run, hotkey watch, app / review UI."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def parse_time(value: str) -> float:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="sub-script",
-        description="Hotkey clip → brand → review → YouTube",
+        description="Hotkey clip \u2192 brand \u2192 review \u2192 YouTube",
     )
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--source", type=Path, help="Input video (recording / replay export)")
@@ -61,12 +61,21 @@ def main(argv: list[str] | None = None) -> None:
         help="Produce clip and queue for review (no live YouTube)",
     )
     parser.add_argument("--watch", action="store_true", help="Listen for hotkey and run pipeline")
-    parser.add_argument("--review", action="store_true", help="Open local review UI")
+    parser.add_argument(
+        "--app",
+        action="store_true",
+        help="Open desktop app UI (drop VOD \u2192 clip \u2192 review)",
+    )
+    parser.add_argument(
+        "--review",
+        action="store_true",
+        help="Same as --app (local review / clip UI)",
+    )
     args = parser.parse_args(argv)
 
     cfg = load_config(args.config)
 
-    if args.review:
+    if args.app or args.review:
         from subscript.review_ui import main as review_main
 
         review_main()
@@ -82,7 +91,7 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(_missing_source_message(args.source))
 
         def fire() -> None:
-            print("Hotkey fired — running pipeline…")
+            print("Hotkey fired \u2014 running pipeline\u2026")
             try:
                 run_pipeline(args.source, cfg, dry_run=True)
             except RuntimeError as exc:
@@ -94,9 +103,10 @@ def main(argv: list[str] | None = None) -> None:
     if not args.source:
         raise SystemExit(
             "Missing --source.\n"
-            "  Example: python -m subscript --source test-clips\\your.mp4\n"
-            "  Or open the review UI: python -m subscript --review\n"
-            "  Or watch a hotkey: python -m subscript --watch --source path\\to\\export.mp4"
+            "  Desktop app (no terminal needed after launch):\n"
+            "    Double-click run-app.bat   or   python -m subscript --app\n"
+            "  CLI clip: python -m subscript --source test-clips\\your.mp4\n"
+            "  Hotkey:   python -m subscript --watch --source path\\to\\export.mp4"
         )
 
     if not args.source.exists():
@@ -117,9 +127,10 @@ def main(argv: list[str] | None = None) -> None:
 def _missing_source_message(path: Path) -> str:
     return (
         f"Source video not found: {path}\n"
-        "  Drop a VOD / replay export under test-clips\\ (local only — not on GitHub),\n"
+        "  Drop a VOD / replay export under test-clips\\ (local only \u2014 not on GitHub),\n"
         "  then pass that path, e.g.:\n"
-        "    python -m subscript --source test-clips\\your.mp4"
+        "    python -m subscript --source test-clips\\your.mp4\n"
+        "  Or use the desktop app: double-click run-app.bat"
     )
 
 
