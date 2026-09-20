@@ -17,15 +17,18 @@ def run_pipeline(
     cfg: dict[str, Any],
     *,
     dry_run: bool = True,
+    start: float | None = None,
+    duration: float | None = None,
 ) -> Path:
-    seconds = int(cfg.get("buffer_seconds") or 30)
+    default_seconds = int(cfg.get("buffer_seconds") or 30)
+    seconds = int(duration) if duration is not None else default_seconds
     out_dir = Path(cfg.get("output", {}).get("dir") or "out")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     raw = out_dir / f"clip-raw-{stamp}.mp4"
     branded = out_dir / f"clip-branded-{stamp}.mp4"
 
     src = BufferSource(path=source, buffer_seconds=seconds).resolve()
-    clip_last_seconds(src, raw, seconds=seconds)
+    clip_last_seconds(src, raw, seconds=seconds, start=start)
     apply_brand(raw, branded, cfg.get("brand") or {})
 
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))

@@ -34,7 +34,7 @@ def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
         opacity = float(brand.get("opacity") or 0.85)
         filter_complex = (
             f"[1:v]format=rgba,colorchannelmixer=aa={opacity}[logo];"
-            f"[0:v][logo]overlay={overlay}"
+            f"[0:v][logo]overlay={overlay}[outv]"
         )
         cmd = [
             ffmpeg,
@@ -45,6 +45,10 @@ def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
             str(logo),
             "-filter_complex",
             filter_complex,
+            "-map",
+            "[outv]",
+            "-map",
+            "0:a?",
             *COMPAT_VIDEO,
             *COMPAT_AUDIO,
             *COMPAT_MOVFLAGS,
