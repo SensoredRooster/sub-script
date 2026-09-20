@@ -37,7 +37,7 @@ def parse_time(value: str) -> float:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="sub-script",
-        description="Hotkey clip \u2192 brand \u2192 review \u2192 YouTube",
+        description="Hotkey clip → brand → review → YouTube",
     )
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--source", type=Path, help="Input video (recording / replay export)")
@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--app",
         action="store_true",
-        help="Open desktop app UI (drop VOD \u2192 clip \u2192 review)",
+        help="Open desktop app UI (drop VOD → clip → review)",
     )
     parser.add_argument(
         "--review",
@@ -91,7 +91,7 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(_missing_source_message(args.source))
 
         def fire() -> None:
-            print("Hotkey fired \u2014 running pipeline\u2026")
+            print("Hotkey fired — running pipeline…")
             try:
                 run_pipeline(args.source, cfg, dry_run=True)
             except RuntimeError as exc:
@@ -127,7 +127,7 @@ def main(argv: list[str] | None = None) -> None:
 def _missing_source_message(path: Path) -> str:
     return (
         f"Source video not found: {path}\n"
-        "  Drop a VOD / replay export under test-clips\\ (local only \u2014 not on GitHub),\n"
+        "  Drop a VOD / replay export under test-clips\\ (local only — not on GitHub),\n"
         "  then pass that path, e.g.:\n"
         "    python -m subscript --source test-clips\\your.mp4\n"
         "  Or use the desktop app: double-click run-app.bat"
