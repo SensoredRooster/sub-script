@@ -51,7 +51,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                 </article>
                 """
             )
-        body = "\n".join(rows) or '<p class=\"empty\">No pending clips. Run a dry-run or hit the hotkey.</p>'
+        body = "\n".join(rows) or _empty_state()
         return _page(body)
 
     @app.get("/media/{item_id}")
@@ -106,6 +106,22 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     return app
 
 
+def _empty_state() -> str:
+    return (
+        '<section class="empty card">'
+        "<h2>No pending clips</h2>"
+        "<p>The review queue is empty. Enqueue a branded clip, then refresh this page.</p>"
+        "<ol class=\"empty-help\">"
+        "<li>In a terminal (venv active):"
+        " <code>python -m subscript --source test-clips/your.mp4</code></li>"
+        "<li>Refresh this page (F5) to see Approve / Trim &amp; approve / Reject.</li>"
+        "</ol>"
+        "<p class=\"meta\">Put VODs in <code>test-clips/</code> locally "
+        "— they stay on your machine, not on GitHub.</p>"
+        "</section>"
+    )
+
+
 def _do_upload(video: Path, cfg: dict[str, Any], out_dir: Path) -> None:
     yt = cfg.get("youtube") or {}
     if yt.get("enabled"):
@@ -143,6 +159,23 @@ def main() -> None:
     cfg = load_config()
     host = cfg.get("review", {}).get("host", "127.0.0.1")
     port = int(cfg.get("review", {}).get("port", 8787))
+    url = f"http://{host}:{port}"
+    out_dir = Path(cfg.get("output", {}).get("dir") or "out")
+    pending = ReviewQueue(out_dir / "review-queue.json").list(status="pending")
+
+    print()
+    print("=" * 52)
+    print(f"  Review UI →  {url}")
+    print("=" * 52)
+    print("  Open that URL in your browser.")
+    if not pending:
+        print("  Queue is empty. Enqueue a clip first:")
+        print("    python -m subscript --source test-clips\\your.mp4")
+        print("  Then refresh the page.")
+    else:
+        print(f"  Pending clips: {len(pending)}")
+    print()
+
     uvicorn.run(create_app(cfg), host=host, port=port)
 
 

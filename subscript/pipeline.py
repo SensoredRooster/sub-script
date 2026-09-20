@@ -32,8 +32,11 @@ def run_pipeline(
     if require_approval:
         queue = ReviewQueue(out_dir / "review-queue.json")
         item = queue.enqueue(branded, src, title=f"Highlight {stamp}")
+        host = (cfg.get("review") or {}).get("host", "127.0.0.1")
+        port = int((cfg.get("review") or {}).get("port", 8787))
         print(f"Queued for review ({item.id}): {branded}")
-        print("Open the review UI: python -m subscript.review_ui")
+        print(f"Open review UI: python -m subscript --review")
+        print(f"  then visit http://{host}:{port}")
         return branded
 
     from subscript.upload import dry_run_upload, upload_youtube

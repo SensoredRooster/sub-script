@@ -36,19 +36,47 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.watch:
         if not args.source:
-            raise SystemExit("--watch requires --source pointing at the buffer/export file")
+            raise SystemExit(
+                "--watch requires --source pointing at the buffer/export file.\n"
+                "  Example: python -m subscript --watch --source test-clips\\replay.mp4"
+            )
+        if not args.source.exists():
+            raise SystemExit(_missing_source_message(args.source))
 
         def fire() -> None:
             print("Hotkey fired — running pipeline…")
-            run_pipeline(args.source, cfg, dry_run=True)
+            try:
+                run_pipeline(args.source, cfg, dry_run=True)
+            except RuntimeError as exc:
+                print(exc)
 
         listen(cfg.get("hotkey") or "ctrl+shift+c", fire)
         return
 
     if not args.source:
-        raise SystemExit("Provide --source path/to/video.mp4 (or use --watch / --review)")
+        raise SystemExit(
+            "Missing --source.\n"
+            "  Example: python -m subscript --source test-clips\\your.mp4\n"
+            "  Or open the review UI: python -m subscript --review\n"
+            "  Or watch a hotkey: python -m subscript --watch --source path\\to\\export.mp4"
+        )
 
-    run_pipeline(args.source, cfg, dry_run=args.dry_run or True)
+    if not args.source.exists():
+        raise SystemExit(_missing_source_message(args.source))
+
+    try:
+        run_pipeline(args.source, cfg, dry_run=args.dry_run or True)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
+def _missing_source_message(path: Path) -> str:
+    return (
+        f"Source video not found: {path}\n"
+        "  Drop a VOD / replay export under test-clips\\ (local only — not on GitHub),\n"
+        "  then pass that path, e.g.:\n"
+        "    python -m subscript --source test-clips\\your.mp4"
+    )
 
 
 if __name__ == "__main__":
