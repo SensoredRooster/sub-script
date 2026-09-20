@@ -110,3 +110,47 @@ button.primary { font-size: 1rem; padding: 0.7rem 1.2rem; justify-self: start; }
 .bad-banner { background: #3a1515; color: var(--bad); }
 .busy { color: var(--accent); }
 #review { display: grid; gap: 1.25rem; }
+
+/* Branding panel */
+.brand-form { display: grid; gap: 1rem; }
+.brand-preview-row { min-height: 2rem; }
+.brand-preview-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #12161e;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  max-width: 100%;
+}
+.brand-preview {
+  max-height: 96px;
+  max-width: 240px;
+  object-fit: contain;
+}
+.brand-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: end;
+}
+.brand-controls label { min-width: 8rem; }
+.brand-controls select {
+  background: #0f1115;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  width: 100%;
+  max-width: 14rem;
+}
+.brand-controls input[type="range"] {
+  width: 100%;
+  max-width: 14rem;
+  accent-color: var(--accent);
+}
+.brand-form label.full input[type="file"] {
+  max-width: 100%;
+  color: var(--text);
+}
