@@ -6,11 +6,23 @@ from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+from subscript.runtime_paths import app_dir, resource_dir
+
+# Writable root: next to SubScript.exe when frozen, else repo root.
+ROOT = app_dir()
 DEFAULT_CONFIG = ROOT / "config.yaml"
 EXAMPLE_CONFIG = ROOT / "config.example.yaml"
 ASSETS_DIR = ROOT / "assets"
 DEFAULT_LOGO_REL = "assets/logo.png"
+
+
+def _example_config_path() -> Path:
+    if EXAMPLE_CONFIG.exists():
+        return EXAMPLE_CONFIG
+    bundled = resource_dir() / "config.example.yaml"
+    if bundled.exists():
+        return bundled
+    return EXAMPLE_CONFIG
 
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
@@ -22,16 +34,22 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
                 "  Windows: copy config.example.yaml config.yaml\n"
                 "  macOS/Linux: cp config.example.yaml config.yaml"
             )
-        if not EXAMPLE_CONFIG.exists():
+        example = _example_config_path()
+        if not example.exists():
             raise SystemExit(
                 f"Neither config.yaml nor config.example.yaml found under {ROOT}"
             )
-        raise SystemExit(
-            "config.yaml not found.\n"
-            "  Windows: copy config.example.yaml config.yaml\n"
-            "  macOS/Linux: cp config.example.yaml config.yaml\n"
-            "  Then edit config.yaml if you need different paths or ports."
-        )
+        # Frozen / first double-click: auto-create config beside the exe
+        try:
+            cfg_path.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+            print(f"Created {cfg_path.name} from example next to the app.")
+        except OSError:
+            raise SystemExit(
+                "config.yaml not found.\n"
+                "  Windows: copy config.example.yaml config.yaml\n"
+                "  macOS/Linux: cp config.example.yaml config.yaml\n"
+                "  Then edit config.yaml if you need different paths or ports."
+            ) from None
     with cfg_path.open(encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     # Env overrides

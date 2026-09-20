@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 from pathlib import Path
+
+from subscript.runtime_paths import ffmpeg_install_hint, find_ffmpeg
 
 # Compatible with Windows Media Player / most editors
 COMPAT_VIDEO = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]
@@ -13,16 +14,10 @@ COMPAT_MOVFLAGS = ["-movflags", "+faststart"]
 
 
 def require_ffmpeg() -> str:
-    exe = shutil.which("ffmpeg")
+    """Return path to ffmpeg — prefer beside the app (onedir), then PATH."""
+    exe = find_ffmpeg()
     if not exe:
-        raise RuntimeError(
-            "ffmpeg not found on PATH.\n"
-            "  Windows (pick one):\n"
-            "    winget install ffmpeg\n"
-            "    choco install ffmpeg\n"
-            "  Then close and reopen your terminal, and check: ffmpeg -version\n"
-            "  More installs: https://ffmpeg.org/download.html"
-        )
+        raise RuntimeError(ffmpeg_install_hint())
     return exe
 
 
