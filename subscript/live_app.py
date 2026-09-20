@@ -145,7 +145,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         top_n: str = Form("5"),
         buffer_seconds: str = Form(""),
     ) -> JSONResponse:
-        """Analyze VOD audio loudness; return top peak windows (fail-soft)."""
+        """Analyze VOD loudness (+ optional kill-feed); return peak windows (fail-soft)."""
         try:
             source = await _resolve_source(file, local_path, uploads_dir)
         except Exception as exc:  # noqa: BLE001
@@ -175,7 +175,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         else:
             buf = float(default_seconds)
         payload = suggest_highlights_or_fallback(
-            source, buffer_seconds=buf, top_n=max(1, n)
+            source, buffer_seconds=buf, top_n=max(1, n), cfg=cfg
         )
         return JSONResponse(payload)
 
