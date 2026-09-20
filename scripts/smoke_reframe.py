@@ -11,7 +11,6 @@ def main() -> None:
     out = Path("out/smoke")
     out.mkdir(parents=True, exist_ok=True)
     src = out / "src.mp4"
-    # 2s color bars
     subprocess.run([
         "ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=30",
         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100",
