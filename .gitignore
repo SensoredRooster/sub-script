@@ -17,3 +17,8 @@ client_secrets.json
 assets/logo.png
 assets/*.png
 !assets/.gitkeep
+
+# PyInstaller / Windows packaging
+build/
+dist/
+*.egg-info/
