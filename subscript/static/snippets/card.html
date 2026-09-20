@@ -1,14 +1,24 @@
 <article class="card" id="{{ID}}">
   <h2>{{TITLE}}</h2>
   <p class="meta">{{CREATED}} · {{ID}}</p>
-  <video controls src="/media/{{ID}}"></video>
+  <div class="dual-preview">
+    <div>
+      <p class="meta">Horizontal 16:9</p>
+      <video controls src="/media/{{ID}}?variant=horizontal"></video>
+    </div>
+    <div>
+      <p class="meta">Vertical 9:16</p>
+      <video controls src="/media/{{ID}}?variant=vertical"></video>
+    </div>
+  </div>
+  <p class="meta">Approve saves both into <code>out\\approved\\</code> and opens that folder.</p>
   <form class="actions" method="post" action="/items/{{ID}}/approve">
-    <button type="submit" class="ok">Approve as-is</button>
+    <button type="submit" class="ok">Approve (save both)</button>
   </form>
   <form class="actions" method="post" action="/items/{{ID}}/trim">
     <label>Start (s) <input name="start" type="number" step="0.1" min="0" value="0" required></label>
     <label>End (s) <input name="end" type="number" step="0.1" min="0.1" value="30" required></label>
-    <button type="submit">Trim &amp; approve</button>
+    <button type="submit">Trim master &amp; rebuild</button>
   </form>
   <form class="actions" method="post" action="/items/{{ID}}/reject">
     <button type="submit" class="bad">Reject</button>

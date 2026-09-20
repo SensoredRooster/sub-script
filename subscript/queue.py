@@ -1,3 +1,5 @@
+"""Review queue: auto-produced clips wait here until Approve / Edit / Reject."""
+
 from __future__ import annotations
 
 import json
@@ -22,6 +24,8 @@ class QueueItem:
     trim_start: float | None = None
     trim_end: float | None = None
     edited_path: str | None = None
+    horizontal_path: str | None = None
+    vertical_path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -57,7 +61,15 @@ class ReviewQueue:
                 return item
         return None
 
-    def enqueue(self, video_path: Path, source_path: Path, title: str = "") -> QueueItem:
+    def enqueue(
+        self,
+        video_path: Path,
+        source_path: Path,
+        title: str = "",
+        *,
+        horizontal_path: Path | None = None,
+        vertical_path: Path | None = None,
+    ) -> QueueItem:
         data = self._read()
         item = QueueItem(
             id=uuid.uuid4().hex[:12],
@@ -65,6 +77,8 @@ class ReviewQueue:
             source_path=str(source_path),
             created_at=datetime.now(timezone.utc).isoformat(),
             title=title or video_path.stem,
+            horizontal_path=str(horizontal_path) if horizontal_path else None,
+            vertical_path=str(vertical_path) if vertical_path else None,
         )
         data.setdefault("items", []).append(item.to_dict())
         self._write(data)

@@ -1,4 +1,4 @@
-"""Orchestrate clip → brand → review queue (upload only after approval)."""
+"""Orchestrate clip → brand → horizontal/vertical → review queue."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from subscript.brand import apply_brand
 from subscript.buffer import BufferSource
 from subscript.clip import clip_last_seconds
 from subscript.queue import ReviewQueue
+from subscript.reframe import make_social_pair
 
 
 def run_pipeline(
@@ -22,7 +23,8 @@ def run_pipeline(
 ) -> Path:
     default_seconds = int(cfg.get("buffer_seconds") or 30)
     seconds = int(duration) if duration is not None else default_seconds
-    out_dir = Path(cfg.get("output", {}).get("dir") or "out")
+    out_cfg = cfg.get("output") or {}
+    out_dir = Path(out_cfg.get("dir") or "out")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     raw = out_dir / f"clip-raw-{stamp}.mp4"
     branded = out_dir / f"clip-branded-{stamp}.mp4"
@@ -31,24 +33,46 @@ def run_pipeline(
     clip_last_seconds(src, raw, seconds=seconds, start=start)
     apply_brand(raw, branded, cfg.get("brand") or {})
 
+    shorts_w = int(out_cfg.get("shorts_width") or 1080)
+    shorts_h = int(out_cfg.get("shorts_height") or 1920)
+    land_w = int(out_cfg.get("landscape_width") or 1920)
+    land_h = int(out_cfg.get("landscape_height") or 1080)
+    horizontal, vertical = make_social_pair(
+        branded,
+        out_dir,
+        stamp,
+        shorts_w=shorts_w,
+        shorts_h=shorts_h,
+        landscape_w=land_w,
+        landscape_h=land_h,
+    )
+
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
     if require_approval:
         queue = ReviewQueue(out_dir / "review-queue.json")
-        item = queue.enqueue(branded, src, title=f"Highlight {stamp}")
+        item = queue.enqueue(
+            branded,
+            src,
+            title=f"Highlight {stamp}",
+            horizontal_path=horizontal,
+            vertical_path=vertical,
+        )
         host = (cfg.get("review") or {}).get("host", "127.0.0.1")
         port = int((cfg.get("review") or {}).get("port", 8787))
-        print(f"Queued for review ({item.id}): {branded}")
-        print(f"Open the app: double-click run-app.bat  (or python -m subscript --app)")
-        print(f"  then visit http://{host}:{port}")
+        print(f"Queued for review ({item.id})")
+        print(f"  master:      {branded}")
+        print(f"  horizontal: {horizontal}")
+        print(f"  vertical:   {vertical}")
+        print(f"Open the app: run-app.bat  →  http://{host}:{port}")
         return branded
 
     from subscript.upload import dry_run_upload, upload_youtube
 
     yt = cfg.get("youtube") or {}
     if dry_run or not yt.get("enabled"):
-        dry_run_upload(branded, yt, out_dir)
-        print(f"Dry-run complete: {branded}")
+        dry_run_upload(vertical, yt, out_dir)
+        print(f"Dry-run complete: {vertical}")
     else:
-        upload_youtube(branded, yt)
-        print(f"Uploaded: {branded}")
+        upload_youtube(vertical, yt)
+        print(f"Uploaded: {vertical}")
     return branded

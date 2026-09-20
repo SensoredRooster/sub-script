@@ -17,7 +17,9 @@ output:
   dir: "out"
   shorts_width: 1080
   shorts_height: 1920
-  reframe: false
+  landscape_width: 1920
+  landscape_height: 1080
+  reframe: true
 
 review:
   host: "127.0.0.1"
