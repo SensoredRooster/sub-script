@@ -12,15 +12,17 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from subscript.config import ASSETS_DIR, DEFAULT_LOGO_REL, ROOT, update_brand_settings
+from subscript.default_brand import ensure_default_logo
 
 _BRAND_POSITIONS = ("top_left", "top_right", "bottom_left", "bottom_right")
 _SNIPPETS = Path(__file__).resolve().parent / "static" / "snippets"
 
 
 def resolve_logo_path(brand: dict[str, Any]) -> Path | None:
-    raw = (brand.get("logo_path") or "").strip()
+    ensure_default_logo(ROOT)
+    raw = (brand.get("logo_path") or DEFAULT_LOGO_REL or "").strip()
     if not raw:
-        return None
+        raw = DEFAULT_LOGO_REL
     path = Path(raw)
     if not path.is_absolute():
         path = ROOT / path
@@ -28,6 +30,7 @@ def resolve_logo_path(brand: dict[str, Any]) -> Path | None:
 
 
 def branding_html(brand: dict[str, Any], snip: Callable[[str], str]) -> str:
+    ensure_default_logo(ROOT)
     logo = resolve_logo_path(brand)
     position = brand.get("position") or "bottom_right"
     if position not in _BRAND_POSITIONS:
@@ -60,6 +63,11 @@ def branding_html(brand: dict[str, Any], snip: Callable[[str], str]) -> str:
 
 
 def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
+    ensure_default_logo(ROOT)
+    brand = cfg.setdefault("brand", {})
+    if not (brand.get("logo_path") or "").strip():
+        brand["logo_path"] = DEFAULT_LOGO_REL
+
     @app.get("/api/brand")
     def get_brand() -> JSONResponse:
         brand = dict(cfg.get("brand") or {})

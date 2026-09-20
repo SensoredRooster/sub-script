@@ -10,7 +10,7 @@ brand:
   opacity: 0.85
   position: "bottom_right"
   margin_px: 24
-  text: ""
+  text: "SUB"
   text_size: 24
 
 output:
