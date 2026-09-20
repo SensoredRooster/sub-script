@@ -12,10 +12,10 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); }
-header { padding: 1.5rem 1.25rem 0.5rem; max-width: 720px; margin: 0 auto; }
+header { padding: 1.5rem 1.25rem 0.5rem; max-width: 900px; margin: 0 auto; }
 header h1 { margin: 0 0 0.35rem; font-size: 1.4rem; }
 header p { margin: 0; color: var(--muted); }
-main { max-width: 720px; margin: 0 auto; padding: 1rem 1.25rem 3rem; display: grid; gap: 1.25rem; }
+main { max-width: 900px; margin: 0 auto; padding: 1rem 1.25rem 3rem; display: grid; gap: 1.25rem; }
 .card { background: var(--card); border-radius: 14px; padding: 1rem; display: grid; gap: 0.75rem; }
 .card h2 { margin: 0; font-size: 1.05rem; }
 .meta { margin: 0; color: var(--muted); font-size: 0.85rem; }
@@ -47,7 +47,6 @@ button.bad { background: var(--bad); color: #1a0505; }
 button.primary { font-size: 1rem; padding: 0.7rem 1.2rem; justify-self: start; }
 .empty { color: var(--text); }
 .empty p { color: var(--muted); margin: 0; }
-
 .clip-form { display: grid; gap: 1rem; }
 .drop-zone {
   border: 2px dashed var(--border);
@@ -59,10 +58,7 @@ button.primary { font-size: 1rem; padding: 0.7rem 1.2rem; justify-self: start; }
   cursor: pointer;
   background: #12161e;
 }
-.drop-zone.dragover {
-  border-color: var(--accent);
-  background: #152038;
-}
+.drop-zone.dragover { border-color: var(--accent); background: #152038; }
 .file-btn {
   display: inline-block;
   justify-self: center;
@@ -110,8 +106,6 @@ button.primary { font-size: 1rem; padding: 0.7rem 1.2rem; justify-self: start; }
 .bad-banner { background: #3a1515; color: var(--bad); }
 .busy { color: var(--accent); }
 #review { display: grid; gap: 1.25rem; }
-
-/* Branding panel */
 .brand-form { display: grid; gap: 1rem; }
 .brand-preview-row { min-height: 2rem; }
 .brand-preview-wrap {
@@ -154,3 +148,14 @@ button.primary { font-size: 1rem; padding: 0.7rem 1.2rem; justify-self: start; }
   max-width: 100%;
   color: var(--text);
 }
+.dual-preview {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+.dual-preview video { max-height: 360px; }
+@media (max-width: 700px) {
+  .dual-preview { grid-template-columns: 1fr; }
+}
+code { color: var(--accent); font-size: 0.85em; }
