@@ -15,6 +15,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from subscript.branding_routes import branding_html, register_branding_routes
 from subscript.config import load_config
 from subscript.pipeline import run_pipeline
 from subscript.queue import ReviewQueue
@@ -60,6 +61,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     app = FastAPI(title="sub-script")
     _STATIC.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
+    register_branding_routes(app, cfg)
 
     @app.get("/", response_class=HTMLResponse)
     def home(msg: str | None = None, err: str | None = None) -> str:
@@ -79,7 +81,8 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         elif msg:
             banner = f'<p class="banner ok-banner">{_esc(msg)}</p>'
         form = _snip("clip_form.html").replace("{{DEFAULT_SECONDS}}", str(default_seconds))
-        body = form + banner + f'<section id="review">{review}</section>'
+        branding = branding_html(cfg.get("brand") or {}, _snip)
+        body = form + branding + banner + f'<section id="review">{review}</section>'
         return _snip("page.html").replace("{{BODY}}", body)
 
     @app.post("/clip")
