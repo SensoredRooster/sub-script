@@ -245,6 +245,17 @@
       syncOpacity();
     }
 
+    var musicVol = document.getElementById("music-volume");
+    var musicVolVal = document.getElementById("music-volume-val");
+    function syncMusicVol() {
+      if (!musicVol || !musicVolVal) return;
+      musicVolVal.textContent = Number(musicVol.value).toFixed(2);
+    }
+    if (musicVol) {
+      musicVol.addEventListener("input", syncMusicVol);
+      syncMusicVol();
+    }
+
     if (logoInput) {
       logoInput.addEventListener("change", function () {
         var file = logoInput.files && logoInput.files[0];
