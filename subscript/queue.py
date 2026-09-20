@@ -26,6 +26,7 @@ class QueueItem:
     edited_path: str | None = None
     horizontal_path: str | None = None
     vertical_path: str | None = None
+    vertical_captioned_path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -69,6 +70,7 @@ class ReviewQueue:
         *,
         horizontal_path: Path | None = None,
         vertical_path: Path | None = None,
+        vertical_captioned_path: Path | None = None,
     ) -> QueueItem:
         data = self._read()
         item = QueueItem(
@@ -79,6 +81,9 @@ class ReviewQueue:
             title=title or video_path.stem,
             horizontal_path=str(horizontal_path) if horizontal_path else None,
             vertical_path=str(vertical_path) if vertical_path else None,
+            vertical_captioned_path=(
+                str(vertical_captioned_path) if vertical_captioned_path else None
+            ),
         )
         data.setdefault("items", []).append(item.to_dict())
         self._write(data)
