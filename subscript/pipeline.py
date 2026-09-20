@@ -38,7 +38,7 @@ def run_pipeline(
         host = (cfg.get("review") or {}).get("host", "127.0.0.1")
         port = int((cfg.get("review") or {}).get("port", 8787))
         print(f"Queued for review ({item.id}): {branded}")
-        print(f"Open review UI: python -m subscript --review")
+        print(f"Open the app: double-click run-app.bat  (or python -m subscript --app)")
         print(f"  then visit http://{host}:{port}")
         return branded
 

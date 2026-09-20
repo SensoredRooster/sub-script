@@ -1,0 +1,16 @@
+<article class="card" id="{{ID}}">
+  <h2>{{TITLE}}</h2>
+  <p class="meta">{{CREATED}} · {{ID}}</p>
+  <video controls src="/media/{{ID}}"></video>
+  <form class="actions" method="post" action="/items/{{ID}}/approve">
+    <button type="submit" class="ok">Approve as-is</button>
+  </form>
+  <form class="actions" method="post" action="/items/{{ID}}/trim">
+    <label>Start (s) <input name="start" type="number" step="0.1" min="0" value="0" required></label>
+    <label>End (s) <input name="end" type="number" step="0.1" min="0.1" value="30" required></label>
+    <button type="submit">Trim &amp; approve</button>
+  </form>
+  <form class="actions" method="post" action="/items/{{ID}}/reject">
+    <button type="submit" class="bad">Reject</button>
+  </form>
+</article>

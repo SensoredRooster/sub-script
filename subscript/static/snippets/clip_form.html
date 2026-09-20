@@ -1,0 +1,38 @@
+<section class="card clip-card">
+  <h2>Make a clip</h2>
+  <p class="meta">Drop a VOD or recording, pick a range, then Make clip. Preview and approve below.</p>
+  <form id="clip-form" class="clip-form" method="post" action="/clip" enctype="multipart/form-data">
+    <div id="drop-zone" class="drop-zone" tabindex="0">
+      <p><strong>Drop a video here</strong></p>
+      <p class="meta">or</p>
+      <label class="file-btn">
+        Choose file
+        <input id="file-input" type="file" name="file" accept="video/*,.mp4,.mov,.mkv,.webm,.avi,.m4v" hidden>
+      </label>
+      <p id="file-label" class="file-label meta">No file chosen</p>
+    </div>
+    <details class="advanced">
+      <summary>Or paste a path on this PC (large files)</summary>
+      <label class="full">Path
+        <input type="text" name="local_path" placeholder="C:\Videos\my-vod.mp4" autocomplete="off">
+      </label>
+    </details>
+    <fieldset class="mode">
+      <legend>Clip range</legend>
+      <label class="radio">
+        <input type="radio" name="mode" value="last30" checked>
+        Last {{DEFAULT_SECONDS}} seconds
+      </label>
+      <label class="radio">
+        <input type="radio" name="mode" value="custom" id="mode-custom">
+        Custom start + length
+      </label>
+      <div id="custom-fields" class="custom-fields" hidden>
+        <label>Start <input name="start" type="text" placeholder="0 or 1:02:00"></label>
+        <label>Length <input name="duration" type="text" placeholder="{{DEFAULT_SECONDS}}" value="{{DEFAULT_SECONDS}}"></label>
+      </div>
+    </fieldset>
+    <button type="submit" id="clip-btn" class="ok primary">Make clip</button>
+    <p id="busy" class="meta busy" hidden>Working… this can take a minute for long VODs.</p>
+  </form>
+</section>
