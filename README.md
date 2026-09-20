@@ -37,11 +37,39 @@ Hitting **Approve as-is** (or approving after a trim) builds a **social export p
 
 The folder opens automatically so you can drag files into each app. Captions use ffmpeg + a generated SRT (no Whisper) so Windows / Python 3.14 stays reliable. Toggle with `captions.enabled` in `config.yaml`.
 
+**YouTube:** if `youtube.enabled` is `true` in `config.yaml`, Approve also uploads `vertical_captioned.mp4` (falls back to `vertical.mp4`) as a Short and shows the YouTube link on the success banner. If `youtube.enabled` is `false` (default), Approve only saves the local pack — safe for testing.
+
 Smoke test:
 
 ```bat
 python scripts\smoke_captions.py
 ```
+
+## Connect YouTube (optional)
+
+Do this once when you want Approve to publish Shorts for real. Leave `youtube.enabled: false` until the steps below work.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and create (or pick) a project.
+2. **APIs & Services → Library** → enable **YouTube Data API v3**.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
+   - If asked, set the OAuth consent screen (External is fine for personal use; add your Google account as a test user).
+   - Application type: **Desktop app**. Download the JSON.
+4. Save that file in this project folder as **`credentials.json`** (same folder as `config.yaml`).  
+   Or put it elsewhere and set `youtube.client_secrets_file` / `YOUTUBE_CLIENT_SECRETS` in `.env`.
+5. In `config.yaml`:
+   ```yaml
+   youtube:
+     enabled: true
+     privacy: "unlisted"   # or private / public
+     client_secrets_file: "credentials.json"
+   ```
+6. Restart the app (`run-app.bat`). Make a clip → **Approve**.  
+   The first time, your browser opens a Google login — allow access. sub-script saves **`token.json`** (gitignored) so you are not asked again.
+7. After a successful upload, the home page banner shows the YouTube URL (and still opens `out\approved\<id>\`).
+
+If secrets are missing, Approve still saves the local pack and shows a clear error (no silent failure).
+
+Never commit `credentials.json`, `token.json`, or `.env`.
 
 ## Product shape
 
@@ -118,6 +146,8 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 | `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\` |
 | Empty review list | Use **Make clip** above the list, then wait for the page to reload |
 | Browser didn't open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
+| YouTube secrets missing | Follow **Connect YouTube**; put OAuth JSON at `credentials.json` |
+| YouTube login every time | Ensure `token.json` is writable in the project folder (not deleted) |
 
 ## Roadmap
 
@@ -125,10 +155,11 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 2. Desktop app home: drop VOD -> clip -> review *(shipped)*
 3. Next: real OBS/replay rolling buffer
 4. Next: VOD auto chapter/cut suggestions
-5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(this PR)*
-6. Later: Whisper / real transcript captions; music bed
-7. Later: Warzone kill-feed OCR for fully hands-off detection
-8. Later: package as `.exe` (PyInstaller) from `run-app.bat`
+5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(shipped)*
+6. YouTube Shorts upload on Approve (OAuth) *(this PR)*
+7. Later: Whisper / real transcript captions; music bed
+8. Later: Warzone kill-feed OCR for fully hands-off detection
+9. Later: package as `.exe` (PyInstaller) from `run-app.bat`
 
 ## License
 
