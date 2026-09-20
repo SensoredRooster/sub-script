@@ -13,6 +13,11 @@ brand:
   text: "SUB"
   text_size: 24
 
+captions:
+  # When true (default), burn demo "Clip · SUB" SRT onto vertical after reframe.
+  # No Whisper / ML — reliable ffmpeg burn for Windows py3.14.
+  enabled: true
+
 output:
   dir: "out"
   shorts_width: 1080
