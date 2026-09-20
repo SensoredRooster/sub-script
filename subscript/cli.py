@@ -10,6 +10,30 @@ from subscript.hotkey import listen
 from subscript.pipeline import run_pipeline
 
 
+def parse_time(value: str) -> float:
+    """Parse seconds or HH:MM:SS / MM:SS into a float second offset."""
+    text = value.strip()
+    if not text:
+        raise argparse.ArgumentTypeError("time value must not be empty")
+    parts = text.split(":")
+    try:
+        if len(parts) == 1:
+            return float(parts[0])
+        if len(parts) == 2:
+            minutes, seconds = parts
+            return int(minutes) * 60 + float(seconds)
+        if len(parts) == 3:
+            hours, minutes, seconds = parts
+            return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"invalid time {value!r}; use seconds or HH:MM:SS"
+        ) from exc
+    raise argparse.ArgumentTypeError(
+        f"invalid time {value!r}; use seconds or HH:MM:SS"
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="sub-script",
@@ -17,6 +41,20 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--source", type=Path, help="Input video (recording / replay export)")
+    parser.add_argument(
+        "--start",
+        type=parse_time,
+        default=None,
+        metavar="SECONDS",
+        help="Clip start offset in seconds or HH:MM:SS (omit to take last N seconds)",
+    )
+    parser.add_argument(
+        "--duration",
+        type=parse_time,
+        default=None,
+        metavar="SECONDS",
+        help="Clip length in seconds or HH:MM:SS (default: buffer_seconds / 30)",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -65,7 +103,13 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(_missing_source_message(args.source))
 
     try:
-        run_pipeline(args.source, cfg, dry_run=args.dry_run or True)
+        run_pipeline(
+            args.source,
+            cfg,
+            dry_run=args.dry_run or True,
+            start=args.start,
+            duration=args.duration,
+        )
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
 

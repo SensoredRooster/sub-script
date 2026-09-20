@@ -38,10 +38,20 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
 ## Run
 
-Produce a clip into the review queue:
+Produce a clip into the review queue (last 30 seconds by default):
 
 ```bat
 python -m subscript --source test-clips\your.mp4
+```
+
+Clip a specific highlight from a longer VOD (`--start` + `--duration`; times can be seconds or `HH:MM:SS`):
+
+```bat
+python -m subscript --source test-clips\vod.mp4 --start 3720 --duration 45
+```
+
+```bat
+python -m subscript --source test-clips\vod.mp4 --start 1:02:00 --duration 00:00:45
 ```
 
 Open the review UI (prints **http://127.0.0.1:8787** in the terminal):
