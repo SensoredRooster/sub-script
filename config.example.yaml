@@ -1,6 +1,15 @@
 hotkey: "ctrl+shift+c"
 buffer_seconds: 30
 
+# Live hotkey: rolling source for Ctrl+Shift+C (OBS replay buffer).
+# Prefer live_source (exact file) OR watch_folder (newest video by mtime).
+live_source: ""
+watch_folder: ""
+# After hotkey: always run clip → brand → H+V → captions and enqueue for review.
+auto_enqueue: true
+# Windows toast when possible; otherwise console beep / print.
+notify: true
+
 stream:
   resolution: "1920x1080"
   player_name: "YourActivisionId"
