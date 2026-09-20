@@ -10,17 +10,15 @@ from fastapi import Form, HTTPException
 from fastapi.responses import RedirectResponse
 
 from subscript.captions import maybe_caption_vertical
-from subscript.publish import publish_local
+from subscript.publish import (
+    PublishMeta,
+    format_platform_banner,
+    publish_local,
+    run_enabled_publishers,
+)
+from subscript.publish.youtube import youtube_live_enabled
 from subscript.reframe import make_social_pair
 from subscript.trim import trim_clip
-from subscript.upload import dry_run_upload, upload_youtube
-
-
-def _do_upload(video: Path, cfg: dict[str, Any], out_dir: Path) -> dict[str, Any]:
-    yt = cfg.get("youtube") or {}
-    if yt.get("enabled"):
-        return upload_youtube(video, yt)
-    return dry_run_upload(video, yt, out_dir)
 
 
 def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None:
@@ -29,6 +27,8 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         item = queue.get(item_id)
         if not item:
             raise HTTPException(404)
+
+        # 1) Always build the shared local social pack (opens folder).
         meta = publish_local(
             item_id=item_id,
             title=item.title,
@@ -48,34 +48,43 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             or item.edited_path
             or item.video_path
         )
-        folder = str(out_dir / "approved" / item_id)
+        approved_dir = out_dir / "approved" / item_id
+        folder = str(approved_dir)
         n = len(meta.get("files") or [])
-        try:
-            result = _do_upload(upload_src, cfg, out_dir)
-        except Exception as exc:  # noqa: BLE001
-            queue.set_status(item_id, "approved")
-            return RedirectResponse(
-                "/?err="
-                + quote(
-                    f"Saved pack to {folder} (folder opened), "
-                    f"but YouTube upload failed: {exc}",
-                    safe="",
-                ),
-                status_code=303,
+
+        # 2) Fan out to every enabled platform — fail-soft per platform.
+        publish_meta = PublishMeta(
+            item_id=item_id,
+            title=item.title,
+            out_dir=out_dir,
+            approved_dir=approved_dir,
+            description=(cfg.get("youtube") or {}).get("description") or "",
+            tags=list((cfg.get("youtube") or {}).get("tags") or []),
+        )
+        results = run_enabled_publishers(upload_src, publish_meta, cfg, out_dir)
+        platform_banner = format_platform_banner(results)
+        if not youtube_live_enabled(cfg) and not any(
+            (r.platform or "").lower().startswith("youtube") for r in results
+        ):
+            platform_banner = (
+                "YouTube: skipped (disabled) | " + platform_banner
+                if results
+                else "YouTube: skipped (disabled) — enable platforms.* or youtube.enabled"
             )
 
-        if result.get("dry_run"):
-            queue.set_status(item_id, "approved")
-            msg = (
-                f"Approved - social pack ({n} file(s)) saved to {folder} "
-                f"(folder opened). YouTube skipped (youtube.enabled=false)."
-            )
-        else:
-            queue.set_status(item_id, "uploaded")
-            url = result.get("url") or result.get("shorts_url") or ""
-            msg = (
-                f"Approved - uploaded to YouTube: {url} — "
-                f"also saved pack ({n} file(s)) to {folder} (folder opened)."
+        any_upload = any(r.ok and r.status == "uploaded" for r in results)
+        any_hard_fail = any(not r.ok for r in results)
+        queue.set_status(item_id, "uploaded" if any_upload else "approved")
+
+        msg = (
+            f"Approved — social pack ({n} file(s)) saved to {folder} "
+            f"(folder opened). {platform_banner}"
+        )
+        # Pack always succeeds; platform failures stay in the banner (fail-soft).
+        if any_hard_fail and not any_upload:
+            return RedirectResponse(
+                "/?err=" + quote(msg, safe=""),
+                status_code=303,
             )
         return RedirectResponse("/?msg=" + quote(msg, safe=""), status_code=303)
 

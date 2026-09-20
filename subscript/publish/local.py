@@ -1,4 +1,4 @@
-"""Local publish handoff: copy approved social pack and open the folder."""
+"""Local social pack: copy approved assets and open the folder."""
 
 from __future__ import annotations
 
@@ -85,8 +85,9 @@ def publish_local(
         "files": saved,
         "platforms": _PLATFORMS,
         "note": (
-            "Saved locally. When youtube.enabled is true, Approve also uploads "
-            "vertical_captioned.mp4 (or vertical.mp4) as a YouTube Short."
+            "Saved locally. Enabled platforms under config platforms: fan out on "
+            "Approve (YouTube live API when youtube.enabled / platforms.youtube.enabled; "
+            "others default to for_<platform>/ + POST_INSTRUCTIONS.txt)."
         ),
     }
     (approved / "manifest.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")

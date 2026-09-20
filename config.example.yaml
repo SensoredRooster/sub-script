@@ -57,3 +57,29 @@ youtube:
     - "Warzone"
     - "Call of Duty"
     - "highlights"
+
+# ---------------------------------------------------------------------------
+# Multi-platform Approve fan-out (subscript/publish/)
+# YouTube is the only live API by default. Flip enabled: true on others for
+# real for_<platform>/ packs + POST_INSTRUCTIONS.txt (or mode: api later).
+# Either platforms.youtube.enabled or youtube.enabled turns on live Shorts upload.
+# ---------------------------------------------------------------------------
+platforms:
+  youtube:
+    # Live Shorts upload via OAuth (uses youtube: block above). Default off.
+    enabled: false
+  tiktok:
+    enabled: false
+    mode: manual  # manual | api (api raises NotConfiguredError until wired)
+  instagram:
+    enabled: false
+    mode: manual
+  facebook:
+    enabled: false
+    mode: manual
+  twitter:
+    enabled: false
+    mode: manual
+  rumble:
+    enabled: false
+    mode: manual
