@@ -34,13 +34,14 @@ def generate_posts(cfg, srt: Path | None = None):
     question = "What would you do here?" if tone == "casual" else "Watch the play." if tone == "direct" else "Your turn: how would you play this?"
     tags = list(dict.fromkeys(filter(None, [re.sub(r"[^\w]", "", game), "Gaming", "Gameplay"])))
     hashes = " ".join("#" + tag for tag in tags)
+    gameplay_label = "Gameplay" if game.lower() == "gameplay" else f"{game} gameplay"
     drafts = {
-        "youtube": (f"{game}: {hook}" if speech else hook, f"{hook}\n{game} gameplay.{credit}\n{hashes} #Shorts"),
+        "youtube": (f"{game}: {hook}" if speech else hook, f"{hook}\n{gameplay_label}.{credit}\n{hashes} #Shorts"),
         "tiktok": (hook, f"{hook}\n{question}{credit}\n{hashes}"),
         "instagram": (hook, f"{hook}\n\n{question}{credit}\n\n{hashes} #GamingClips"),
-        "facebook": (f"{game} gameplay", f"A moment from {game}: {hook}\n{question}{credit}\n#{tags[0]}"),
+        "facebook": (gameplay_label, f"{hook}\n{question}{credit}\n#{tags[0]}"),
         "twitter": (hook, f"{hook}\n#{tags[0]}"),
-        "rumble": (f"{game} | {hook}" if speech else hook, f"{game} gameplay highlight.\n{hook}{credit}\n{hashes}"),
+        "rumble": (f"{game} | {hook}" if speech else hook, f"{gameplay_label} highlight.\n{hook}{credit}\n{hashes}"),
     }
     return {key: {"title": title[:95], "description": description[:260] if key == "twitter" else description[:1800],
                   "tags": tags, "basis": "Transcript excerpt + creator settings" if speech else "Creator settings only; no transcript available"}
@@ -48,8 +49,11 @@ def generate_posts(cfg, srt: Path | None = None):
 
 
 def editor_html(item):
+    generate = (f'<form method="post" action="/items/{escape(item.id, quote=True)}/generate-post-copy">'
+                '<button type="submit">Generate post drafts for this clip</button>'
+                '<p class="meta">Creates missing drafts for YouTube, TikTok, Instagram, Facebook, X and Rumble. Keeps existing drafts and your edits. Does not publish.</p></form>')
     if not item.post_metadata:
-        return '<p class="meta">No generated post copy for this clip. New clips use your Post writing settings.</p>'
+        return generate
     rows = []
     for key, name in PLATFORMS.items():
         draft = item.post_metadata.get(key)
@@ -64,4 +68,4 @@ def editor_html(item):
                     f'<label>Description / caption<textarea name="description" maxlength="{260 if key == "twitter" else 1800}">{esc(draft["description"])}</textarea></label>'
                     f'<label>Tags (comma separated)<input name="tags" type="text" value="{esc(", ".join(draft["tags"]))}"></label>'
                     '<button type="submit">Save this draft</button></form></details>')
-    return '<details class="advanced"><summary>Titles, captions &amp; tags by platform</summary><p class="meta">Local templates use available transcript text and your creator settings. Save edits before approving. Trimming regenerates drafts for the new cut.</p>' + "".join(rows) + '</details>'
+    return generate + '<details class="advanced" open><summary>Titles, captions &amp; tags by platform</summary><p class="meta">Local templates use available transcript text and your creator settings. Save edits before approving. Trimming regenerates drafts for the new cut.</p>' + "".join(rows) + '</details>'

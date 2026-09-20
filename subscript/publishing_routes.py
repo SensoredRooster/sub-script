@@ -8,7 +8,8 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import FastAPI, Form
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
+from subscript.post_metadata import generate_posts, PLATFORMS
 
 from subscript.config import dry_run_forced, save_config
 from subscript.upload import client_secrets_path, token_path, get_youtube_credentials
@@ -41,13 +42,14 @@ def youtube_connection_status(cfg):
 
 def youtube_connection_html(cfg):
     status = youtube_connection_status(cfg)
-    label = "Check connection" if status["state"] == "connected" else "Reconnect YouTube" if status["state"] == "attention" else "Connect YouTube"
+    label = "Reconnect YouTube" if status["state"] == "attention" else "Connect YouTube"
+    button = "" if status["state"] == "connected" else f'<button type="submit" form="youtube-connect-form" {"" if status["configured"] else "disabled"}>{label}</button>'
     return (f'<div class="connection-panel connection-{status["state"]}" aria-label="YouTube connection">'
             '<div class="connection-summary">'
             f'<span class="connection-badge"><span aria-hidden="true">●</span> {status["label"]}</span>'
             f'<span class="connection-delivery">{status["delivery"]}</span></div>'
             f'<p class="meta">{status["detail"]}</p>'
-            f'<button type="submit" form="youtube-connect-form" {"" if status["configured"] else "disabled"}>{label}</button>'
+            f'{button}'
             '<p class="meta">Connection and publishing are separate. Your account can stay connected while uploads are off. Saved authorization is checked locally; Google may require sign-in again when uploading.</p></div>')
 
 _MANUAL_PLATFORMS = (
@@ -85,15 +87,16 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
         item = dict(platforms.get(key) or {})
         mode = str(item.get("mode") or "manual").lower()
         cards.append(
-            '<article class="platform-card">'
+            f'<article class="platform-card" data-platform="{key}">'
             '<div class="platform-card-head">'
             f'<span class="platform-mark platform-{key}">{escape(name[:1])}</span>'
             f"<div><h3>{escape(name)}</h3><p>{escape(detail)}</p></div>"
             '<label class="switch" aria-label="Enable '
             f'{escape(name)}"><input type="checkbox" name="{key}_enabled" value="1" '
             f"{_checked(item.get('enabled'))}><span></span></label></div>"
+            f'<div class="platform-settings" {"" if item.get("enabled") else "hidden"}>'
             f'<input type="hidden" name="{key}_mode" value="manual">'
-            '<p class="meta">Download-ready video and post copy. Upload the pack using your account on this platform. No account connection is needed in SubScript.</p></article>'
+            '<p class="meta">Download-ready video and post copy. Upload the pack using your account on this platform. No account connection is needed in SubScript.</p></div></article>'
         )
 
     return (
@@ -106,6 +109,7 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
         .replace("{{TONE_DIRECT}}", _selected((cfg.get("post_copy") or {}).get("tone", "casual"), "direct"))
         .replace("{{TONE_PLAYFUL}}", _selected((cfg.get("post_copy") or {}).get("tone", "casual"), "playful"))
         .replace("{{YT_ENABLED}}", _checked(yt_enabled))
+        .replace("{{YT_SETTINGS_HIDDEN}}", "" if yt_enabled else "hidden")
         .replace("{{REVIEW_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "review"))
         .replace("{{AUTO_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "automatic"))
         .replace(
@@ -137,6 +141,17 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
 
 
 def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
+    @app.post("/post-copy/preview")
+    def preview_post_copy(copy_game: str = Form(""), copy_creator: str = Form(""),
+                          copy_tone: str = Form("casual"), platforms: str = Form("")):
+        selected = [key for key in platforms.split(",") if key in PLATFORMS]
+        if not selected:
+            return JSONResponse({"error": "Turn on at least one destination below, then generate drafts."}, status_code=400)
+        if copy_tone not in {"casual", "direct", "playful"}:
+            return JSONResponse({"error": "Choose a supported voice."}, status_code=400)
+        posts = generate_posts({"post_copy": {"enabled": True, "game": copy_game[:60], "creator": copy_creator[:60], "tone": copy_tone}})
+        return {"drafts": [{"platform": PLATFORMS[key], **posts[key]} for key in selected]}
+
     @app.post("/connections/youtube/connect")
     def connect_youtube():
         try:

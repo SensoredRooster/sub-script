@@ -1,4 +1,65 @@
 (function () {
+  var publishing = document.getElementById("publishing-form");
+  if (publishing) {
+    var destinationNames = {youtube:"YouTube",tiktok:"TikTok",instagram:"Instagram",facebook:"Facebook",twitter:"X",rumble:"Rumble"};
+    var selectedDestinations = function () {
+      return Object.keys(destinationNames).filter(function (key) {
+        var toggle = publishing.querySelector('[name="' + key + '_enabled"]');
+        return toggle && toggle.checked;
+      });
+    };
+    var syncDestinations = function () {
+      publishing.querySelectorAll("[data-platform]").forEach(function (card) {
+        var toggle = card.querySelector('.switch input');
+        var panel = card.querySelector('.platform-settings');
+        if (toggle && panel) {
+          panel.hidden = !toggle.checked;
+          panel.id = "settings-" + card.dataset.platform;
+          toggle.setAttribute("aria-controls", panel.id);
+          toggle.setAttribute("aria-expanded", String(toggle.checked));
+        }
+      });
+      var chosen = selectedDestinations();
+      document.getElementById("post-copy-destinations").textContent = chosen.length ? "Drafts for: " + chosen.map(function (key) {return destinationNames[key];}).join(", ") : "First, turn on the destinations you want below.";
+    };
+    publishing.querySelectorAll('.switch input').forEach(function (toggle) {
+      toggle.addEventListener("change", function () {
+        syncDestinations();
+        document.getElementById("post-copy-preview").hidden = true;
+        document.getElementById("post-copy-preview-status").textContent = "Destinations changed. Generate fresh samples, then save publishing settings to apply your choices.";
+      });
+    });
+    syncDestinations();
+    var generateButton = document.getElementById("generate-post-preview");
+    generateButton.addEventListener("click", async function () {
+      var status = document.getElementById("post-copy-preview-status");
+      var output = document.getElementById("post-copy-preview");
+      output.hidden = true;
+      generateButton.disabled = true;
+      status.textContent = "Generating sample drafts…";
+      try {
+        var data = new FormData(publishing);
+        data.set("platforms", selectedDestinations().join(","));
+        var response = await fetch("/post-copy/preview", {method:"POST",body:data});
+        var result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not generate drafts. Try again.");
+        output.replaceChildren();
+        result.drafts.forEach(function (draft) {
+          var card = document.createElement("section"); card.className = "control-panel form-grid";
+          var heading = document.createElement("h4"); heading.textContent = draft.platform; card.appendChild(heading);
+          [["Title",draft.title],["Description / caption",draft.description],["Tags",draft.tags.join(", ")]].forEach(function (field) {
+            var label = document.createElement("label"); label.textContent = field[0];
+            var text = document.createElement("textarea"); text.readOnly = true; text.value = field[1];
+            label.appendChild(text);card.appendChild(label);
+          });
+          output.appendChild(card);
+        });
+        output.hidden = false;
+        status.textContent = "Samples ready. Nothing was saved or published. For clip-specific drafts, go to Review.";
+      } catch (error) { status.textContent = error.message; }
+      finally { generateButton.disabled = false; }
+    });
+  }
   var connectForm = document.getElementById("youtube-connect-form");
   if (connectForm) connectForm.addEventListener("submit", function () {
     var connectButton = document.querySelector('[form="youtube-connect-form"]');

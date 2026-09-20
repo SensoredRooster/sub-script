@@ -32,6 +32,26 @@ def _redirect_ok(message: str) -> RedirectResponse:
 
 
 def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None:
+    @app.post("/items/{item_id}/generate-post-copy")
+    def generate_post_copy(item_id: str):
+        from copy import deepcopy
+        item = queue.get(item_id)
+        if not item:
+            raise HTTPException(404)
+        if item.status != "pending":
+            return _redirect_err("Only pending clips can be edited.")
+        settings = deepcopy(cfg)
+        settings.setdefault("post_copy", {})["enabled"] = True
+        master = Path(item.edited_path or item.video_path)
+        prefix = "clip-trimmed-" if item.edited_path else "clip-branded-"
+        srt = master.with_name("clip-captions-" + master.stem.removeprefix(prefix) + ".srt")
+        generated = generate_posts(settings, srt)
+        missing = {key: value for key, value in generated.items() if key not in item.post_metadata}
+        item.post_metadata.update(missing)
+        queue.update(item)
+        message = "Post drafts generated. Expand a platform below to edit. Nothing was published." if missing else "All six drafts already exist. Expand a platform to edit its title, description and tags. Your edits were kept."
+        return RedirectResponse("/?msg=" + quote(message) + "#" + item.id, status_code=303)
+
     @app.post("/items/{item_id}/post-copy")
     def save_post_copy(item_id: str, platform: str = Form(...), title: str = Form(...),
                        description: str = Form(""), tags: str = Form("")):

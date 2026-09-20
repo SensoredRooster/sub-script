@@ -19,22 +19,28 @@
       <p class="meta">Automatic mode applies to new VOD and live-hotkey clips. It saves your export pack and immediately sends clips to enabled destinations using their saved visibility. YouTube requires a working connection; other destinations currently create manual upload packs. Existing review clips remain pending.</p>
     </div>
     <div class="control-panel form-grid">
-      <h3>Post writing</h3>
+      <h3>Create titles, descriptions &amp; tags</h3>
       <label class="check-row"><input type="checkbox" name="copy_enabled" value="1" {{COPY_ENABLED}}>Generate platform-specific titles, descriptions, and tags</label>
-      <p class="meta">Local templates use your settings and real caption text when available. No API key, scraping, or trend claims. Without a transcript, drafts use your game and creator name. Settings apply to new clips; existing drafts keep their saved wording.</p>
+      <p class="meta">Supports YouTube, TikTok, Instagram, Facebook, X and Rumble. Turn on destinations below, enter your game and creator name, then generate sample drafts. For an actual clip, use Generate post drafts on its Review card.</p>
       <div class="form-grid form-grid-3">
         <label>Game or topic<input name="copy_game" type="text" maxlength="60" value="{{COPY_GAME}}" placeholder="e.g. Warzone"></label>
         <label>Creator name<input name="copy_creator" type="text" maxlength="60" value="{{COPY_CREATOR}}" placeholder="Your channel name"></label>
         <label>Voice<select name="copy_tone"><option value="casual" {{TONE_CASUAL}}>Casual</option><option value="direct" {{TONE_DIRECT}}>Direct</option><option value="playful" {{TONE_PLAYFUL}}>Playful</option></select></label>
       </div>
+      <p id="post-copy-destinations" class="meta" aria-live="polite"></p>
+      <button type="button" id="generate-post-preview">Generate sample titles, descriptions &amp; tags</button>
+      <p id="post-copy-preview-status" class="meta" role="status" aria-live="polite"></p>
+      <div id="post-copy-preview" class="form-grid" hidden></div>
+      <p class="meta">Samples use local templates and the information above. They do not save settings, change a clip, render video, or publish anything. Clip drafts also use real captions when available.</p>
       <p class="meta">Edit each platform draft in Review before approving. Automatic publishing uses the generated drafts immediately. When this is off, YouTube uses its title template and other saved settings.</p>
     </div>
-    <article class="platform-card youtube-card">
+    <article class="platform-card youtube-card" data-platform="youtube">
       <div class="platform-card-head">
         <span class="platform-mark platform-youtube">▶</span>
         <div><h3>YouTube Shorts</h3><p>Upload directly to your connected channel</p></div>
         <label class="switch" aria-label="Enable YouTube"><input type="checkbox" name="youtube_enabled" value="1" {{YT_ENABLED}}><span></span></label>
       </div>
+      <div class="platform-settings form-grid" {{YT_SETTINGS_HIDDEN}}>
       {{YT_DRY_RUN}}
       {{YT_CONNECTION}}
       <div class="form-grid form-grid-3">
@@ -57,6 +63,7 @@
         <label>Category ID
           <input name="youtube_category" type="text" value="{{YT_CATEGORY}}">
         </label>
+      </div>
       </div>
     </article>
     <div class="platform-grid">{{PLATFORM_CARDS}}</div>
