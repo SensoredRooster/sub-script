@@ -1,0 +1,2 @@
+# Builders only — not needed to run from source / run-app.bat
+pyinstaller>=6.3.0
