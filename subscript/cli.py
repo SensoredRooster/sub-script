@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from subscript.buffer import resolve_live_source
 from subscript.config import load_config
-from subscript.hotkey import listen
+from subscript.hotkey import listen, notify_fired
 from subscript.pipeline import run_pipeline
 
 
@@ -60,7 +61,11 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Produce clip and queue for review (no live YouTube)",
     )
-    parser.add_argument("--watch", action="store_true", help="Listen for hotkey and run pipeline")
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Listen for hotkey; grab last N seconds from live_source / watch_folder / --source",
+    )
     parser.add_argument(
         "--app",
         action="store_true",
@@ -82,22 +87,49 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.watch:
-        if not args.source:
-            raise SystemExit(
-                "--watch requires --source pointing at the buffer/export file.\n"
-                "  Example: python -m subscript --watch --source test-clips\\replay.mp4"
-            )
-        if not args.source.exists():
-            raise SystemExit(_missing_source_message(args.source))
+        hotkey = cfg.get("hotkey") or "ctrl+shift+c"
+        seconds = int(cfg.get("buffer_seconds") or 30)
+        auto_enqueue = bool(cfg.get("auto_enqueue", True))
+        do_notify = bool(cfg.get("notify", True))
+
+        # Validate source resolves at least once so user gets a clear error early
+        try:
+            preview = resolve_live_source(cfg, args.source)
+            print(f"Live source ready: {preview}")
+        except FileNotFoundError as exc:
+            raise SystemExit(str(exc)) from exc
+
+        print(
+            f"Watching hotkey {hotkey!r} → last {seconds}s → "
+            f"{'enqueue review' if auto_enqueue else 'process only'}"
+        )
 
         def fire() -> None:
-            print("Hotkey fired — running pipeline…")
+            print("Hotkey fired — running pipeline…", flush=True)
+            if do_notify:
+                try:
+                    notify_fired()
+                except Exception:  # noqa: BLE001
+                    pass
             try:
-                run_pipeline(args.source, cfg, dry_run=True)
-            except RuntimeError as exc:
-                print(exc)
+                source = resolve_live_source(cfg, args.source)
+                # Force review enqueue for live path (north star: hotkey → review)
+                live_cfg = dict(cfg)
+                if auto_enqueue:
+                    review = dict(live_cfg.get("review") or {})
+                    review["require_approval"] = True
+                    live_cfg["review"] = review
+                run_pipeline(
+                    source,
+                    live_cfg,
+                    dry_run=True,
+                    start=None,
+                    duration=float(seconds),
+                )
+            except Exception as exc:  # noqa: BLE001 — fail-soft, keep listening
+                print(f"Pipeline error (still listening): {exc}", flush=True)
 
-        listen(cfg.get("hotkey") or "ctrl+shift+c", fire)
+        listen(hotkey, fire)
         return
 
     if not args.source:
@@ -105,8 +137,9 @@ def main(argv: list[str] | None = None) -> None:
             "Missing --source.\n"
             "  Desktop app (no terminal needed after launch):\n"
             "    Double-click run-app.bat   or   python -m subscript --app\n"
-            "  CLI clip: python -m subscript --source test-clips\\your.mp4\n"
-            "  Hotkey:   python -m subscript --watch --source path\\to\\export.mp4"
+            "  CLI clip: python -m subscript --source test-clips\\\\your.mp4\n"
+            "  Hotkey:   python -m subscript --watch\n"
+            "            (set live_source or watch_folder in config.yaml)"
         )
 
     if not args.source.exists():
@@ -127,10 +160,11 @@ def main(argv: list[str] | None = None) -> None:
 def _missing_source_message(path: Path) -> str:
     return (
         f"Source video not found: {path}\n"
-        "  Drop a VOD / replay export under test-clips\\ (local only — not on GitHub),\n"
+        "  Drop a VOD / replay export under test-clips\\\\ (local only — not on GitHub),\n"
         "  then pass that path, e.g.:\n"
-        "    python -m subscript --source test-clips\\your.mp4\n"
-        "  Or use the desktop app: double-click run-app.bat"
+        "    python -m subscript --source test-clips\\\\your.mp4\n"
+        "  Or use the desktop app: double-click run-app.bat\n"
+        "  Or Live mode: set watch_folder / live_source in config.yaml, then --watch"
     )
 
 
