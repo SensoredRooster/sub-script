@@ -1,32 +1,16 @@
 # sub-script
 
-Hotkey clip buffer → brand → YouTube Shorts for stream highlights.
+Hotkey / VOD clip → brand → **review gate** → YouTube Shorts.
 
-## v1 scope
+Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
-Press a hotkey → cut the **previous ~30 seconds** from a rolling buffer → stamp brand overlay → upload (or dry-run) to **YouTube Shorts**.
+## Product shape
 
-Later (not in this scaffold): Warzone/CoD kill-feed OCR for fully automatic clips.
-
-## Why Python
-
-ffmpeg via subprocess, a simple hotkey listener, and the YouTube Data API all fit cleanly in one small package with fewer moving parts than a Node stack for local desktop capture.
-
-## Architecture
-
-```
-[capture buffer] --hotkey--> [clip] --> [brand] --> [upload]
-     rolling ring              ffmpeg      overlay     YouTube API
-```
-
-| Module | Role |
-|--------|------|
-| `subscript/buffer.py` | Rolling ring buffer (placeholder: file/path or ffmpeg segmenter) |
-| `subscript/clip.py` | Export last N seconds with ffmpeg |
-| `subscript/brand.py` | Logo / text watermark from config |
-| `subscript/upload.py` | YouTube Shorts upload + dry-run mock |
-| `subscript/hotkey.py` | Global hotkey → trigger pipeline |
-| `subscript/config.py` | Load `config.yaml` + env |
+| Mode | What it does |
+|------|----------------|
+| **Live** | Hotkey grabs the last ~30s from a buffer/export → brand → review queue |
+| **VOD** *(next)* | Upload a full recording → auto-cut → music/subs → same review queue |
+| **Review** | Local UI: watch clip, approve, quick trim, or reject |
 
 ## Setup
 
@@ -35,42 +19,40 @@ ffmpeg via subprocess, a simple hotkey listener, and the YouTube Data API all fi
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 cp config.example.yaml config.yaml
-# drop a logo at assets/logo.png (optional)
 ```
 
-3. Dry-run (no YouTube credentials):
+## Run
+
+Produce a clip into the review queue:
 
 ```bash
-python -m subscript.cli --dry-run --source path/to/sample.mp4
+python -m subscript --source path/to/vod-or-replay.mp4
 ```
 
-This cuts the last `buffer_seconds` from the source, applies branding if a logo exists, and writes under `out/` without uploading.
-
-4. Live hotkey mode (after config):
+Open the review UI (http://127.0.0.1:8787):
 
 ```bash
-python -m subscript.cli --watch
+python -m subscript --review
+# or: python -m subscript.review_ui
 ```
 
-## Config knobs
+Hotkey watch (same queue):
 
-See `config.example.yaml`:
-
-- `hotkey` — e.g. `ctrl+shift+c`
-- `buffer_seconds` — default `30`
-- `brand.logo_path`, `brand.opacity`, corner placement
-- `youtube.privacy`, category, title template
-- `stream.resolution` — lock crop assumptions early (1080 vs 1440)
+```bash
+python -m subscript --watch --source path/to/buffer-export.mp4
+```
 
 ## Roadmap
 
-1. **Now:** hotkey + buffer + brand + YouTube dry-run / upload stubs
-2. **Next:** real rolling capture from game/OBS source
-3. **Later:** kill-feed OCR (exact in-game name + resolution-locked crop)
+1. Hotkey / file clip + brand + review gate (approve / trim / reject)
+2. Next: real OBS/replay rolling buffer
+3. Next: VOD upload + auto chapter/cut suggestions
+4. Later: music bed + captions on the review item
+5. Later: Warzone kill-feed OCR for fully hands-off detection
 
 ## License
 

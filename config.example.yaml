@@ -2,33 +2,34 @@ hotkey: "ctrl+shift+c"
 buffer_seconds: 30
 
 stream:
-  # Lock early — UI crop positions move between 1080 and 1440
   resolution: "1920x1080"
-  # Exact in-game name for a future OCR stage
   player_name: "YourActivisionId"
 
 brand:
   logo_path: "assets/logo.png"
   opacity: 0.85
-  position: "bottom_right"  # top_left | top_right | bottom_left | bottom_right
+  position: "bottom_right"
   margin_px: 24
-  # Optional text burn-in
   text: ""
   text_size: 24
 
 output:
   dir: "out"
-  # YouTube Shorts: vertical 9:16 when possible; keep source AR for v1 dry-run
   shorts_width: 1080
   shorts_height: 1920
-  reframe: false  # set true later to letterbox/crop to Shorts
+  reframe: false
+
+review:
+  host: "127.0.0.1"
+  port: 8787
+  require_approval: true
 
 youtube:
   enabled: false
-  privacy: "private"  # private | unlisted | public
+  privacy: "private"
   title_template: "Highlight {timestamp}"
   description: "Clipped with sub-script"
-  category_id: "20"  # Gaming
+  category_id: "20"
   tags:
     - "Warzone"
     - "Call of Duty"
