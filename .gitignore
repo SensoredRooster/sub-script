@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+config.yaml
+out/
+*.mp4
+*.mov
+*.mkv
+.DS_Store
+.idea/
+.vscode/
+credentials.json
+token.json
+client_secret*.json
