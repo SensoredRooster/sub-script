@@ -23,6 +23,7 @@ from subscript.live_app_actions import register_item_routes
 from subscript.pipeline import run_pipeline
 from subscript.highlights import suggest_highlights_or_fallback
 from subscript.queue import ReviewQueue
+from subscript.setup_status import collect_setup_status
 
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 _STATIC = Path(__file__).resolve().parent / "static"
@@ -72,6 +73,12 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     register_branding_routes(app, cfg)
     register_live_routes(app, cfg, watcher_holder)
 
+
+    @app.get("/setup/status")
+    def setup_status() -> JSONResponse:
+        """Green / yellow / red checklist for the home Setup card."""
+        return JSONResponse(collect_setup_status(cfg))
+
     @app.get("/", response_class=HTMLResponse)
     def home(msg: str | None = None, err: str | None = None) -> str:
         pending = queue.list(status="pending")
@@ -100,7 +107,15 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         form = _snip("clip_form.html").replace("{{DEFAULT_SECONDS}}", str(default_seconds))
         branding = branding_html(cfg.get("brand") or {}, _snip, cfg)
         live = live_card_html(cfg, watcher_holder["w"], snip=_snip, esc=_esc)
-        body = form + live + branding + banner + f'<section id="review">{review}</section>'
+        setup = _snip("setup_checklist.html")
+        body = (
+            setup
+            + form
+            + live
+            + branding
+            + banner
+            + f'<section id="review">{review}</section>'
+        )
         return _snip("page.html").replace("{{BODY}}", body)
 
     @app.post("/clip")
@@ -236,10 +251,10 @@ async def _resolve_source(
 
 def _esc(value: str) -> str:
     return (
-        value.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
+        value.replace("&", "&")
+        .replace("<", "<")
+        .replace(">", ">")
+        .replace('"', """)
     )
 
 
