@@ -35,7 +35,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                 f"""
                 <article class=\"card\" id=\"{item.id}\">
                   <h2>{_esc(item.title)}</h2>
-                  <p class=\"meta\">{_esc(item.created_at)} \u00b7 {_esc(item.id)}</p>
+                  <p class=\"meta\">{_esc(item.created_at)} · {_esc(item.id)}</p>
                   <video controls src=\"/media/{item.id}\"></video>
                   <form class=\"actions\" method=\"post\" action=\"/items/{item.id}/approve\">
                     <button type=\"submit\" class=\"ok\">Approve as-is</button>
@@ -117,7 +117,7 @@ def _empty_state() -> str:
         "<li>Refresh this page (F5) to see Approve / Trim &amp; approve / Reject.</li>"
         "</ol>"
         "<p class=\"meta\">Put VODs in <code>test-clips/</code> locally "
-        "\u2014 they stay on your machine, not on GitHub.</p>"
+        "— they stay on your machine, not on GitHub.</p>"
         "</section>"
     )
 
@@ -148,7 +148,7 @@ def _page(body: str) -> str:
         "  <link rel=\"stylesheet\" href=\"/static/review.css\">\n"
         "</head>\n<body>\n  <header>\n    <h1>sub-script</h1>\n"
         "    <p>Auto-made clips wait here. Approve as-is, quick trim, or reject"
-        " \u2014 nothing uploads without you.</p>\n  </header>\n"
+        " — nothing uploads without you.</p>\n  </header>\n"
         f"  <main>{body}</main>\n</body>\n</html>"
     )
 
@@ -165,7 +165,7 @@ def main() -> None:
 
     print()
     print("=" * 52)
-    print(f"  Review UI \u2192  {url}")
+    print(f"  Review UI →  {url}")
     print("=" * 52)
     print("  Open that URL in your browser.")
     if not pending:

@@ -1,6 +1,6 @@
 # sub-script
 
-Hotkey / VOD clip \u2192 brand \u2192 **review gate** \u2192 YouTube Shorts.
+Hotkey / VOD clip → brand → **review gate** → YouTube Shorts.
 
 Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
@@ -8,8 +8,8 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
 | Mode | What it does |
 |------|----------------|
-| **Live** | Hotkey grabs the last ~30s from a buffer/export \u2192 brand \u2192 review queue |
-| **VOD** *(next)* | Upload a full recording \u2192 auto-cut \u2192 music/subs \u2192 same review queue |
+| **Live** | Hotkey grabs the last ~30s from a buffer/export → brand → review queue |
+| **VOD** *(next)* | Upload a full recording → auto-cut → music/subs → same review queue |
 | **Review** | Local UI: watch clip, approve, quick trim, or reject |
 
 ## Setup (Windows-friendly)
@@ -34,7 +34,7 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
    On macOS/Linux, activate with `source .venv/bin/activate` and use `cp` instead of `copy`.
 
-3. Drop sample VODs / replay exports into **`test-clips/`** on your machine. Video files are gitignored \u2014 they stay local and are **not** pushed to GitHub.
+3. Drop sample VODs / replay exports into **`test-clips/`** on your machine. Video files are gitignored — they stay local and are **not** pushed to GitHub.
 
 ## Run
 
@@ -77,4 +77,4 @@ python -m subscript --watch --source path\to\buffer-export.mp4
 
 ## License
 
-Private \u2014 SensoredRooster.
+Private — SensoredRooster.

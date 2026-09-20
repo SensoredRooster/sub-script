@@ -1,4 +1,4 @@
-"""Orchestrate clip \u2192 brand \u2192 review queue (upload only after approval)."""
+"""Orchestrate clip → brand → review queue (upload only after approval)."""
 
 from __future__ import annotations
 
