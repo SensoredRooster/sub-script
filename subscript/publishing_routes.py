@@ -11,6 +11,44 @@ from fastapi import FastAPI, Form
 from fastapi.responses import RedirectResponse
 
 from subscript.config import dry_run_forced, save_config
+from subscript.upload import client_secrets_path, token_path, get_youtube_credentials
+
+
+def youtube_connection_status(cfg):
+    youtube = cfg.get("youtube") or {}
+    configured = client_secrets_path(youtube).is_file()
+    exists = token_path(youtube).is_file()
+    usable = False
+    try:
+        from google.oauth2.credentials import Credentials
+        from subscript.upload import YOUTUBE_UPLOAD_SCOPE
+        creds = Credentials.from_authorized_user_file(str(token_path(youtube)), [YOUTUBE_UPLOAD_SCOPE])
+        usable = bool(creds.valid or creds.refresh_token)
+    except Exception:
+        pass
+    state = "connected" if usable else "attention" if exists else "disconnected"
+    if not configured:
+        state = "attention"
+    status = {"connected": "Connected", "attention": "Needs attention", "disconnected": "Not connected"}[state]
+    detail = ("Google authorization is saved on this computer."
+              if state == "connected" else "Sign in with Google to connect your channel."
+              if state == "disconnected" else "Your saved authorization needs to be renewed."
+              if configured else "YouTube connection setup is missing on this installation.")
+    enabled = bool(youtube.get("enabled") or ((cfg.get("platforms") or {}).get("youtube") or {}).get("enabled"))
+    delivery = "Uploads paused · preview mode" if dry_run_forced() else "Uploads enabled" if enabled else "Uploads off"
+    return {"state": state, "label": status, "detail": detail, "delivery": delivery, "configured": configured}
+
+
+def youtube_connection_html(cfg):
+    status = youtube_connection_status(cfg)
+    label = "Check connection" if status["state"] == "connected" else "Reconnect YouTube" if status["state"] == "attention" else "Connect YouTube"
+    return (f'<div class="connection-panel connection-{status["state"]}" aria-label="YouTube connection">'
+            '<div class="connection-summary">'
+            f'<span class="connection-badge"><span aria-hidden="true">●</span> {status["label"]}</span>'
+            f'<span class="connection-delivery">{status["delivery"]}</span></div>'
+            f'<p class="meta">{status["detail"]}</p>'
+            f'<button type="submit" form="youtube-connect-form" {"" if status["configured"] else "disabled"}>{label}</button>'
+            '<p class="meta">Connection and publishing are separate. Your account can stay connected while uploads are off. Saved authorization is checked locally; Google may require sign-in again when uploading.</p></div>')
 
 _MANUAL_PLATFORMS = (
     ("tiktok", "TikTok", "Vertical video + posting instructions"),
@@ -54,16 +92,13 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
             '<label class="switch" aria-label="Enable '
             f'{escape(name)}"><input type="checkbox" name="{key}_enabled" value="1" '
             f"{_checked(item.get('enabled'))}><span></span></label></div>"
-            '<label>Delivery method<select name="'
-            f'{key}_mode"><option value="manual" '
-            f"{_selected(mode, 'manual')}>Manual handoff pack</option>"
-            f'<option value="api" {_selected(mode, "api")} disabled>'
-            "API connection — coming later</option>"
-            "</select></label></article>"
+            f'<input type="hidden" name="{key}_mode" value="manual">'
+            '<p class="meta">Download-ready video and post copy. Upload the pack using your account on this platform. No account connection is needed in SubScript.</p></article>'
         )
 
     return (
         snip("publishing.html")
+        .replace("{{YT_CONNECTION}}", youtube_connection_html(cfg))
         .replace("{{COPY_ENABLED}}", _checked((cfg.get("post_copy") or {}).get("enabled", True)))
         .replace("{{COPY_GAME}}", escape(str((cfg.get("post_copy") or {}).get("game") or ""), quote=True))
         .replace("{{COPY_CREATOR}}", escape(str((cfg.get("post_copy") or {}).get("creator") or ""), quote=True))
@@ -78,8 +113,7 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
             ""
             if not dry_run_forced()
             else (
-                '<p class="inline-alert">Live uploads are currently disabled by '
-                "SUB_SCRIPT_DRY_RUN.</p>"
+                '<p class="inline-alert">Preview mode is active on this installation. Live uploads are disabled.</p>'
             ),
         )
         .replace("{{PRIV_PRIVATE}}", _selected(privacy, "private"))
@@ -98,22 +132,19 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
             "{{YT_CATEGORY}}",
             escape(str(youtube.get("category_id") or "20"), quote=True),
         )
-        .replace(
-            "{{YT_SECRETS}}",
-            escape(
-                str(youtube.get("client_secrets_file") or "credentials.json"),
-                quote=True,
-            ),
-        )
-        .replace(
-            "{{YT_TOKEN}}",
-            escape(str(youtube.get("token_file") or "token.json"), quote=True),
-        )
         .replace("{{PLATFORM_CARDS}}", "\n".join(cards))
     )
 
 
 def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
+    @app.post("/connections/youtube/connect")
+    def connect_youtube():
+        try:
+            get_youtube_credentials(cfg.get("youtube") or {}, timeout_seconds=120)
+        except Exception:
+            return RedirectResponse("/?err=" + quote("YouTube connection was not completed. Try again and finish Google sign-in. If connection setup is missing, contact the app administrator.") + "#publish", status_code=303)
+        return RedirectResponse("/?msg=" + quote("YouTube account connected. Choose your upload settings in the YouTube tile.") + "#publish", status_code=303)
+
     @app.post("/publishing")
     def save_publishing(
         copy_enabled: str | None = Form(None),
@@ -127,8 +158,8 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         youtube_description: str = Form(""),
         youtube_tags: str = Form(""),
         youtube_category: str = Form("20"),
-        youtube_secrets: str = Form("credentials.json"),
-        youtube_token: str = Form("token.json"),
+        youtube_secrets: str | None = Form(None),
+        youtube_token: str | None = Form(None),
         tiktok_enabled: str | None = Form(None),
         tiktok_mode: str = Form("manual"),
         instagram_enabled: str | None = Form(None),
@@ -159,8 +190,8 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
                 "description": youtube_description.strip(),
                 "tags": [tag.strip() for tag in youtube_tags.split(",") if tag.strip()],
                 "category_id": youtube_category.strip() or "20",
-                "client_secrets_file": youtube_secrets.strip() or "credentials.json",
-                "token_file": youtube_token.strip() or "token.json",
+                "client_secrets_file": (youtube_secrets.strip() if youtube_secrets else youtube.get("client_secrets_file")) or "credentials.json",
+                "token_file": (youtube_token.strip() if youtube_token else youtube.get("token_file")) or "token.json",
             }
         )
         cfg["youtube"] = youtube
@@ -176,8 +207,7 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         }
         for key, (enabled, raw_mode) in incoming.items():
             mode = raw_mode.strip().lower()
-            if mode not in {"manual", "api"}:
-                mode = "manual"
+            mode = "manual"
             current = dict(platforms.get(key) or {})
             current.update({"enabled": enabled is not None, "mode": mode})
             platforms[key] = current

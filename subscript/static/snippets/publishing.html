@@ -32,10 +32,11 @@
     <article class="platform-card youtube-card">
       <div class="platform-card-head">
         <span class="platform-mark platform-youtube">▶</span>
-        <div><h3>YouTube Shorts</h3><p>Live upload through your Google OAuth credentials</p></div>
+        <div><h3>YouTube Shorts</h3><p>Upload directly to your connected channel</p></div>
         <label class="switch" aria-label="Enable YouTube"><input type="checkbox" name="youtube_enabled" value="1" {{YT_ENABLED}}><span></span></label>
       </div>
       {{YT_DRY_RUN}}
+      {{YT_CONNECTION}}
       <div class="form-grid form-grid-3">
         <label>Visibility
           <select name="youtube_privacy">
@@ -57,13 +58,6 @@
           <input name="youtube_category" type="text" value="{{YT_CATEGORY}}">
         </label>
       </div>
-      <details class="advanced platform-advanced">
-        <summary>Connection files</summary>
-        <div class="form-grid form-grid-2">
-          <label>OAuth credentials<input name="youtube_secrets" type="text" value="{{YT_SECRETS}}"></label>
-          <label>Saved token<input name="youtube_token" type="text" value="{{YT_TOKEN}}"></label>
-        </div>
-      </details>
     </article>
     <div class="platform-grid">{{PLATFORM_CARDS}}</div>
     <div class="save-bar">
@@ -71,4 +65,5 @@
       <button type="submit" class="primary">Save publishing settings</button>
     </div>
   </form>
+  <form id="youtube-connect-form" method="post" action="/connections/youtube/connect"></form>
 </section>

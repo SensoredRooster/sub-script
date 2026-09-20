@@ -73,7 +73,7 @@ def dry_run_upload(video: Path, youtube_cfg: dict[str, Any], out_dir: Path) -> d
     return payload
 
 
-def get_youtube_credentials(youtube_cfg: dict[str, Any]) -> Any:
+def get_youtube_credentials(youtube_cfg: dict[str, Any], *, timeout_seconds: int = 120) -> Any:
     """Load or create OAuth credentials (opens browser on first run)."""
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
@@ -112,7 +112,7 @@ def get_youtube_credentials(youtube_cfg: dict[str, Any]) -> Any:
             str(secrets), [YOUTUBE_UPLOAD_SCOPE]
         )
         # Opens the system browser once; saves token for next Approves.
-        creds = flow.run_local_server(port=0, prompt="consent")
+        creds = flow.run_local_server(port=0, prompt="consent", timeout_seconds=timeout_seconds)
         token.parent.mkdir(parents=True, exist_ok=True)
         token.write_text(creds.to_json(), encoding="utf-8")
 

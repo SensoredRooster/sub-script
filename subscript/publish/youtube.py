@@ -55,7 +55,7 @@ class YouTubePublisher:
                 platform="YouTube",
                 ok=False,
                 status="error",
-                message=str(exc),
+                message="YouTube upload failed. Check your connection and upload settings in the YouTube tile, then try again.",
             )
         url = result.get("url") or result.get("shorts_url")
         return PublishResult(

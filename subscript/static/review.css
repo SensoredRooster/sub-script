@@ -38,3 +38,11 @@ a{color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:4px}.switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:4px}
 @media(max-width:760px){.studio-intro{padding:.7rem .3rem}.automation-summary{padding:.75rem .25rem}.drop-zone{min-height:16rem}.workflow-section{padding:1rem}.app-header{padding:1.2rem}.safety-pill{font-size:.65rem}.safety-pill i{display:none}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+
+.connection-panel{display:grid;gap:.65rem;padding:1rem;border:1px solid var(--border);border-radius:12px;background:var(--surface-3)}
+.connection-summary{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.connection-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .8rem;border-radius:999px;font-size:.9rem;font-weight:750;background:#26332b;color:#c5d0c8}
+.connection-connected .connection-badge{background:#203c29;color:#b9f36b;border:1px solid #527b39}
+.connection-attention .connection-badge{background:#3b301c;color:#ffdc91;border:1px solid #7d6330}
+.connection-delivery{font-size:.8rem;color:var(--muted)}
+.connection-panel>button{justify-self:start}

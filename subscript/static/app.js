@@ -1,4 +1,12 @@
 (function () {
+  var connectForm = document.getElementById("youtube-connect-form");
+  if (connectForm) connectForm.addEventListener("submit", function () {
+    var connectButton = document.querySelector('[form="youtube-connect-form"]');
+    if (connectButton) {
+      connectButton.disabled = true;
+      connectButton.textContent = "Finish Google sign-in in your browser…";
+    }
+  });
   function revealCaptureSetup() {
     if (window.location.hash === "#capture-setup") {
       var details = document.querySelector("#capture-setup > details");
