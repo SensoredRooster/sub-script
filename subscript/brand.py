@@ -1,4 +1,4 @@
-"""Apply logo / text overlay with ffmpeg."""
+"""Apply logo / text overlay with ffmpeg (always H.264 + AAC out)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from subscript.clip import require_ffmpeg
+from subscript.clip import COMPAT_AUDIO, COMPAT_MOVFLAGS, COMPAT_VIDEO, require_ffmpeg
 
 _POSITIONS = {
     "top_left": "10:10",
@@ -17,13 +17,12 @@ _POSITIONS = {
 
 
 def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
-    """Overlay logo if present; otherwise copy through."""
+    """Overlay logo if present; always re-encode for player compatibility."""
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
     logo = Path(brand.get("logo_path") or "")
     margin = int(brand.get("margin_px") or 24)
     pos_key = brand.get("position") or "bottom_right"
-    # rebuild overlay expr with margin
     overlay = {
         "top_left": f"{margin}:{margin}",
         "top_right": f"W-w-{margin}:{margin}",
@@ -46,12 +45,22 @@ def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
             str(logo),
             "-filter_complex",
             filter_complex,
-            "-c:a",
-            "copy",
+            *COMPAT_VIDEO,
+            *COMPAT_AUDIO,
+            *COMPAT_MOVFLAGS,
             str(dest),
         ]
     else:
-        cmd = [ffmpeg, "-y", "-i", str(source), "-c", "copy", str(dest)]
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-i",
+            str(source),
+            *COMPAT_VIDEO,
+            *COMPAT_AUDIO,
+            *COMPAT_MOVFLAGS,
+            str(dest),
+        ]
 
     subprocess.run(cmd, check=True, capture_output=True)
     return dest

@@ -1,10 +1,15 @@
-"""Cut the last N seconds with ffmpeg."""
+"""Cut the last N seconds with ffmpeg (H.264 + AAC for Windows players)."""
 
 from __future__ import annotations
 
 import shutil
 import subprocess
 from pathlib import Path
+
+# Compatible with Windows Media Player / most editors
+COMPAT_VIDEO = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]
+COMPAT_AUDIO = ["-c:a", "aac", "-b:a", "192k"]
+COMPAT_MOVFLAGS = ["-movflags", "+faststart"]
 
 
 def require_ffmpeg() -> str:
@@ -26,10 +31,10 @@ def clip_last_seconds(
     dest: Path,
     seconds: int = 30,
 ) -> Path:
-    """Export the last `seconds` of `source` to `dest`."""
+    """Export the last `seconds` of `source` to `dest` as H.264/AAC."""
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    # -sseof seeks from end; -t limits duration
+    # Re-encode (not -c copy) so cuts start on a keyframe and WMP can play them
     cmd = [
         ffmpeg,
         "-y",
@@ -39,8 +44,9 @@ def clip_last_seconds(
         str(source),
         "-t",
         str(seconds),
-        "-c",
-        "copy",
+        *COMPAT_VIDEO,
+        *COMPAT_AUDIO,
+        *COMPAT_MOVFLAGS,
         str(dest),
     ]
     subprocess.run(cmd, check=True, capture_output=True)
