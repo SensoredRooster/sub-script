@@ -1,4 +1,4 @@
-"""Local app UI: drop a VOD → clip → approve / trim / reject."""
+"""Local app UI: drop a VOD -> clip -> approve / trim / reject."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from subscript.branding_routes import branding_html, register_branding_routes
+from subscript.captions import maybe_caption_vertical
 from subscript.config import load_config
 from subscript.pipeline import run_pipeline
 from subscript.publish import publish_local
@@ -115,7 +116,8 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         return RedirectResponse(
             "/?msg="
             + quote(
-                "Ready — horizontal + vertical previews below. Approve saves both to out\\approved\\.",
+                "Ready - horizontal + vertical (+ captioned) previews below. "
+                "Approve saves a social pack to out\\approved\\.",
                 safe="",
             ),
             status_code=303,
@@ -134,10 +136,11 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             path = Path(item.horizontal_path)
         elif variant == "vertical" and item.vertical_path:
             path = Path(item.vertical_path)
+        elif variant == "captioned" and item.vertical_captioned_path:
+            path = Path(item.vertical_captioned_path)
         else:
             path = Path(item.edited_path or item.video_path)
         if not path.exists():
-            # Fall back to master if a variant is missing
             path = Path(item.edited_path or item.video_path)
         if not path.exists():
             raise HTTPException(404, "video missing")
@@ -149,27 +152,33 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         item = queue.get(item_id)
         if not item:
             raise HTTPException(404)
-        paths = [
-            Path(item.edited_path or item.video_path),
-            Path(item.horizontal_path) if item.horizontal_path else None,
-            Path(item.vertical_path) if item.vertical_path else None,
-        ]
-        clean = [p for p in paths if p is not None]
         meta = publish_local(
             item_id=item_id,
             title=item.title,
-            paths=clean,
             out_dir=out_dir,
+            master=Path(item.edited_path or item.video_path),
+            horizontal=Path(item.horizontal_path) if item.horizontal_path else None,
+            vertical=Path(item.vertical_path) if item.vertical_path else None,
+            vertical_captioned=(
+                Path(item.vertical_captioned_path)
+                if item.vertical_captioned_path
+                else None
+            ),
         )
-        # Keep dry-run JSON for future social hooks
-        _do_upload(Path(item.vertical_path or item.edited_path or item.video_path), cfg, out_dir)
+        upload_src = Path(
+            item.vertical_captioned_path
+            or item.vertical_path
+            or item.edited_path
+            or item.video_path
+        )
+        _do_upload(upload_src, cfg, out_dir)
         queue.set_status(item_id, "approved")
         folder = str(out_dir / "approved" / item_id)
         n = len(meta.get("files") or [])
         return RedirectResponse(
             "/?msg="
             + quote(
-                f"Approved — saved {n} file(s) to {folder} (folder opened).",
+                f"Approved - social pack ({n} file(s)) saved to {folder} (folder opened).",
                 safe="",
             ),
             status_code=303,
@@ -195,6 +204,10 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             landscape_w=int(out_cfg.get("landscape_width") or 1920),
             landscape_h=int(out_cfg.get("landscape_height") or 1080),
         )
+        dur = max(0.1, float(end) - float(start))
+        captioned = maybe_caption_vertical(
+            vertical, out_dir, stamp, cfg, duration_s=dur
+        )
         queue.set_status(
             item_id,
             "pending",
@@ -204,10 +217,15 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             video_path=str(dest),
             horizontal_path=str(horizontal),
             vertical_path=str(vertical),
+            vertical_captioned_path=str(captioned) if captioned else None,
         )
         return RedirectResponse(
             "/?msg="
-            + quote("Trimmed — new horizontal + vertical previews ready. Approve when happy.", safe=""),
+            + quote(
+                "Trimmed - new horizontal + vertical (+ captioned) previews ready. "
+                "Approve when happy.",
+                safe="",
+            ),
             status_code=303,
         )
 
@@ -257,10 +275,10 @@ def _do_upload(video: Path, cfg: dict[str, Any], out_dir: Path) -> None:
 
 def _esc(value: str) -> str:
     return (
-        value.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
+        value.replace("&", "&")
+        .replace("<", "<")
+        .replace(">", ">")
+        .replace('"', """)
     )
 
 
@@ -276,9 +294,9 @@ def main() -> None:
 
     print()
     print("=" * 52)
-    print(f"  sub-script app →  {url}")
+    print(f"  sub-script app ->  {url}")
     print("=" * 52)
-    print("  Opening that URL in your browser…")
+    print("  Opening that URL in your browser...")
     if pending:
         print(f"  Pending clips: {len(pending)}")
     print("  Leave this window open while you use the app.")
