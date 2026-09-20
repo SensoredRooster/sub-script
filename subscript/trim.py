@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from subscript.clip import require_ffmpeg
+from subscript.clip import H264_ENCODE_ARGS, require_ffmpeg
 
 
 def trim_clip(source: Path, dest: Path, start: float, end: float) -> Path:
@@ -17,7 +17,7 @@ def trim_clip(source: Path, dest: Path, start: float, end: float) -> Path:
         "-ss", str(start),
         "-i", str(source),
         "-t", str(duration),
-        "-c", "copy",
+        *H264_ENCODE_ARGS,
         str(dest),
     ]
     subprocess.run(cmd, check=True, capture_output=True)

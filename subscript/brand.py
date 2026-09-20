@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from subscript.clip import require_ffmpeg
+from subscript.clip import H264_ENCODE_ARGS, require_ffmpeg
 
 _POSITIONS = {
     "top_left": "10:10",
@@ -17,7 +17,7 @@ _POSITIONS = {
 
 
 def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
-    """Overlay logo if present; otherwise copy through."""
+    """Overlay logo if present; otherwise re-encode through as H.264+AAC."""
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
     logo = Path(brand.get("logo_path") or "")
@@ -46,12 +46,18 @@ def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
             str(logo),
             "-filter_complex",
             filter_complex,
-            "-c:a",
-            "copy",
+            *H264_ENCODE_ARGS,
             str(dest),
         ]
     else:
-        cmd = [ffmpeg, "-y", "-i", str(source), "-c", "copy", str(dest)]
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-i",
+            str(source),
+            *H264_ENCODE_ARGS,
+            str(dest),
+        ]
 
     subprocess.run(cmd, check=True, capture_output=True)
     return dest

@@ -6,6 +6,24 @@ import shutil
 import subprocess
 from pathlib import Path
 
+# WMP-friendly Shorts export: H.264 + AAC (not stream-copy / HEVC).
+H264_ENCODE_ARGS = [
+    "-c:v",
+    "libx264",
+    "-preset",
+    "medium",
+    "-crf",
+    "20",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "192k",
+    "-movflags",
+    "+faststart",
+]
+
 
 def require_ffmpeg() -> str:
     exe = shutil.which("ffmpeg")
@@ -29,7 +47,8 @@ def clip_last_seconds(
     """Export the last `seconds` of `source` to `dest`."""
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    # -sseof seeks from end; -t limits duration
+    # -sseof seeks from end; -t limits duration. Re-encode so cuts are not
+    # mid-GOP and HEVC game replays play in Windows Media Player.
     cmd = [
         ffmpeg,
         "-y",
@@ -39,8 +58,7 @@ def clip_last_seconds(
         str(source),
         "-t",
         str(seconds),
-        "-c",
-        "copy",
+        *H264_ENCODE_ARGS,
         str(dest),
     ]
     subprocess.run(cmd, check=True, capture_output=True)
