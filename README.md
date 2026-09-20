@@ -21,7 +21,7 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
 Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you're done.
 
-> Later this launcher becomes a single `.exe`. For now, `run-app.bat` is the one-click start.
+> Prefer a double-click `.exe`? See **[docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)** — PyInstaller **onedir** `SubScript.exe` with **`ffmpeg.exe` beside it** (not PATH-only). `run-app.bat` prefers the exe when `dist\\SubScript\\SubScript.exe` exists.
 
 ## Live mode (hotkey while you stream)
 
@@ -181,7 +181,7 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 
 ## Setup details (Windows-friendly)
 
-1. Install **ffmpeg** on your PATH (restart the terminal afterward):
+1. Install **ffmpeg** (for the shipped `.exe`, copy `ffmpeg.exe` **beside** `SubScript.exe` — see `scripts/FFMPEG_BESIDE_APP.txt`. For source/PATH installs):
 
    ```bat
    winget install ffmpeg
@@ -207,7 +207,7 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 
 | Problem | What to do |
 |---------|------------|
-| `ffmpeg not found` | Install via winget/choco, reopen the terminal |
+| `ffmpeg not found` | Copy `ffmpeg.exe` next to `SubScript.exe`, **or** install via winget/choco and reopen the terminal |
 | `config.yaml not found` | `copy config.example.yaml config.yaml` (or just run `run-app.bat`) |
 | `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\\\` |
 | Live hotkey: no source | Set `live_source` or `watch_folder` in `config.yaml` |
@@ -228,7 +228,8 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(this PR)*
 8. Later: Whisper / real transcript captions; music bed
 9. Later: Warzone kill-feed OCR for fully hands-off detection
-10. Later: package as `.exe` (PyInstaller) from `run-app.bat`
+10. Windows `.exe` onedir + ffmpeg-beside-app packaging *(this PR)* — see [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)
+11. Later: Inno Setup installer wrapping `dist\\SubScript\\`
 
 ## License
 
