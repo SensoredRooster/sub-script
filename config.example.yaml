@@ -32,8 +32,15 @@ review:
   require_approval: true
 
 youtube:
+  # Keep false for local testing (Approve only builds out/approved pack).
+  # Set true after Connect YouTube steps in the README.
   enabled: false
-  privacy: "private"
+  # private | unlisted | public
+  privacy: "unlisted"
+  # OAuth Desktop client JSON from Google Cloud (or set YOUTUBE_CLIENT_SECRETS).
+  client_secrets_file: "credentials.json"
+  # Saved after first browser login (gitignored). Or set YOUTUBE_TOKEN.
+  token_file: "token.json"
   title_template: "Highlight {timestamp}"
   description: "Clipped with sub-script"
   category_id: "20"
