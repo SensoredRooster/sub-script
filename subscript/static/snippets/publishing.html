@@ -4,10 +4,20 @@
     <div>
       <p class="eyebrow">Publish</p>
       <h2>Choose your destinations</h2>
-      <p>Nothing posts until you approve a clip. Manual destinations create a ready-to-upload folder with instructions.</p>
+      <p>Choose whether clips wait for review or publish automatically. Manual destinations always create upload packs.</p>
     </div>
   </div>
   <form id="publishing-form" class="publishing-form" method="post" action="/publishing">
+    <div class="control-panel">
+      <h3>Publishing mode</h3>
+      <label>After processing a new clip
+        <select name="publishing_mode">
+          <option value="review" {{REVIEW_SELECTED}}>Review first (recommended)</option>
+          <option value="automatic" {{AUTO_SELECTED}}>Automatic — publish without review</option>
+        </select>
+      </label>
+      <p class="meta">Automatic mode applies to new VOD and live-hotkey clips. It saves your export pack and immediately sends clips to enabled destinations using their saved visibility. YouTube requires a working connection; other destinations currently create manual upload packs. Existing review clips remain pending.</p>
+    </div>
     <article class="platform-card youtube-card">
       <div class="platform-card-head">
         <span class="platform-mark platform-youtube">▶</span>
@@ -46,7 +56,7 @@
     </article>
     <div class="platform-grid">{{PLATFORM_CARDS}}</div>
     <div class="save-bar">
-      <div><strong>Destination settings</strong><span>Used when you approve a clip in step 4.</span></div>
+      <div><strong>Destination settings</strong><span>Used after approval, or immediately in automatic mode.</span></div>
       <button type="submit" class="primary">Save publishing settings</button>
     </div>
   </form>

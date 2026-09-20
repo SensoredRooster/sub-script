@@ -323,3 +323,31 @@ def test_upload_path_copies_into_uploads_dir(app_env, synth_video: Path) -> None
     uploads = list((app_env.out_dir / "uploads").glob("*_my_clip.mp4"))
     assert len(uploads) == 1
     shutil.rmtree(app_env.out_dir / "uploads", ignore_errors=True)
+
+
+def test_publishing_mode_persists_and_can_return_to_review(app_env):
+    import yaml
+    for mode, required in [("automatic", False), ("review", True)]:
+        response = app_env.client.post("/publishing", data={"publishing_mode": mode}, follow_redirects=False)
+        assert response.status_code == 303
+        assert app_env.cfg["review"]["require_approval"] is required
+        assert yaml.safe_load(app_env.cfg_path.read_text())["review"]["require_approval"] is required
+        page = app_env.client.get("/").text
+        assert ("Automatic publishing on" in page) is (not required)
+
+
+def test_publishing_mode_rejects_unknown_value(app_env):
+    response = app_env.client.post("/publishing", data={"publishing_mode": "invalid"}, follow_redirects=False)
+    assert "err=" in response.headers["location"]
+    assert not app_env.cfg_path.exists()
+
+
+def test_vod_automatic_mode_allows_delivery(app_env, monkeypatch):
+    source = app_env.tmp / "automatic.mp4"
+    source.write_bytes(b"video")
+    app_env.cfg["review"] = {"require_approval": False}
+    calls = []
+    monkeypatch.setattr("subscript.live_app.run_pipeline", lambda *args, **kwargs: calls.append(kwargs))
+    response = app_env.client.post("/clip", data={"local_path": str(source)}, follow_redirects=False)
+    assert calls[0]["dry_run"] is False
+    assert "Automatic" in response.headers["location"]

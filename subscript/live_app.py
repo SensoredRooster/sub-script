@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 
 from subscript.branding_routes import branding_html, register_branding_routes
+from subscript.capture_setup import setup_html, register_capture_setup
 from subscript.config import dry_run_forced, load_config
 from subscript.highlights import suggest_highlights_or_fallback
 from subscript.hotkey import HotkeyWatcher
@@ -73,6 +74,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
     register_branding_routes(app, cfg)
     register_live_routes(app, cfg, watcher_holder)
+    register_capture_setup(app, cfg, watcher_holder)
     register_publishing_routes(app, cfg)
 
     @app.get("/", response_class=HTMLResponse)
@@ -141,8 +143,13 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             '<p>Compare both formats, fine-tune the cut, then approve the final pack.</p>'
             f'</div></div><div class="review-grid">{review}</div></section>'
         )
-        body = banner + form + branding + review_section + publishing
-        return _snip("page.html").replace("{{BODY}}", body)
+        body = banner + form + setup_html(cfg, _snip) + branding + review_section + publishing
+        page = _snip("page.html").replace("{{BODY}}", body)
+        if not (cfg.get("review") or {}).get("require_approval", True):
+            page = page.replace("Review before publishing", "Automatic publishing on")
+            page = page.replace("Review before publishing.", "Enabled destinations publish automatically.")
+            page = page.replace("prepare both video formats for review.", "prepare both video formats for automatic delivery.")
+        return page
 
     @app.post("/clip")
     async def make_clip(
@@ -173,15 +180,17 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                 if clip_duration is None or clip_duration <= 0:
                     raise ValueError("Duration must be greater than zero.")
             run_pipeline(
-                source, cfg, dry_run=True, start=clip_start, duration=clip_duration
+                source, cfg, dry_run=bool((cfg.get("review") or {}).get("require_approval", True)), start=clip_start, duration=clip_duration
             )
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/?err={quote(str(exc), safe='')}", status_code=303)
         return RedirectResponse(
             "/?msg="
             + quote(
-                "Ready - horizontal + vertical (+ captioned) previews below. "
-                "Approve saves a social pack to out\\approved\\.",
+                ("Ready - horizontal + vertical (+ captioned) previews below. "
+                 "Approve saves a social pack to out\\approved\\.")
+                if (cfg.get("review") or {}).get("require_approval", True) else
+                "Automatic processing complete. Export pack and publishing results are saved in out/approved. Only enabled live destinations upload; manual destinations create packs.",
                 safe="",
             ),
             status_code=303,

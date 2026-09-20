@@ -31,6 +31,7 @@ def publish_local(
     vertical_captioned: Path | None = None,
     master: Path | None = None,
     paths: list[Path] | None = None,
+    open_folder: bool = True,
 ) -> dict[str, Any]:
     """Create ``out/approved/<id>/`` with standard social filenames + PLATFORMS.txt.
 
@@ -94,7 +95,7 @@ def publish_local(
 
     # Pop the folder open so the user can drag files into each app. Headless runs and
     # the test suite set SUB_SCRIPT_NO_OPEN=1 to keep Explorer windows from appearing.
-    if os.getenv("SUB_SCRIPT_NO_OPEN", "").strip().lower() not in {"1", "true", "yes", "on"}:
+    if open_folder and os.getenv("SUB_SCRIPT_NO_OPEN", "").strip().lower() not in {"1", "true", "yes", "on"}:
         try:
             if sys.platform.startswith("win"):
                 os.startfile(approved)  # type: ignore[attr-defined]

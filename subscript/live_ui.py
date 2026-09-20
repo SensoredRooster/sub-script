@@ -58,17 +58,12 @@ def live_card_html(
 def make_fire_live(cfg: dict[str, Any]):
     def _fire_live() -> None:
         seconds = int(cfg.get("buffer_seconds") or 30)
-        auto_enqueue = bool(cfg.get("auto_enqueue", True))
         source = resolve_live_source(cfg)
         live_cfg = dict(cfg)
-        if auto_enqueue:
-            review = dict(live_cfg.get("review") or {})
-            review["require_approval"] = True
-            live_cfg["review"] = review
         run_pipeline(
             source,
             live_cfg,
-            dry_run=True,
+            dry_run=bool((cfg.get("review") or {}).get("require_approval", True)),
             start=None,
             duration=float(seconds),
         )

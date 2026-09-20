@@ -29,7 +29,7 @@ def run_pipeline(
     )
     out_cfg = cfg.get("output") or {}
     out_dir = Path(out_cfg.get("dir") or "out")
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     raw = out_dir / f"clip-raw-{stamp}.mp4"
     branded = out_dir / f"clip-branded-{stamp}.mp4"
 
@@ -83,14 +83,40 @@ def run_pipeline(
         print(f"Open the app: run-app.bat  ->  http://{host}:{port}")
         return branded
 
-    from subscript.upload import dry_run_upload, upload_youtube
+    if dry_run:
+        from subscript.upload import dry_run_upload
+        dry_run_upload(captioned or vertical, cfg.get("youtube") or {}, out_dir)
+        return branded
 
+    # Persist a review item first so interrupted or failed delivery retains the clip.
+    import json
+    from copy import deepcopy
+    from dataclasses import asdict
+    from subscript.config import apply_env_overrides
+    from subscript.publish import PublishMeta, publish_local, run_enabled_publishers, format_platform_banner
+
+    queue = ReviewQueue(out_dir / "review-queue.json")
+    item = queue.enqueue(branded, src, title=f"Highlight {stamp}",
+                         horizontal_path=horizontal, vertical_path=vertical,
+                         vertical_captioned_path=captioned)
+    publish_local(item_id=item.id, title=item.title, out_dir=out_dir,
+                  master=branded, horizontal=horizontal, vertical=vertical,
+                  vertical_captioned=captioned, open_folder=False)
+    approved_dir = out_dir / "approved" / item.id
     yt = cfg.get("youtube") or {}
-    upload_target = captioned or vertical
-    if dry_run or not yt.get("enabled"):
-        dry_run_upload(upload_target, yt, out_dir)
-        print(f"Dry-run complete: {upload_target}")
-    else:
-        upload_youtube(upload_target, yt)
-        print(f"Uploaded: {upload_target}")
+    meta = PublishMeta(item_id=item.id, title=item.title, out_dir=out_dir,
+                       approved_dir=approved_dir, description=yt.get("description") or "",
+                       tags=list(yt.get("tags") or []))
+    results = run_enabled_publishers(
+        captioned or vertical, meta, apply_env_overrides(deepcopy(cfg)), out_dir
+    )
+    (approved_dir / "publishing-results.json").write_text(
+        json.dumps([asdict(result) for result in results], indent=2), encoding="utf-8")
+    uploaded = any(result.ok and result.status == "uploaded" for result in results)
+    failed = any(not result.ok for result in results)
+    # Do not expose an already-uploaded clip to a one-click retry of every destination.
+    queue.set_status(item.id, "uploaded" if uploaded else "pending" if failed else "approved")
+    if failed:
+        raise RuntimeError("Automatic publishing needs attention. Export pack saved. " + format_platform_banner(results))
+    print(format_platform_banner(results))
     return branded

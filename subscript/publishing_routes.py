@@ -65,6 +65,8 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
     return (
         snip("publishing.html")
         .replace("{{YT_ENABLED}}", _checked(yt_enabled))
+        .replace("{{REVIEW_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "review"))
+        .replace("{{AUTO_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "automatic"))
         .replace(
             "{{YT_DRY_RUN}}",
             ""
@@ -108,6 +110,7 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
 def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
     @app.post("/publishing")
     def save_publishing(
+        publishing_mode: str = Form("review"),
         youtube_enabled: str | None = Form(None),
         youtube_privacy: str = Form("unlisted"),
         youtube_title: str = Form("Highlight {timestamp}"),
@@ -127,6 +130,8 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         rumble_enabled: str | None = Form(None),
         rumble_mode: str = Form("manual"),
     ) -> RedirectResponse:
+        if publishing_mode not in {"review", "automatic"}:
+            return RedirectResponse("/?err=Invalid%20publishing%20mode", status_code=303)
         privacy = youtube_privacy.strip().lower()
         if privacy not in {"private", "unlisted", "public"}:
             return RedirectResponse(
@@ -165,6 +170,9 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
             current.update({"enabled": enabled is not None, "mode": mode})
             platforms[key] = current
         cfg["platforms"] = platforms
+        review = dict(cfg.get("review") or {})
+        review["require_approval"] = publishing_mode != "automatic"
+        cfg["review"] = review
         save_config(cfg)
         return RedirectResponse(
             "/?msg=" + quote("Publishing destinations saved.") + "#publish",

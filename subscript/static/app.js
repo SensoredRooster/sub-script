@@ -1,4 +1,12 @@
 (function () {
+  function revealCaptureSetup() {
+    if (window.location.hash === "#capture-setup") {
+      var details = document.querySelector("#capture-setup > details");
+      if (details) details.open = true;
+    }
+  }
+  window.addEventListener("hashchange", revealCaptureSetup);
+  revealCaptureSetup();
   var form = document.getElementById("clip-form");
   if (form) {
     var drop = document.getElementById("drop-zone");

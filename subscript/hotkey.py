@@ -123,7 +123,7 @@ class HotkeyWatcher:
         try:
             self._on_fire()
             self.fire_count += 1
-            self.last_ok = "Queued for review"
+            self.last_ok = "Clip processed using your publishing mode"
             self.last_error = None
         except Exception as exc:  # noqa: BLE001 — never kill the watcher
             self.last_error = str(exc)
