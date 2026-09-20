@@ -1,4 +1,4 @@
-"""Orchestrate clip → brand → upload."""
+"""Orchestrate clip → brand → review queue (upload only after approval)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 from subscript.brand import apply_brand
 from subscript.buffer import BufferSource
 from subscript.clip import clip_last_seconds
-from subscript.upload import dry_run_upload, upload_youtube
+from subscript.queue import ReviewQueue
 
 
 def run_pipeline(
@@ -27,6 +27,16 @@ def run_pipeline(
     src = BufferSource(path=source, buffer_seconds=seconds).resolve()
     clip_last_seconds(src, raw, seconds=seconds)
     apply_brand(raw, branded, cfg.get("brand") or {})
+
+    require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
+    if require_approval:
+        queue = ReviewQueue(out_dir / "review-queue.json")
+        item = queue.enqueue(branded, src, title=f"Highlight {stamp}")
+        print(f"Queued for review ({item.id}): {branded}")
+        print("Open the review UI: python -m subscript.review_ui")
+        return branded
+
+    from subscript.upload import dry_run_upload, upload_youtube
 
     yt = cfg.get("youtube") or {}
     if dry_run or not yt.get("enabled"):

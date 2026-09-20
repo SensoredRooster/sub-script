@@ -1,4 +1,4 @@
-"""CLI entry: dry-run or hotkey watch."""
+"""CLI entry: dry-run, hotkey watch, or review UI."""
 
 from __future__ import annotations
 
@@ -11,14 +11,28 @@ from subscript.pipeline import run_pipeline
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="sub-script", description="Hotkey clip → brand → YouTube")
+    parser = argparse.ArgumentParser(
+        prog="sub-script",
+        description="Hotkey clip → brand → review → YouTube",
+    )
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--source", type=Path, help="Input video (recording / replay export)")
-    parser.add_argument("--dry-run", action="store_true", help="Skip YouTube; write mock metadata")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Produce clip and queue for review (no live YouTube)",
+    )
     parser.add_argument("--watch", action="store_true", help="Listen for hotkey and run pipeline")
+    parser.add_argument("--review", action="store_true", help="Open local review UI")
     args = parser.parse_args(argv)
 
     cfg = load_config(args.config)
+
+    if args.review:
+        from subscript.review_ui import main as review_main
+
+        review_main()
+        return
 
     if args.watch:
         if not args.source:
@@ -32,7 +46,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if not args.source:
-        raise SystemExit("Provide --source path/to/video.mp4 (or use --watch)")
+        raise SystemExit("Provide --source path/to/video.mp4 (or use --watch / --review)")
 
     run_pipeline(args.source, cfg, dry_run=args.dry_run or True)
 
