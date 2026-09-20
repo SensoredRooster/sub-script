@@ -1,0 +1,13 @@
+# Optional kill-feed OCR (not required to run sub-script).
+# Loudness auto-highlights still work without this. Install into the same venv:
+#   pip install -r requirements-ocr.txt
+#
+# Also install system Tesseract if you use pytesseract:
+#   Windows: winget install UB-Mannheim.TesseractOCR
+#   macOS:   brew install tesseract
+#   Linux:   sudo apt install tesseract-ocr
+#
+# Prefer easyocr (pure pip) OR pytesseract (+ system binary). Either is enough.
+easyocr>=1.7.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
