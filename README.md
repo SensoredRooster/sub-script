@@ -14,7 +14,7 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
    ```
 2. **Double-click `run-app.bat`**.
 3. Your browser opens to **http://127.0.0.1:8787**.
-4. Drop a VOD (or Choose file) -> leave **Last 30 seconds** (or pick custom start + length) -> **Make clip**.
+4. Drop a VOD (or Choose file) -> leave **Auto highlights** checked to get loud-moment chips (or **Last 30 seconds** / custom start + length) -> click a chip or **Make clip**.
 5. Preview the clip -> **Approve as-is** / **Trim & approve** / **Reject**.
 
 **Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, hit **Save**. That writes `assets/logo.png` and updates `config.yaml` so every future Make clip auto-brands - no folder hunting.
@@ -22,6 +22,22 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you're done.
 
 > Prefer a double-click `.exe`? See **[docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)** — PyInstaller **onedir** `SubScript.exe` with **`ffmpeg.exe` beside it** (not PATH-only). `run-app.bat` prefers the exe when `dist\\SubScript\\SubScript.exe` exists.
+
+## Auto highlights (VOD loudness)
+
+When you drop a full VOD, sub-script can **suggest clip windows** from audio loudness (ffmpeg PCM / RMS peaks — no ML training).
+
+1. Leave **Auto highlights** checked on the home page.
+2. Choose / drop a file (or paste a path). The app calls **`POST /highlights`** and shows chips for the top peaks (length = `buffer_seconds`, default 30).
+3. Click a chip to fill **Custom start + length**, then **Make clip**.
+
+If analysis fails, the UI **falls back to last 30 seconds** and shows a short message (fail-soft).
+
+Smoke test (synthetic quiet/loud/quiet audio):
+
+```bat
+python scripts\\smoke_highlights.py
+```
 
 ## Live mode (hotkey while you stream)
 
@@ -137,7 +153,7 @@ Never commit `credentials.json`, `token.json`, or `.env`.
 
 | Mode | What it does |
 |------|----------------|
-| **App** | Drop a VOD in the browser -> clip -> same review queue |
+| **App** | Drop a VOD -> auto-highlight chips (or last-30s / custom) -> clip -> same review queue |
 | **Live** | Hotkey grabs the last ~30s from a buffer/export -> brand -> H+V -> captions -> review queue |
 | **Review** | Local UI: watch clip, approve, quick trim, or reject |
 
@@ -222,13 +238,13 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 1. Hotkey / file clip + brand + review gate (approve / trim / reject)
 2. Desktop app home: drop VOD -> clip -> review *(shipped)*
 3. Live hotkey → OBS replay / watch folder → auto enqueue *(shipped)*
-4. Next: VOD auto chapter/cut suggestions
+4. VOD auto highlights (loudness peaks → chip suggestions) *(this PR)*
 5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(shipped)*
 6. YouTube Shorts upload on Approve (OAuth) *(shipped)*
 7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(shipped)*
 8. Later: Whisper / real transcript captions; music bed
 9. Later: Warzone kill-feed OCR for fully hands-off detection
-10. Windows `.exe` onedir + ffmpeg-beside-app packaging *(this PR)* — see [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)
+10. Windows `.exe` onedir + ffmpeg-beside-app packaging *(shipped)* — see [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)
 11. Later: Inno Setup installer wrapping `dist\\SubScript\\`
 
 ## License

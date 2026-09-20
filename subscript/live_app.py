@@ -12,7 +12,7 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from subscript.branding_routes import branding_html, register_branding_routes
@@ -21,6 +21,7 @@ from subscript.hotkey import HotkeyWatcher
 from subscript.live_ui import live_card_html, register_live_routes
 from subscript.live_app_actions import register_item_routes
 from subscript.pipeline import run_pipeline
+from subscript.highlights import suggest_highlights_or_fallback
 from subscript.queue import ReviewQueue
 
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
@@ -137,6 +138,47 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             status_code=303,
         )
 
+    @app.post("/highlights")
+    async def highlights(
+        file: UploadFile | None = File(None),
+        local_path: str = Form(""),
+        top_n: str = Form("5"),
+        buffer_seconds: str = Form(""),
+    ) -> JSONResponse:
+        """Analyze VOD audio loudness; return top peak windows (fail-soft)."""
+        try:
+            source = await _resolve_source(file, local_path, uploads_dir)
+        except Exception as exc:  # noqa: BLE001
+            buf = float(default_seconds)
+            return JSONResponse(
+                {
+                    "suggestions": [
+                        {"start": None, "duration": buf, "score": 0.0}
+                    ],
+                    "fallback": True,
+                    "message": (
+                        f"Auto highlights failed ({exc}); "
+                        f"falling back to last {default_seconds} seconds."
+                    ),
+                    "buffer_seconds": buf,
+                }
+            )
+        try:
+            n = int(float(top_n)) if str(top_n).strip() else 5
+        except ValueError:
+            n = 5
+        if str(buffer_seconds).strip():
+            try:
+                buf = float(buffer_seconds)
+            except ValueError:
+                buf = float(default_seconds)
+        else:
+            buf = float(default_seconds)
+        payload = suggest_highlights_or_fallback(
+            source, buffer_seconds=buf, top_n=max(1, n)
+        )
+        return JSONResponse(payload)
+
     @app.get("/media/{item_id}")
     def media(
         item_id: str,
@@ -194,10 +236,10 @@ async def _resolve_source(
 
 def _esc(value: str) -> str:
     return (
-        value.replace("&", "&")
-        .replace("<", "<")
-        .replace(">", ">")
-        .replace('"', """)
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )
 
 

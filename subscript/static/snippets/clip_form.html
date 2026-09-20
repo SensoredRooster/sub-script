@@ -1,6 +1,6 @@
 <section class="card clip-card">
   <h2>Make a clip</h2>
-  <p class="meta">Drop a VOD or recording, pick a range, then Make clip. Preview and approve below.</p>
+  <p class="meta">Drop a VOD or recording, pick a range (or auto highlights), then Make clip. Preview and approve below.</p>
   <form id="clip-form" class="clip-form" method="post" action="/clip" enctype="multipart/form-data">
     <div id="drop-zone" class="drop-zone" tabindex="0">
       <p><strong>Drop a video here</strong></p>
@@ -14,9 +14,17 @@
     <details class="advanced">
       <summary>Or paste a path on this PC (large files)</summary>
       <label class="full">Path
-        <input type="text" name="local_path" placeholder="C:\Videos\my-vod.mp4" autocomplete="off">
+        <input id="local-path" type="text" name="local_path" placeholder="C:\Videos\my-vod.mp4" autocomplete="off">
       </label>
     </details>
+    <label class="radio auto-hl-check">
+      <input type="checkbox" id="auto-highlights" name="auto_highlights" value="1" checked>
+      Auto highlights (suggest loud moments from the VOD)
+    </label>
+    <div id="highlights-panel" class="highlights-panel" hidden>
+      <p class="meta" id="highlights-status">Analyzing audio…</p>
+      <div id="highlight-chips" class="highlight-chips" role="list"></div>
+    </div>
     <fieldset class="mode">
       <legend>Clip range</legend>
       <label class="radio">
@@ -28,8 +36,8 @@
         Custom start + length
       </label>
       <div id="custom-fields" class="custom-fields" hidden>
-        <label>Start <input name="start" type="text" placeholder="0 or 1:02:00"></label>
-        <label>Length <input name="duration" type="text" placeholder="{{DEFAULT_SECONDS}}" value="{{DEFAULT_SECONDS}}"></label>
+        <label>Start <input id="clip-start" name="start" type="text" placeholder="0 or 1:02:00"></label>
+        <label>Length <input id="clip-duration" name="duration" type="text" placeholder="{{DEFAULT_SECONDS}}" value="{{DEFAULT_SECONDS}}"></label>
       </div>
     </fieldset>
     <button type="submit" id="clip-btn" class="ok primary">Make clip</button>
