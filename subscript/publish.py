@@ -1,4 +1,4 @@
-"""Local publish handoff: copy approved assets and open the folder."""
+"""Local publish handoff: copy approved social pack and open the folder."""
 
 from __future__ import annotations
 
@@ -11,24 +11,71 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+_PLATFORMS = [
+    "YouTube Shorts",
+    "TikTok",
+    "Instagram Reels",
+    "Facebook",
+    "X",
+    "Rumble",
+]
+
 
 def publish_local(
     *,
     item_id: str,
     title: str,
-    paths: list[Path],
     out_dir: Path,
+    horizontal: Path | None = None,
+    vertical: Path | None = None,
+    vertical_captioned: Path | None = None,
+    master: Path | None = None,
+    paths: list[Path] | None = None,
 ) -> dict[str, Any]:
+    """Create ``out/approved/<id>/`` with standard social filenames + PLATFORMS.txt.
+
+    Preferred: pass ``horizontal`` / ``vertical`` / ``vertical_captioned``.
+    Legacy: ``paths`` list is still copied under original basenames.
+    """
     approved = out_dir / "approved" / item_id
     approved.mkdir(parents=True, exist_ok=True)
     saved: list[str] = []
-    for src in paths:
-        if not src or not Path(src).exists():
+
+    named: list[tuple[Path | None, str]] = [
+        (horizontal, "horizontal.mp4"),
+        (vertical, "vertical.mp4"),
+        (vertical_captioned, "vertical_captioned.mp4"),
+        (master, "master.mp4"),
+    ]
+    for src, name in named:
+        if not src:
             continue
         src = Path(src)
-        dest = approved / src.name
+        if not src.exists():
+            continue
+        dest = approved / name
         shutil.copy2(src, dest)
         saved.append(str(dest))
+
+    if paths:
+        for src in paths:
+            if not src or not Path(src).exists():
+                continue
+            src = Path(src)
+            dest = approved / src.name
+            if dest.exists():
+                continue
+            shutil.copy2(src, dest)
+            saved.append(str(dest))
+
+    platforms_path = approved / "PLATFORMS.txt"
+    platforms_path.write_text(
+        "Social export pack - upload-ready files for:\n"
+        + "\n".join(f"- {p}" for p in _PLATFORMS)
+        + "\n",
+        encoding="utf-8",
+    )
+    saved.append(str(platforms_path))
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     meta = {
@@ -36,9 +83,10 @@ def publish_local(
         "item_id": item_id,
         "title": title,
         "files": saved,
+        "platforms": _PLATFORMS,
         "note": (
             "Saved locally. Social upload (YouTube/TikTok/IG/X/Rumble/FB) "
-            "hooks in next — Approve will post these same files."
+            "hooks in next - Approve packs these same files for each platform."
         ),
     }
     (approved / "manifest.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")

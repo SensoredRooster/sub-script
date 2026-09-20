@@ -1,4 +1,4 @@
-"""Orchestrate clip → brand → horizontal/vertical → review queue."""
+"""Orchestrate clip -> brand -> horizontal/vertical -> captions -> review queue."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Any
 
 from subscript.brand import apply_brand
 from subscript.buffer import BufferSource
+from subscript.captions import maybe_caption_vertical
 from subscript.clip import clip_last_seconds
 from subscript.queue import ReviewQueue
 from subscript.reframe import make_social_pair
@@ -47,6 +48,11 @@ def run_pipeline(
         landscape_h=land_h,
     )
 
+    # Captions after H+V reframe (demo SRT - no Whisper)
+    captioned = maybe_caption_vertical(
+        vertical, out_dir, stamp, cfg, duration_s=float(seconds)
+    )
+
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
     if require_approval:
         queue = ReviewQueue(out_dir / "review-queue.json")
@@ -56,6 +62,7 @@ def run_pipeline(
             title=f"Highlight {stamp}",
             horizontal_path=horizontal,
             vertical_path=vertical,
+            vertical_captioned_path=captioned,
         )
         host = (cfg.get("review") or {}).get("host", "127.0.0.1")
         port = int((cfg.get("review") or {}).get("port", 8787))
@@ -63,16 +70,19 @@ def run_pipeline(
         print(f"  master:      {branded}")
         print(f"  horizontal: {horizontal}")
         print(f"  vertical:   {vertical}")
-        print(f"Open the app: run-app.bat  →  http://{host}:{port}")
+        if captioned:
+            print(f"  captioned:  {captioned}")
+        print(f"Open the app: run-app.bat  ->  http://{host}:{port}")
         return branded
 
     from subscript.upload import dry_run_upload, upload_youtube
 
     yt = cfg.get("youtube") or {}
+    upload_target = captioned or vertical
     if dry_run or not yt.get("enabled"):
-        dry_run_upload(vertical, yt, out_dir)
-        print(f"Dry-run complete: {vertical}")
+        dry_run_upload(upload_target, yt, out_dir)
+        print(f"Dry-run complete: {upload_target}")
     else:
-        upload_youtube(vertical, yt)
-        print(f"Uploaded: {vertical}")
+        upload_youtube(upload_target, yt)
+        print(f"Uploaded: {upload_target}")
     return branded

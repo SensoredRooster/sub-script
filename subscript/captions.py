@@ -8,7 +8,7 @@ from typing import Any
 
 from subscript.clip import COMPAT_AUDIO, COMPAT_MOVFLAGS, COMPAT_VIDEO, require_ffmpeg
 
-_DEMO_LINE = "Clip \u00b7 SUB"
+_DEMO_LINE = "Clip | SUB"
 
 
 def captions_enabled(cfg: dict[str, Any] | None) -> bool:
@@ -89,7 +89,7 @@ def _run_ffmpeg(cmd: list[str]) -> None:
 
 
 def burn_captions(video: Path, srt: Path, dest: Path) -> Path:
-    """Burn ``srt`` onto ``video`` via ffmpeg subtitles filter \u2192 ``dest``."""
+    """Burn ``srt`` onto ``video`` via ffmpeg subtitles filter -> ``dest``."""
     ffmpeg = require_ffmpeg()
     video = Path(video)
     srt = Path(srt)
@@ -142,11 +142,10 @@ def burn_captions(video: Path, srt: Path, dest: Path) -> Path:
 
 def probe_duration_seconds(video: Path) -> float:
     """Best-effort duration via ffprobe; falls back to 30s."""
-    ffprobe = require_ffmpeg().replace("ffmpeg", "ffprobe")
-    if not Path(ffprobe).exists() and "ffmpeg" in require_ffmpeg():
-        import shutil
+    import shutil
 
-        ffprobe = shutil.which("ffprobe") or ffprobe
+    ffmpeg = require_ffmpeg()
+    ffprobe = shutil.which("ffprobe") or ffmpeg.replace("ffmpeg", "ffprobe")
     try:
         proc = subprocess.run(
             [
@@ -180,7 +179,7 @@ def maybe_caption_vertical(
     *,
     duration_s: float | None = None,
 ) -> Path | None:
-    """If captions enabled, write demo SRT and burn onto vertical \u2192 captioned path."""
+    """If captions enabled, write demo SRT and burn onto vertical -> captioned path."""
     if not captions_enabled(cfg):
         return None
     vertical = Path(vertical)
