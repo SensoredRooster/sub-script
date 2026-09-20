@@ -11,14 +11,16 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from subscript.branding_routes import branding_html, register_branding_routes
 from subscript.config import load_config
 from subscript.pipeline import run_pipeline
+from subscript.publish import publish_local
 from subscript.queue import ReviewQueue
+from subscript.reframe import make_social_pair
 from subscript.trim import trim_clip
 from subscript.upload import dry_run_upload, upload_youtube
 
@@ -111,16 +113,32 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/?err={quote(str(exc), safe='')}", status_code=303)
         return RedirectResponse(
-            "/?msg=" + quote("Clip ready — preview below, then Approve / Trim / Reject.", safe=""),
+            "/?msg="
+            + quote(
+                "Ready — horizontal + vertical previews below. Approve saves both to out\\approved\\.",
+                safe="",
+            ),
             status_code=303,
         )
 
     @app.get("/media/{item_id}")
-    def media(item_id: str) -> FileResponse:
+    def media(
+        item_id: str,
+        variant: str | None = Query(None),
+    ) -> FileResponse:
         item = queue.get(item_id)
         if not item:
             raise HTTPException(404)
-        path = Path(item.edited_path or item.video_path)
+        path: Path | None = None
+        if variant == "horizontal" and item.horizontal_path:
+            path = Path(item.horizontal_path)
+        elif variant == "vertical" and item.vertical_path:
+            path = Path(item.vertical_path)
+        else:
+            path = Path(item.edited_path or item.video_path)
+        if not path.exists():
+            # Fall back to master if a variant is missing
+            path = Path(item.edited_path or item.video_path)
         if not path.exists():
             raise HTTPException(404, "video missing")
         mime, _ = mimetypes.guess_type(str(path))
@@ -131,9 +149,31 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         item = queue.get(item_id)
         if not item:
             raise HTTPException(404)
-        _do_upload(Path(item.edited_path or item.video_path), cfg, out_dir)
+        paths = [
+            Path(item.edited_path or item.video_path),
+            Path(item.horizontal_path) if item.horizontal_path else None,
+            Path(item.vertical_path) if item.vertical_path else None,
+        ]
+        clean = [p for p in paths if p is not None]
+        meta = publish_local(
+            item_id=item_id,
+            title=item.title,
+            paths=clean,
+            out_dir=out_dir,
+        )
+        # Keep dry-run JSON for future social hooks
+        _do_upload(Path(item.vertical_path or item.edited_path or item.video_path), cfg, out_dir)
         queue.set_status(item_id, "approved")
-        return RedirectResponse("/?msg=" + quote("Approved.", safe=""), status_code=303)
+        folder = str(out_dir / "approved" / item_id)
+        n = len(meta.get("files") or [])
+        return RedirectResponse(
+            "/?msg="
+            + quote(
+                f"Approved — saved {n} file(s) to {folder} (folder opened).",
+                safe="",
+            ),
+            status_code=303,
+        )
 
     @app.post("/items/{item_id}/trim")
     def trim_and_approve(
@@ -144,12 +184,31 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             raise HTTPException(404)
         dest = out_dir / f"clip-trimmed-{item_id}.mp4"
         trim_clip(Path(item.video_path), dest, start=start, end=end)
-        queue.set_status(
-            item_id, "approved", trim_start=start, trim_end=end, edited_path=str(dest)
+        out_cfg = cfg.get("output") or {}
+        stamp = item_id
+        horizontal, vertical = make_social_pair(
+            dest,
+            out_dir,
+            stamp,
+            shorts_w=int(out_cfg.get("shorts_width") or 1080),
+            shorts_h=int(out_cfg.get("shorts_height") or 1920),
+            landscape_w=int(out_cfg.get("landscape_width") or 1920),
+            landscape_h=int(out_cfg.get("landscape_height") or 1080),
         )
-        _do_upload(dest, cfg, out_dir)
+        queue.set_status(
+            item_id,
+            "pending",
+            trim_start=start,
+            trim_end=end,
+            edited_path=str(dest),
+            video_path=str(dest),
+            horizontal_path=str(horizontal),
+            vertical_path=str(vertical),
+        )
         return RedirectResponse(
-            "/?msg=" + quote("Trimmed and approved.", safe=""), status_code=303
+            "/?msg="
+            + quote("Trimmed — new horizontal + vertical previews ready. Approve when happy.", safe=""),
+            status_code=303,
         )
 
     @app.post("/items/{item_id}/reject")
