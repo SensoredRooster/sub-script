@@ -90,7 +90,7 @@ def test_publishing_save_persists_settings(app_env) -> None:
     assert saved["youtube"]["enabled"] is True
     assert saved["youtube"]["privacy"] == "public"
     assert saved["youtube"]["tags"] == ["warzone", "win"]
-    assert saved["platforms"]["instagram"] == {"enabled": True, "mode": "manual"}
+    assert saved["platforms"]["instagram"] == {"enabled": True, "mode": "manual", "format": "vertical"}
 
 
 def test_publishing_rejects_invalid_youtube_privacy(app_env) -> None:

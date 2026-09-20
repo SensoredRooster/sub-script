@@ -10,7 +10,7 @@ from urllib.parse import quote
 from fastapi import Form, HTTPException
 from fastapi.responses import RedirectResponse
 
-from subscript.captions import maybe_caption_vertical
+from subscript.captions import maybe_caption_vertical, maybe_caption_horizontal
 from subscript.publish import (
     PublishMeta,
     format_platform_banner,
@@ -179,6 +179,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             captioned = maybe_caption_vertical(
                 vertical, out_dir, stamp, cfg, duration_s=dur
             )
+            horizontal = maybe_caption_horizontal(horizontal, out_dir, stamp, cfg)
         except Exception as exc:  # noqa: BLE001 — show the reason instead of a 500 page
             return _redirect_err(f"Trim failed: {exc}")
 

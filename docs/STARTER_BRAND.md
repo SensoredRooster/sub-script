@@ -1,5 +1,11 @@
 # SubScript starter identity
 
+## Destination formats
+
+Every destination uses the same tile grid. Enable a tile to choose its output format. YouTube offers vertical Shorts or standard landscape video; Facebook, X, and Rumble offer vertical or landscape; TikTok and Instagram currently offer vertical presets. These are the presets implemented here, not an exhaustive list of formats accepted by each service. Save settings before approving a clip.
+
+The publisher selects the matching export file. Landscape YouTube posts do not receive an automatic Shorts hashtag or Shorts URL. Enabled captions are now applied to landscape as well as vertical output using the same SRT. Existing clips must be rebuilt to add landscape captions. Standard YouTube video uses the selected clip range; it does not imply uploading an entire VOD. YouTube is the only current direct-upload integration; other destinations produce format-specific manual upload packs. Live platform acceptance still needs real-account validation.
+
 ## Platform post writing
 
 Publish > Post writing controls local draft generation for new clips. Set a game/topic, creator name, and voice, then save publishing settings. Each new clip stores separate YouTube, TikTok, Instagram, Facebook, X, and Rumble titles, descriptions, and tags. Review clips expose editable drafts; save each edited platform before approving. Trimming regenerates drafts for the new cut and replaces earlier edits.

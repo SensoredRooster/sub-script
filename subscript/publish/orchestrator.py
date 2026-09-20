@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from dataclasses import replace
 import json
+from subscript.output_formats import FORMATS, selected_format
 from typing import Any
 
 from subscript.publish.base import NotConfiguredError, PublishMeta, PublishResult, Publisher
@@ -46,7 +47,17 @@ def run_enabled_publishers(
         try:
             draft = drafts.get(pub.name)
             platform_meta = replace(meta, title=draft["title"], description=draft["description"], tags=draft["tags"], extra={**meta.extra, "generated_copy": True}) if draft else meta
-            results.append(pub.publish(path, platform_meta))
+            output_format = selected_format(cfg, pub.name)
+            if output_format not in FORMATS[pub.name]:
+                raise ValueError("Unsupported output format for this destination.")
+            platform_meta = replace(platform_meta, extra={**platform_meta.extra, "output_format": output_format})
+            if output_format == "horizontal":
+                target = meta.approved_dir / "horizontal.mp4"
+                if not target.is_file():
+                    raise ValueError("Landscape export is missing. Rebuild this clip before publishing.")
+            else:
+                target = path
+            results.append(pub.publish(target, platform_meta))
         except NotConfiguredError as exc:
             results.append(
                 PublishResult(

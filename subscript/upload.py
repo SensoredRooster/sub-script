@@ -61,7 +61,7 @@ def dry_run_upload(video: Path, youtube_cfg: dict[str, Any], out_dir: Path) -> d
         "dry_run": True,
         "file": str(video),
         "title": title,
-        "description": _ensure_shorts_description(youtube_cfg.get("description")),
+        "description": (_ensure_shorts_description(youtube_cfg.get("description")) if youtube_cfg.get("format", "vertical") == "vertical" else (youtube_cfg.get("description") or "")),
         "privacy": youtube_cfg.get("privacy", "unlisted"),
         "tags": youtube_cfg.get("tags") or [],
         "category_id": youtube_cfg.get("category_id", "20"),
@@ -140,7 +140,8 @@ def upload_youtube(video: Path, youtube_cfg: dict[str, Any]) -> dict[str, Any]:
     )
     # Keep titles Shorts-friendly (YouTube soft-caps ~100 chars).
     title = title[:100]
-    description = _ensure_shorts_description(youtube_cfg.get("description"))
+    description = (_ensure_shorts_description(youtube_cfg.get("description"))
+                   if youtube_cfg.get("format", "vertical") == "vertical" else (youtube_cfg.get("description") or ""))
     privacy = (youtube_cfg.get("privacy") or "unlisted").lower().strip()
     if privacy not in {"private", "unlisted", "public"}:
         privacy = "unlisted"
@@ -183,5 +184,5 @@ def upload_youtube(video: Path, youtube_cfg: dict[str, Any]) -> dict[str, Any]:
         "id": video_id,
         "url": url,
         "watch_url": f"https://www.youtube.com/watch?v={video_id}",
-        "shorts_url": f"https://www.youtube.com/shorts/{video_id}",
+        "shorts_url": f"https://www.youtube.com/shorts/{video_id}" if youtube_cfg.get("format", "vertical") == "vertical" else None,
     }

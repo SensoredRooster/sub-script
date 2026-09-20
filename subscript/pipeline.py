@@ -8,7 +8,7 @@ from typing import Any
 
 from subscript.brand import apply_brand
 from subscript.buffer import BufferSource
-from subscript.captions import maybe_caption_vertical
+from subscript.captions import maybe_caption_vertical, maybe_caption_horizontal
 from subscript.clip import clip_last_seconds
 from subscript.music import maybe_mix_social_pair
 from subscript.queue import ReviewQueue
@@ -61,6 +61,7 @@ def run_pipeline(
     captioned = maybe_caption_vertical(
         vertical, out_dir, stamp, cfg, duration_s=float(seconds)
     )
+    horizontal = maybe_caption_horizontal(horizontal, out_dir, stamp, cfg)
 
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
     posts = generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt")

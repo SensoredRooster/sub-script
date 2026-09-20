@@ -33,9 +33,13 @@ class YouTubePublisher:
     def publish(self, path: Path, meta: PublishMeta) -> PublishResult:
         path = Path(path)
         yt = dict(self._yt)
+        yt["format"] = meta.extra.get("output_format", "vertical")
         if meta.extra.get("generated_copy"):
             # upload.py expands template braces; user/transcript braces are literal.
             yt.update(title_template=meta.title.replace("{", "{{").replace("}", "}}"), description=meta.description, tags=meta.tags)
+        if yt["format"] == "horizontal":
+            import re
+            yt["description"] = re.sub(r"(?i)#shorts\b", "", yt.get("description") or "").strip()
         if not self.enabled:
             payload = dry_run_upload(path, yt, self._out_dir)
             note = "youtube.enabled=false"

@@ -46,3 +46,13 @@ a{color:var(--accent)}
 .connection-attention .connection-badge{background:#3b301c;color:#ffdc91;border:1px solid #7d6330}
 .connection-delivery{font-size:.8rem;color:var(--muted)}
 .connection-panel>button{justify-self:start}
+
+/* Equal-width destination cards; expanded controls stay within their own tile. */
+.destination-grid{align-items:start;grid-template-columns:repeat(3,minmax(0,1fr))}
+.destination-grid .platform-card{min-width:0;min-height:100px}
+.destination-grid .platform-card-head{min-height:3rem}
+.destination-grid .platform-settings{min-width:0}
+.destination-grid .connection-summary{align-items:flex-start;flex-direction:column}
+.destination-grid .connection-panel{padding:.75rem}
+@media(max-width:1100px){.destination-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.destination-grid{grid-template-columns:1fr}}

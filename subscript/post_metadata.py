@@ -2,6 +2,7 @@
 from html import escape
 from pathlib import Path
 import re
+from subscript.output_formats import selected_format
 
 PLATFORMS = {"youtube": "YouTube", "tiktok": "TikTok", "instagram": "Instagram",
              "facebook": "Facebook", "twitter": "X / Twitter", "rumble": "Rumble"}
@@ -43,6 +44,9 @@ def generate_posts(cfg, srt: Path | None = None):
         "twitter": (hook, f"{hook}\n#{tags[0]}"),
         "rumble": (f"{game} | {hook}" if speech else hook, f"{gameplay_label} highlight.\n{hook}{credit}\n{hashes}"),
     }
+    if selected_format(cfg, "youtube") == "horizontal":
+        title, description = drafts["youtube"]
+        drafts["youtube"] = (title, description.replace(" #Shorts", ""))
     return {key: {"title": title[:95], "description": description[:260] if key == "twitter" else description[:1800],
                   "tags": tags, "basis": "Transcript excerpt + creator settings" if speech else "Creator settings only; no transcript available"}
             for key, (title, description) in drafts.items()}

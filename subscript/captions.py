@@ -359,3 +359,15 @@ def maybe_caption_vertical(
     except RuntimeError as exc:
         print(f"Caption burn skipped: {exc}")
         return None
+
+
+def maybe_caption_horizontal(horizontal: Path, out_dir: Path, stamp: str, cfg: dict[str, Any]) -> Path:
+    """Use the same timed captions for landscape; retain plain video on failure."""
+    srt = out_dir / f"clip-captions-{stamp}.srt"
+    if not captions_enabled(cfg) or not srt.is_file():
+        return horizontal
+    dest = out_dir / f"clip-horizontal-captioned-{stamp}.mp4"
+    try:
+        return burn_captions(horizontal, srt, dest)
+    except RuntimeError:
+        return horizontal

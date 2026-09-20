@@ -10,6 +10,7 @@ from urllib.parse import quote
 from fastapi import FastAPI, Form
 from fastapi.responses import RedirectResponse, JSONResponse
 from subscript.post_metadata import generate_posts, PLATFORMS
+from subscript.output_formats import FORMATS, selected_format
 
 from subscript.config import dry_run_forced, save_config
 from subscript.upload import client_secrets_path, token_path, get_youtube_credentials
@@ -96,6 +97,9 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
             f"{_checked(item.get('enabled'))}><span></span></label></div>"
             f'<div class="platform-settings" {"" if item.get("enabled") else "hidden"}>'
             f'<input type="hidden" name="{key}_mode" value="manual">'
+            f'<label>Output format<select name="{key}_format">' + ''.join(
+                f'<option value="{value}" {_selected(selected_format(cfg, key), value)}>{label}</option>'
+                for value, label in FORMATS[key].items()) + '</select></label>'
             '<p class="meta">Download-ready video and post copy. Upload the pack using your account on this platform. No account connection is needed in SubScript.</p></div></article>'
         )
 
@@ -110,6 +114,8 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
         .replace("{{TONE_PLAYFUL}}", _selected((cfg.get("post_copy") or {}).get("tone", "casual"), "playful"))
         .replace("{{YT_ENABLED}}", _checked(yt_enabled))
         .replace("{{YT_SETTINGS_HIDDEN}}", "" if yt_enabled else "hidden")
+        .replace("{{YT_FORMAT_VERTICAL}}", _selected(selected_format(cfg, "youtube"), "vertical"))
+        .replace("{{YT_FORMAT_HORIZONTAL}}", _selected(selected_format(cfg, "youtube"), "horizontal"))
         .replace("{{REVIEW_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "review"))
         .replace("{{AUTO_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "automatic"))
         .replace(
@@ -143,13 +149,13 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
 def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
     @app.post("/post-copy/preview")
     def preview_post_copy(copy_game: str = Form(""), copy_creator: str = Form(""),
-                          copy_tone: str = Form("casual"), platforms: str = Form("")):
+                          copy_tone: str = Form("casual"), platforms: str = Form(""), youtube_format: str = Form("vertical")):
         selected = [key for key in platforms.split(",") if key in PLATFORMS]
         if not selected:
             return JSONResponse({"error": "Turn on at least one destination below, then generate drafts."}, status_code=400)
         if copy_tone not in {"casual", "direct", "playful"}:
             return JSONResponse({"error": "Choose a supported voice."}, status_code=400)
-        posts = generate_posts({"post_copy": {"enabled": True, "game": copy_game[:60], "creator": copy_creator[:60], "tone": copy_tone}})
+        posts = generate_posts({"post_copy": {"enabled": True, "game": copy_game[:60], "creator": copy_creator[:60], "tone": copy_tone}, "platforms": {"youtube": {"format": youtube_format}}})
         return {"drafts": [{"platform": PLATFORMS[key], **posts[key]} for key in selected]}
 
     @app.post("/connections/youtube/connect")
@@ -162,6 +168,12 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
 
     @app.post("/publishing")
     def save_publishing(
+        youtube_format: str = Form("vertical"),
+        tiktok_format: str = Form("vertical"),
+        instagram_format: str = Form("vertical"),
+        facebook_format: str = Form("vertical"),
+        twitter_format: str = Form("vertical"),
+        rumble_format: str = Form("vertical"),
         copy_enabled: str | None = Form(None),
         copy_game: str = Form(""),
         copy_creator: str = Form(""),
@@ -186,6 +198,10 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         rumble_enabled: str | None = Form(None),
         rumble_mode: str = Form("manual"),
     ) -> RedirectResponse:
+        formats = dict(youtube=youtube_format, tiktok=tiktok_format, instagram=instagram_format,
+                       facebook=facebook_format, twitter=twitter_format, rumble=rumble_format)
+        if any(value not in FORMATS[key] for key, value in formats.items()):
+            return RedirectResponse("/?err=Unsupported%20output%20format", status_code=303)
         if publishing_mode not in {"review", "automatic"}:
             return RedirectResponse("/?err=Invalid%20publishing%20mode", status_code=303)
         if copy_tone not in {"casual", "direct", "playful"} or len(copy_game) > 60 or len(copy_creator) > 60:
@@ -212,7 +228,7 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         cfg["youtube"] = youtube
 
         platforms = dict(cfg.get("platforms") or {})
-        platforms["youtube"] = {"enabled": youtube["enabled"]}
+        platforms["youtube"] = {"enabled": youtube["enabled"], "format": youtube_format}
         incoming = {
             "tiktok": (tiktok_enabled, tiktok_mode),
             "instagram": (instagram_enabled, instagram_mode),
@@ -225,6 +241,7 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
             mode = "manual"
             current = dict(platforms.get(key) or {})
             current.update({"enabled": enabled is not None, "mode": mode})
+            current["format"] = formats[key]
             platforms[key] = current
         cfg["platforms"] = platforms
         review = dict(cfg.get("review") or {})
