@@ -9,7 +9,7 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 1. One-time setup (ask a friend if needed): install **Python 3.11+**, **ffmpeg** (`winget install ffmpeg`), then in this folder:
    ```bat
    python -m venv .venv
-   .venv\Scripts\pip install -r requirements.txt
+   .venv\\Scripts\\pip install -r requirements.txt
    copy config.example.yaml config.yaml
    ```
 2. **Double-click `run-app.bat`**.
@@ -52,11 +52,11 @@ CLI-only watch (no browser button):
 python -m subscript --watch
 ```
 
-Optional: `python -m subscript --watch --source path\to\replay.mp4`
+Optional: `python -m subscript --watch --source path\\to\\replay.mp4`
 
 ## What Approve does now
 
-Hitting **Approve as-is** (or approving after a trim) builds a **social export pack** under `out\approved\<id>\`:
+Hitting **Approve as-is** (or approving after a trim) builds a **social export pack** under `out\\approved\\<id>\\`:
 
 | File | Purpose |
 |------|---------|
@@ -68,12 +68,43 @@ Hitting **Approve as-is** (or approving after a trim) builds a **social export p
 
 The folder opens automatically so you can drag files into each app. Captions use ffmpeg + a generated SRT (no Whisper) so Windows / Python 3.14 stays reliable. Toggle with `captions.enabled` in `config.yaml`.
 
-**YouTube:** if `youtube.enabled` is `true` in `config.yaml`, Approve also uploads `vertical_captioned.mp4` (falls back to `vertical.mp4`) as a Short and shows the YouTube link on the success banner. If `youtube.enabled` is `false` (default), Approve only saves the local pack — safe for testing.
+**Platforms:** enabled entries under `platforms:` (and/or `youtube.enabled`) fan out on Approve — YouTube can live-upload; others build `for_<platform>/` packs. See **Platform checklist**. If `youtube.enabled` / `platforms.youtube.enabled` is `true`, Approve also uploads `vertical_captioned.mp4` (falls back to `vertical.mp4`) as a Short and shows the YouTube link on the success banner. If `youtube.enabled` is `false` (default), Approve only saves the local pack — safe for testing.
 
 Smoke test:
 
 ```bat
-python scripts\smoke_captions.py
+python scripts\\smoke_captions.py
+```
+
+## Platform checklist
+
+Approve can fan out to multiple platforms via `subscript/publish/`. **YouTube is the only live API by default.**
+
+| Platform | Config flag | Default | What happens when enabled |
+|----------|-------------|---------|---------------------------|
+| **YouTube Shorts** | `youtube.enabled` **or** `platforms.youtube.enabled` | `false` | Live OAuth upload (see **Connect YouTube**) |
+| **TikTok** | `platforms.tiktok.enabled` | `false` | Copies clip to `out/approved/<id>/for_tiktok/` + `POST_INSTRUCTIONS.txt` (`mode: manual`) |
+| **Instagram** | `platforms.instagram.enabled` | `false` | Same pattern → `for_instagram/` |
+| **Facebook** | `platforms.facebook.enabled` | `false` | Same pattern → `for_facebook/` |
+| **X (Twitter)** | `platforms.twitter.enabled` | `false` | Same pattern → `for_twitter/` |
+| **Rumble** | `platforms.rumble.enabled` | `false` | Same pattern → `for_rumble/` |
+
+**Fail-soft:** if one platform errors, Approve still finishes and the banner lists per-platform status (`uploaded` / `manual` / `error` / `not_configured`).
+
+**API stubs:** set `platforms.<name>.mode: api` to exercise the live-API path early — it raises `NotConfiguredError` with enablement steps until credentials are wired.
+
+Example — manual TikTok + IG packs on every Approve (YouTube still off):
+
+```yaml
+platforms:
+  youtube:
+    enabled: false
+  tiktok:
+    enabled: true
+    mode: manual
+  instagram:
+    enabled: true
+    mode: manual
 ```
 
 ## Connect YouTube (optional)
@@ -96,7 +127,7 @@ Do this once when you want Approve to publish Shorts for real. Leave `youtube.en
    ```
 6. Restart the app (`run-app.bat`). Make a clip → **Approve**.  
    The first time, your browser opens a Google login — allow access. sub-script saves **`token.json`** (gitignored) so you are not asked again.
-7. After a successful upload, the home page banner shows the YouTube URL (and still opens `out\approved\<id>\`).
+7. After a successful upload, the home page banner shows the YouTube URL (and still opens `out\\approved\\<id>\\`).
 
 If secrets are missing, Approve still saves the local pack and shows a clear error (no silent failure).
 
@@ -117,17 +148,17 @@ Same engine; use when you prefer the terminal.
 Produce a clip into the review queue (last 30 seconds by default):
 
 ```bat
-python -m subscript --source test-clips\\your.mp4
+python -m subscript --source test-clips\\\\your.mp4
 ```
 
 Clip a specific highlight (`--start` + `--duration`; seconds or `HH:MM:SS`):
 
 ```bat
-python -m subscript --source test-clips\\vod.mp4 --start 3720 --duration 45
+python -m subscript --source test-clips\\\\vod.mp4 --start 3720 --duration 45
 ```
 
 ```bat
-python -m subscript --source test-clips\\vod.mp4 --start 1:02:00 --duration 00:00:45
+python -m subscript --source test-clips\\\\vod.mp4 --start 1:02:00 --duration 00:00:45
 ```
 
 Open the app / review UI without the bat file:
@@ -145,7 +176,7 @@ python -m subscript --watch
 ```
 
 ```bat
-python -m subscript --watch --source path\\to\\buffer-export.mp4
+python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 ```
 
 ## Setup details (Windows-friendly)
@@ -162,7 +193,7 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 
    ```bat
    python -m venv .venv
-   .venv\Scripts\activate
+   .venv\\Scripts\\activate
    pip install -r requirements.txt
    copy .env.example .env
    copy config.example.yaml config.yaml
@@ -178,7 +209,7 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 |---------|------------|
 | `ffmpeg not found` | Install via winget/choco, reopen the terminal |
 | `config.yaml not found` | `copy config.example.yaml config.yaml` (or just run `run-app.bat`) |
-| `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\` |
+| `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\\\` |
 | Live hotkey: no source | Set `live_source` or `watch_folder` in `config.yaml` |
 | Live hotkey did nothing | Click **Start watcher** on the Live card; leave `run-app.bat` open |
 | Empty review list | Use **Make clip** or fire the live hotkey, then wait for reload |
@@ -190,13 +221,14 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 
 1. Hotkey / file clip + brand + review gate (approve / trim / reject)
 2. Desktop app home: drop VOD -> clip -> review *(shipped)*
-3. Live hotkey → OBS replay / watch folder → auto enqueue *(this PR)*
+3. Live hotkey → OBS replay / watch folder → auto enqueue *(shipped)*
 4. Next: VOD auto chapter/cut suggestions
 5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(shipped)*
 6. YouTube Shorts upload on Approve (OAuth) *(shipped)*
-7. Later: Whisper / real transcript captions; music bed
-8. Later: Warzone kill-feed OCR for fully hands-off detection
-9. Later: package as `.exe` (PyInstaller) from `run-app.bat`
+7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(this PR)*
+8. Later: Whisper / real transcript captions; music bed
+9. Later: Warzone kill-feed OCR for fully hands-off detection
+10. Later: package as `.exe` (PyInstaller) from `run-app.bat`
 
 ## License
 
