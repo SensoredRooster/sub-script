@@ -28,6 +28,9 @@ from subscript.upload import dry_run_upload, upload_youtube
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 _STATIC = Path(__file__).resolve().parent / "static"
 _SNIPPETS = _STATIC / "snippets"
+_YT_URL_RE = re.compile(
+    r"https://(?:youtu\.be/[\w\-]+|www\.youtube\.com/(?:watch\?v=|shorts/)[\w\-]+)"
+)
 
 
 def _snip(name: str) -> str:
@@ -83,6 +86,14 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             banner = f'<p class="banner bad-banner">{_esc(err)}</p>'
         elif msg:
             banner = f'<p class="banner ok-banner">{_esc(msg)}</p>'
+            m = _YT_URL_RE.search(msg)
+            if m:
+                url = m.group(0)
+                banner += (
+                    f'<p class="banner ok-banner">'
+                    f'<a href="{_esc(url)}" target="_blank" rel="noopener">'
+                    f"Open on YouTube</a></p>"
+                )
         form = _snip("clip_form.html").replace("{{DEFAULT_SECONDS}}", str(default_seconds))
         branding = branding_html(cfg.get("brand") or {}, _snip)
         body = form + branding + banner + f'<section id="review">{review}</section>'
@@ -171,18 +182,36 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             or item.edited_path
             or item.video_path
         )
-        _do_upload(upload_src, cfg, out_dir)
-        queue.set_status(item_id, "approved")
         folder = str(out_dir / "approved" / item_id)
         n = len(meta.get("files") or [])
-        return RedirectResponse(
-            "/?msg="
-            + quote(
-                f"Approved - social pack ({n} file(s)) saved to {folder} (folder opened).",
-                safe="",
-            ),
-            status_code=303,
-        )
+        try:
+            result = _do_upload(upload_src, cfg, out_dir)
+        except Exception as exc:  # noqa: BLE001
+            queue.set_status(item_id, "approved")
+            return RedirectResponse(
+                "/?err="
+                + quote(
+                    f"Saved pack to {folder} (folder opened), "
+                    f"but YouTube upload failed: {exc}",
+                    safe="",
+                ),
+                status_code=303,
+            )
+
+        if result.get("dry_run"):
+            queue.set_status(item_id, "approved")
+            msg = (
+                f"Approved - social pack ({n} file(s)) saved to {folder} "
+                f"(folder opened). YouTube skipped (youtube.enabled=false)."
+            )
+        else:
+            queue.set_status(item_id, "uploaded")
+            url = result.get("url") or result.get("shorts_url") or ""
+            msg = (
+                f"Approved - uploaded to YouTube: {url} — "
+                f"also saved pack ({n} file(s)) to {folder} (folder opened)."
+            )
+        return RedirectResponse("/?msg=" + quote(msg, safe=""), status_code=303)
 
     @app.post("/items/{item_id}/trim")
     def trim_and_approve(
@@ -265,20 +294,19 @@ async def _resolve_source(
     return dest.resolve()
 
 
-def _do_upload(video: Path, cfg: dict[str, Any], out_dir: Path) -> None:
+def _do_upload(video: Path, cfg: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     yt = cfg.get("youtube") or {}
     if yt.get("enabled"):
-        upload_youtube(video, yt)
-    else:
-        dry_run_upload(video, yt, out_dir)
+        return upload_youtube(video, yt)
+    return dry_run_upload(video, yt, out_dir)
 
 
 def _esc(value: str) -> str:
     return (
-        value.replace("&", "&")
-        .replace("<", "<")
-        .replace(">", ">")
-        .replace('"', """)
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )
 
 
@@ -299,6 +327,11 @@ def main() -> None:
     print("  Opening that URL in your browser...")
     if pending:
         print(f"  Pending clips: {len(pending)}")
+    yt = cfg.get("youtube") or {}
+    if yt.get("enabled"):
+        print("  YouTube upload: ON (Approve will upload Shorts)")
+    else:
+        print("  YouTube upload: off (Approve saves local pack only)")
     print("  Leave this window open while you use the app.")
     print()
 
