@@ -85,8 +85,8 @@ def publish_local(
         "files": saved,
         "platforms": _PLATFORMS,
         "note": (
-            "Saved locally. Social upload (YouTube/TikTok/IG/X/Rumble/FB) "
-            "hooks in next - Approve packs these same files for each platform."
+            "Saved locally. When youtube.enabled is true, Approve also uploads "
+            "vertical_captioned.mp4 (or vertical.mp4) as a YouTube Short."
         ),
     }
     (approved / "manifest.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
