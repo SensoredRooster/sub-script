@@ -225,7 +225,7 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 4. Next: VOD auto chapter/cut suggestions
 5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(shipped)*
 6. YouTube Shorts upload on Approve (OAuth) *(shipped)*
-7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(this PR)*
+7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(shipped)*
 8. Later: Whisper / real transcript captions; music bed
 9. Later: Warzone kill-feed OCR for fully hands-off detection
 10. Windows `.exe` onedir + ffmpeg-beside-app packaging *(this PR)* — see [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)
