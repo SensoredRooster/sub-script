@@ -1,6 +1,6 @@
 # sub-script
 
-Hotkey / VOD clip → brand → **review gate** → YouTube Shorts.
+Hotkey / VOD clip -> brand -> **review gate** -> YouTube Shorts.
 
 Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
@@ -14,21 +14,41 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
    ```
 2. **Double-click `run-app.bat`**.
 3. Your browser opens to **http://127.0.0.1:8787**.
-4. Drop a VOD (or Choose file) → leave **Last 30 seconds** (or pick custom start + length) → **Make clip**.
-5. Preview the clip → **Approve as-is** / **Trim & approve** / **Reject**.
+4. Drop a VOD (or Choose file) -> leave **Last 30 seconds** (or pick custom start + length) -> **Make clip**.
+5. Preview the clip -> **Approve as-is** / **Trim & approve** / **Reject**.
 
-**Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, hit **Save**. That writes `assets/logo.png` and updates `config.yaml` so every future Make clip auto-brands — no folder hunting.
+**Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, hit **Save**. That writes `assets/logo.png` and updates `config.yaml` so every future Make clip auto-brands - no folder hunting.
 
-Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you’re done.
+Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you're done.
 
 > Later this launcher becomes a single `.exe`. For now, `run-app.bat` is the one-click start.
+
+## What Approve does now
+
+Hitting **Approve as-is** (or approving after a trim) builds a **social export pack** under `out\approved\<id>\`:
+
+| File | Purpose |
+|------|---------|
+| `horizontal.mp4` | 16:9 landscape |
+| `vertical.mp4` | 9:16 Shorts / TikTok / Reels |
+| `vertical_captioned.mp4` | Same vertical with burned-in demo captions (`Clip | SUB`) when `captions.enabled` is true |
+| `PLATFORMS.txt` | Checklist: YouTube Shorts, TikTok, IG Reels, Facebook, X, Rumble |
+| `manifest.json` | Metadata for future upload hooks |
+
+The folder opens automatically so you can drag files into each app. Captions use ffmpeg + a generated SRT (no Whisper) so Windows / Python 3.14 stays reliable. Toggle with `captions.enabled` in `config.yaml`.
+
+Smoke test:
+
+```bat
+python scripts\smoke_captions.py
+```
 
 ## Product shape
 
 | Mode | What it does |
 |------|----------------|
-| **App** | Drop a VOD in the browser → clip → same review queue |
-| **Live** | Hotkey grabs the last ~30s from a buffer/export → brand → review queue |
+| **App** | Drop a VOD in the browser -> clip -> same review queue |
+| **Live** | Hotkey grabs the last ~30s from a buffer/export -> brand -> review queue |
 | **Review** | Local UI: watch clip, approve, quick trim, or reject |
 
 ## Builder / CLI (optional)
@@ -97,18 +117,19 @@ python -m subscript --watch --source path\\to\\buffer-export.mp4
 | `config.yaml not found` | `copy config.example.yaml config.yaml` (or just run `run-app.bat`) |
 | `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\` |
 | Empty review list | Use **Make clip** above the list, then wait for the page to reload |
-| Browser didn’t open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
+| Browser didn't open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
 
 ## Roadmap
 
 1. Hotkey / file clip + brand + review gate (approve / trim / reject)
-2. Desktop app home: drop VOD → clip → review *(this PR)*
+2. Desktop app home: drop VOD -> clip -> review *(shipped)*
 3. Next: real OBS/replay rolling buffer
 4. Next: VOD auto chapter/cut suggestions
-5. Later: music bed + captions on the review item
-6. Later: Warzone kill-feed OCR for fully hands-off detection
-7. Later: package as `.exe` (PyInstaller) from `run-app.bat`
+5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(this PR)*
+6. Later: Whisper / real transcript captions; music bed
+7. Later: Warzone kill-feed OCR for fully hands-off detection
+8. Later: package as `.exe` (PyInstaller) from `run-app.bat`
 
 ## License
 
-Private — SensoredRooster.
+Private - SensoredRooster.
