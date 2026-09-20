@@ -32,8 +32,12 @@ class YouTubePublisher:
 
     def publish(self, path: Path, meta: PublishMeta) -> PublishResult:
         path = Path(path)
+        yt = dict(self._yt)
+        if meta.extra.get("generated_copy"):
+            # upload.py expands template braces; user/transcript braces are literal.
+            yt.update(title_template=meta.title.replace("{", "{{").replace("}", "}}"), description=meta.description, tags=meta.tags)
         if not self.enabled:
-            payload = dry_run_upload(path, self._yt, self._out_dir)
+            payload = dry_run_upload(path, yt, self._out_dir)
             note = "youtube.enabled=false"
             if dry_run_forced():
                 note += " (forced by SUB_SCRIPT_DRY_RUN)"
@@ -45,7 +49,7 @@ class YouTubePublisher:
                 detail=payload,
             )
         try:
-            result = upload_youtube(path, self._yt)
+            result = upload_youtube(path, yt)
         except Exception as exc:  # noqa: BLE001
             return PublishResult(
                 platform="YouTube",

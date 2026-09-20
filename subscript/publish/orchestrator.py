@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
+import json
 from typing import Any
 
 from subscript.publish.base import NotConfiguredError, PublishMeta, PublishResult, Publisher
@@ -34,11 +36,17 @@ def run_enabled_publishers(
 ) -> list[PublishResult]:
     """Publish to every enabled platform. Never raises — one failure cannot abort Approve."""
     results: list[PublishResult] = []
+    drafts = meta.extra.get("post_metadata") or {}
+    if drafts:
+        meta.approved_dir.mkdir(parents=True, exist_ok=True)
+        (meta.approved_dir / "post-copy.json").write_text(json.dumps(drafts, indent=2, ensure_ascii=False), encoding="utf-8")
     for pub in build_publishers(cfg, out_dir):
         if not pub.enabled:
             continue
         try:
-            results.append(pub.publish(path, meta))
+            draft = drafts.get(pub.name)
+            platform_meta = replace(meta, title=draft["title"], description=draft["description"], tags=draft["tags"], extra={**meta.extra, "generated_copy": True}) if draft else meta
+            results.append(pub.publish(path, platform_meta))
         except NotConfiguredError as exc:
             results.append(
                 PublishResult(

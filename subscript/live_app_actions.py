@@ -20,6 +20,7 @@ from subscript.publish import (
 from subscript.publish.youtube import youtube_live_enabled
 from subscript.reframe import make_social_pair
 from subscript.trim import trim_clip
+from subscript.post_metadata import PLATFORMS, generate_posts
 
 
 def _redirect_err(message: str) -> RedirectResponse:
@@ -31,6 +32,23 @@ def _redirect_ok(message: str) -> RedirectResponse:
 
 
 def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None:
+    @app.post("/items/{item_id}/post-copy")
+    def save_post_copy(item_id: str, platform: str = Form(...), title: str = Form(...),
+                       description: str = Form(""), tags: str = Form("")):
+        item = queue.get(item_id)
+        if not item:
+            raise HTTPException(404)
+        if item.status != "pending":
+            return _redirect_err("Only pending clips can be edited.")
+        if platform not in PLATFORMS or not title.strip() or len(title) > 95 or len(description) > (260 if platform == "twitter" else 1800):
+            return _redirect_err("Check the platform, title, and description lengths.")
+        parsed_tags = list(dict.fromkeys(t.strip().lstrip("#") for t in tags.split(",") if t.strip().lstrip("#")))
+        if len(parsed_tags) > 15 or sum(len(t) for t in parsed_tags) > 350:
+            return _redirect_err("Use at most 15 tags and 350 tag characters.")
+        item.post_metadata[platform] = {"title": title.strip(), "description": description.strip(), "tags": parsed_tags, "basis": "Edited by you"}
+        queue.update(item)
+        return RedirectResponse("/?msg=Post%20draft%20saved.#review", status_code=303)
+
     @app.post("/items/{item_id}/approve")
     def approve(item_id: str) -> RedirectResponse:
         item = queue.get(item_id)
@@ -75,6 +93,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             approved_dir=approved_dir,
             description=(cfg.get("youtube") or {}).get("description") or "",
             tags=list((cfg.get("youtube") or {}).get("tags") or []),
+            extra={"post_metadata": item.post_metadata},
         )
         results = run_enabled_publishers(upload_src, publish_meta, cfg, out_dir)
         platform_banner = format_platform_banner(results)
@@ -152,6 +171,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             horizontal_path=str(horizontal),
             vertical_path=str(vertical),
             vertical_captioned_path=str(captioned) if captioned else None,
+            post_metadata=generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt"),
         )
         return _redirect_ok(
             "Trimmed - new horizontal + vertical (+ captioned) previews ready. "

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -27,6 +27,7 @@ class QueueItem:
     horizontal_path: str | None = None
     vertical_path: str | None = None
     vertical_captioned_path: str | None = None
+    post_metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -71,6 +72,7 @@ class ReviewQueue:
         horizontal_path: Path | None = None,
         vertical_path: Path | None = None,
         vertical_captioned_path: Path | None = None,
+        post_metadata: dict[str, Any] | None = None,
     ) -> QueueItem:
         data = self._read()
         item = QueueItem(
@@ -79,6 +81,7 @@ class ReviewQueue:
             source_path=str(source_path),
             created_at=datetime.now(timezone.utc).isoformat(),
             title=title or video_path.stem,
+            post_metadata=post_metadata or {},
             horizontal_path=str(horizontal_path) if horizontal_path else None,
             vertical_path=str(vertical_path) if vertical_path else None,
             vertical_captioned_path=(

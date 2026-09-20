@@ -44,6 +44,11 @@ def manual_handoff(
 
     instructions_path = dest_dir / "POST_INSTRUCTIONS.txt"
     instructions_path.write_text(instructions.strip() + "\n", encoding="utf-8")
+    if meta.extra.get("generated_copy"):
+        (dest_dir / "POST_COPY.txt").write_text(
+            f"TITLE\n{meta.title}\n\nDESCRIPTION / CAPTION\n{meta.description}\n\nTAGS\n{', '.join(meta.tags)}\n",
+            encoding="utf-8",
+        )
 
     return PublishResult(
         platform=display_name,

@@ -64,6 +64,12 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
 
     return (
         snip("publishing.html")
+        .replace("{{COPY_ENABLED}}", _checked((cfg.get("post_copy") or {}).get("enabled", True)))
+        .replace("{{COPY_GAME}}", escape(str((cfg.get("post_copy") or {}).get("game") or ""), quote=True))
+        .replace("{{COPY_CREATOR}}", escape(str((cfg.get("post_copy") or {}).get("creator") or ""), quote=True))
+        .replace("{{TONE_CASUAL}}", _selected((cfg.get("post_copy") or {}).get("tone", "casual"), "casual"))
+        .replace("{{TONE_DIRECT}}", _selected((cfg.get("post_copy") or {}).get("tone", "casual"), "direct"))
+        .replace("{{TONE_PLAYFUL}}", _selected((cfg.get("post_copy") or {}).get("tone", "casual"), "playful"))
         .replace("{{YT_ENABLED}}", _checked(yt_enabled))
         .replace("{{REVIEW_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "review"))
         .replace("{{AUTO_SELECTED}}", _selected("review" if (cfg.get("review") or {}).get("require_approval", True) else "automatic", "automatic"))
@@ -110,6 +116,10 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
 def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
     @app.post("/publishing")
     def save_publishing(
+        copy_enabled: str | None = Form(None),
+        copy_game: str = Form(""),
+        copy_creator: str = Form(""),
+        copy_tone: str = Form("casual"),
         publishing_mode: str = Form("review"),
         youtube_enabled: str | None = Form(None),
         youtube_privacy: str = Form("unlisted"),
@@ -132,6 +142,8 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
     ) -> RedirectResponse:
         if publishing_mode not in {"review", "automatic"}:
             return RedirectResponse("/?err=Invalid%20publishing%20mode", status_code=303)
+        if copy_tone not in {"casual", "direct", "playful"} or len(copy_game) > 60 or len(copy_creator) > 60:
+            return RedirectResponse("/?err=Invalid%20post%20writing%20settings", status_code=303)
         privacy = youtube_privacy.strip().lower()
         if privacy not in {"private", "unlisted", "public"}:
             return RedirectResponse(
@@ -173,6 +185,7 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         review = dict(cfg.get("review") or {})
         review["require_approval"] = publishing_mode != "automatic"
         cfg["review"] = review
+        cfg["post_copy"] = {"enabled": copy_enabled is not None, "game": copy_game.strip(), "creator": copy_creator.strip(), "tone": copy_tone}
         save_config(cfg)
         return RedirectResponse(
             "/?msg=" + quote("Publishing destinations saved.") + "#publish",

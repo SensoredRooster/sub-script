@@ -1,5 +1,13 @@
 # SubScript starter identity
 
+## Platform post writing
+
+Publish > Post writing controls local draft generation for new clips. Set a game/topic, creator name, and voice, then save publishing settings. Each new clip stores separate YouTube, TikTok, Instagram, Facebook, X, and Rumble titles, descriptions, and tags. Review clips expose editable drafts; save each edited platform before approving. Trimming regenerates drafts for the new cut and replaces earlier edits.
+
+The generator uses deterministic templates and real SRT text from the existing caption pipeline. Demo captions are excluded. If transcription is disabled or unavailable, the copy uses only creator settings and is labeled accordingly. This version does not infer visual events, consult trends, scrape platforms, or call an AI service. Voice affects conversational prompts; tags come from the game/topic and general gaming labels.
+
+YouTube uses the saved draft during upload. Manual platform folders include POST_COPY.txt, and the parent export pack includes post-copy.json. Automatic publishing uses generated drafts without review. Existing clips without drafts retain their previous publishing behavior. Disabling generation applies to new clips only.
+
 The studio uses warm white (#f3f4ec), ink green (#101714), and lime (#b9f36b), with system sans-serif typography. Keep lime for primary actions and helpful emphasis.
 
 - `subscript/static/brand-mark.svg`: scalable studio icon and favicon.

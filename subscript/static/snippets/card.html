@@ -13,6 +13,7 @@
     </div>
   </div>
   <p class="meta">{{TRIM_NOTE}}Approve saves everything into <code>out\approved\{{ID}}\</code> and opens that folder.</p>
+  {{POST_COPY}}
   <div class="review-actions"><form class="actions trim-actions" method="post" action="/items/{{ID}}/trim">
     <label>Start (s) <input name="start" type="number" step="0.1" min="0" value="0" required></label>
     <label>End (s) <input name="end" type="number" step="0.1" min="0.1" value="{{TRIM_END}}" required></label>

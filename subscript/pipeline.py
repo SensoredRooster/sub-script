@@ -12,6 +12,7 @@ from subscript.captions import maybe_caption_vertical
 from subscript.clip import clip_last_seconds
 from subscript.music import maybe_mix_social_pair
 from subscript.queue import ReviewQueue
+from subscript.post_metadata import generate_posts
 from subscript.reframe import make_social_pair
 
 
@@ -62,6 +63,7 @@ def run_pipeline(
     )
 
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
+    posts = generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt")
     if require_approval:
         queue = ReviewQueue(out_dir / "review-queue.json")
         item = queue.enqueue(
@@ -71,6 +73,7 @@ def run_pipeline(
             horizontal_path=horizontal,
             vertical_path=vertical,
             vertical_captioned_path=captioned,
+            post_metadata=posts,
         )
         host = (cfg.get("review") or {}).get("host", "127.0.0.1")
         port = int((cfg.get("review") or {}).get("port", 8787))
@@ -98,7 +101,7 @@ def run_pipeline(
     queue = ReviewQueue(out_dir / "review-queue.json")
     item = queue.enqueue(branded, src, title=f"Highlight {stamp}",
                          horizontal_path=horizontal, vertical_path=vertical,
-                         vertical_captioned_path=captioned)
+                         vertical_captioned_path=captioned, post_metadata=posts)
     publish_local(item_id=item.id, title=item.title, out_dir=out_dir,
                   master=branded, horizontal=horizontal, vertical=vertical,
                   vertical_captioned=captioned, open_folder=False)
@@ -106,7 +109,7 @@ def run_pipeline(
     yt = cfg.get("youtube") or {}
     meta = PublishMeta(item_id=item.id, title=item.title, out_dir=out_dir,
                        approved_dir=approved_dir, description=yt.get("description") or "",
-                       tags=list(yt.get("tags") or []))
+                       tags=list(yt.get("tags") or []), extra={"post_metadata": posts})
     results = run_enabled_publishers(
         captioned or vertical, meta, apply_env_overrides(deepcopy(cfg)), out_dir
     )

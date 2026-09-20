@@ -25,6 +25,7 @@ from subscript.live_ui import live_card_html, register_live_routes
 from subscript.pipeline import run_pipeline
 from subscript.publishing_routes import publishing_html, register_publishing_routes
 from subscript.queue import ReviewQueue
+from subscript.post_metadata import editor_html
 from subscript.runtime_paths import find_ffmpeg
 
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
@@ -107,6 +108,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             rows.append(
                 card_tpl.replace("{{ID}}", _esc(item.id))
                 .replace("{{TITLE}}", _esc(item.title))
+                .replace("{{POST_COPY}}", editor_html(item))
                 .replace("{{CREATED}}", _esc(item.created_at))
                 .replace("{{VERT_VARIANT}}", vert_variant)
                 .replace("{{VERT_LABEL}}", vert_label)
