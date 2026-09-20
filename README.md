@@ -17,7 +17,7 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 4. Drop a VOD (or Choose file) -> leave **Auto highlights** checked to get loud-moment chips (or **Last 30 seconds** / custom start + length) -> click a chip or **Make clip**.
 5. Preview the clip -> **Approve as-is** / **Trim & approve** / **Reject**.
 
-**Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, hit **Save**. That writes `assets/logo.png` and updates `config.yaml` so every future Make clip auto-brands - no folder hunting.
+**Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, and use the **Captions** / **Music bed** toggles (engine + optional MP3). **Save** writes `assets/` + `config.yaml` so every future Make clip picks them up.
 
 Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you're done.
 
@@ -37,6 +37,44 @@ Smoke test (synthetic quiet/loud/quiet audio):
 
 ```bat
 python scripts\\smoke_highlights.py
+```
+
+## Captions & music bed
+
+### Captions (demo or optional Whisper)
+
+Vertical exports can burn timed captions:
+
+| `captions.engine` | Behavior |
+|-------------------|----------|
+| `auto` (default) | Use **faster-whisper** when installed; otherwise demo SRT (`Clip | SUB`) |
+| `demo` | Always placeholder SRT |
+| `whisper` | Prefer STT; **fail-soft** to demo if missing or errors |
+
+Whisper is **optional** — not in `requirements.txt`. To enable real speech captions:
+
+```bat
+pip install -r requirements-whisper.txt
+```
+
+Toggle in the app (**Branding** → Captions) or set `captions.enabled` / `captions.engine` in `config.yaml`.
+
+Smoke:
+
+```bat
+python scripts\\smoke_captions.py
+```
+
+### Music bed (optional, quiet)
+
+If `assets/music.mp3` exists (or `music.path`) and `music.enabled` is true, sub-script mixes a **low-volume** bed under **horizontal + vertical** via ffmpeg `amix` (default volume `0.10`, clamped to ~0.01–0.35 so game audio stays clear). Missing file or mix errors → skip (fail-soft).
+
+Upload an MP3 from the app **Branding** → Music bed, or drop the file in `assets/`.
+
+Smoke:
+
+```bat
+python scripts\\smoke_music.py
 ```
 
 ## Live mode (hotkey while you stream)
@@ -82,7 +120,7 @@ Hitting **Approve as-is** (or approving after a trim) builds a **social export p
 | `PLATFORMS.txt` | Checklist: YouTube Shorts, TikTok, IG Reels, Facebook, X, Rumble |
 | `manifest.json` | Metadata for future upload hooks |
 
-The folder opens automatically so you can drag files into each app. Captions use ffmpeg + a generated SRT (no Whisper) so Windows / Python 3.14 stays reliable. Toggle with `captions.enabled` in `config.yaml`.
+The folder opens automatically so you can drag files into each app. Captions use ffmpeg + SRT: **demo** by default, or **real timed STT** when `faster-whisper` is installed (`captions.engine: auto|demo|whisper`). Optional music bed mixes under H+V at low volume when `assets/music.mp3` exists. Toggle captions + music in the app **Branding** card (or `config.yaml`).
 
 **Platforms:** enabled entries under `platforms:` (and/or `youtube.enabled`) fan out on Approve — YouTube can live-upload; others build `for_<platform>/` packs. See **Platform checklist**. If `youtube.enabled` / `platforms.youtube.enabled` is `true`, Approve also uploads `vertical_captioned.mp4` (falls back to `vertical.mp4`) as a Short and shows the YouTube link on the success banner. If `youtube.enabled` is `false` (default), Approve only saves the local pack — safe for testing.
 
@@ -230,6 +268,8 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 | Live hotkey did nothing | Click **Start watcher** on the Live card; leave `run-app.bat` open |
 | Empty review list | Use **Make clip** or fire the live hotkey, then wait for reload |
 | Browser didn't open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
+| Want real speech captions | `pip install -r requirements-whisper.txt` then set engine Auto/Whisper in Branding |
+| No music under clips | Upload MP3 in Branding or add `assets/music.mp3`; check Music bed enabled |
 | YouTube secrets missing | Follow **Connect YouTube**; put OAuth JSON at `credentials.json` |
 | YouTube login every time | Ensure `token.json` is writable in the project folder (not deleted) |
 
@@ -238,11 +278,11 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 1. Hotkey / file clip + brand + review gate (approve / trim / reject)
 2. Desktop app home: drop VOD -> clip -> review *(shipped)*
 3. Live hotkey → OBS replay / watch folder → auto enqueue *(shipped)*
-4. VOD auto highlights (loudness peaks → chip suggestions) *(this PR)*
-5. Captions burn-in on vertical (demo SRT) + social export pack on Approve *(shipped)*
+4. VOD auto highlights (loudness peaks → chip suggestions) *(shipped)*
+5. Captions burn-in on vertical (demo SRT / optional Whisper) + social export pack on Approve *(shipped)*
 6. YouTube Shorts upload on Approve (OAuth) *(shipped)*
 7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(shipped)*
-8. Later: Whisper / real transcript captions; music bed
+8. Optional Whisper captions + quiet music bed *(this PR)*
 9. Later: Warzone kill-feed OCR for fully hands-off detection
 10. Windows `.exe` onedir + ffmpeg-beside-app packaging *(shipped)* — see [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)
 11. Later: Inno Setup installer wrapping `dist\\SubScript\\`

@@ -16,7 +16,10 @@ client_secret*.json
 client_secrets.json
 assets/logo.png
 assets/*.png
+assets/music.mp3
+assets/music.*
 !assets/.gitkeep
+!assets/README.md
 
 # PyInstaller / Windows packaging
 build/

@@ -1,4 +1,4 @@
-"""Orchestrate clip -> brand -> horizontal/vertical -> captions -> review queue."""
+"""Orchestrate clip -> brand -> horizontal/vertical -> music -> captions -> review queue."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from subscript.brand import apply_brand
 from subscript.buffer import BufferSource
 from subscript.captions import maybe_caption_vertical
 from subscript.clip import clip_last_seconds
+from subscript.music import maybe_mix_social_pair
 from subscript.queue import ReviewQueue
 from subscript.reframe import make_social_pair
 
@@ -48,7 +49,12 @@ def run_pipeline(
         landscape_h=land_h,
     )
 
-    # Captions after H+V reframe (demo SRT - no Whisper)
+    # Optional music bed under both social exports (skip if missing / disabled).
+    horizontal, vertical = maybe_mix_social_pair(
+        horizontal, vertical, out_dir, stamp, cfg
+    )
+
+    # Captions after H+V (+ music): whisper when available, else demo SRT.
     captioned = maybe_caption_vertical(
         vertical, out_dir, stamp, cfg, duration_s=float(seconds)
     )

@@ -243,3 +243,38 @@ code { color: var(--accent); font-size: 0.85em; }
   color: #e6c35c;
 }
 .highlights-panel .warn { color: #e6c35c; margin: 0; }
+
+
+/* Captions & music toggles in Branding card */
+.brand-divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0.25rem 0;
+}
+.brand-subhead {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.check-row input { width: auto; max-width: none; }
+.brand-form select {
+  background: #0f1115;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  width: 100%;
+  max-width: 28rem;
+}
+.brand-form input[type="range"] {
+  width: 100%;
+  max-width: 14rem;
+  accent-color: var(--accent);
+}

@@ -28,6 +28,39 @@
         <input name="margin_px" type="number" min="0" max="200" step="1" value="{{MARGIN}}">
       </label>
     </div>
+
+    <hr class="brand-divider">
+    <h3 class="brand-subhead">Captions</h3>
+    <p class="meta">Burn timed text on the vertical export. Whisper uses optional <code>faster-whisper</code>; otherwise demo SRT.</p>
+    <label class="check-row">
+      <input type="checkbox" name="captions_enabled" value="1" id="captions-enabled" {{CAPS_ENABLED}}>
+      Burn captions on vertical
+    </label>
+    <label>Engine
+      <select name="captions_engine" id="captions-engine">
+        <option value="auto" {{ENG_AUTO}}>Auto (Whisper if installed, else demo)</option>
+        <option value="demo" {{ENG_DEMO}}>Demo only (“Clip | SUB”)</option>
+        <option value="whisper" {{ENG_WHISPER}}>Whisper STT (fail-soft to demo)</option>
+      </select>
+    </label>
+    <p class="meta" id="whisper-hint">{{WHISPER_HINT}}</p>
+
+    <hr class="brand-divider">
+    <h3 class="brand-subhead">Music bed</h3>
+    <p class="meta">Quiet bed under horizontal + vertical. Volume stays low so game audio stays clear. Skip if no file.</p>
+    <label class="check-row">
+      <input type="checkbox" name="music_enabled" value="1" id="music-enabled" {{MUSIC_ENABLED}}>
+      Mix music bed when file is present
+    </label>
+    <label class="full">Music (MP3)
+      <input id="music-file-input" type="file" name="music" accept="audio/mpeg,.mp3,audio/*">
+    </label>
+    <p class="meta" id="music-status">{{MUSIC_STATUS}}</p>
+    <label>Bed volume
+      <input id="music-volume" name="music_volume" type="range" min="0.01" max="0.35" step="0.01" value="{{MUSIC_VOLUME}}">
+      <span id="music-volume-val" class="meta">{{MUSIC_VOLUME}}</span>
+    </label>
+
     <button type="submit" id="brand-save" class="primary">Save</button>
   </form>
 </section>

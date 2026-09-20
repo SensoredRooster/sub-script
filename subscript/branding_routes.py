@@ -1,4 +1,4 @@
-"""Branding panel helpers and FastAPI route registration."""
+"""Branding panel helpers and FastAPI route registration (logo + captions + music)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,14 @@ from urllib.parse import quote
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
+from subscript.captions import whisper_available
 from subscript.config import ASSETS_DIR, DEFAULT_LOGO_REL, ROOT, update_brand_settings
+from subscript.config_polish import (
+    DEFAULT_MUSIC_REL,
+    resolve_music_asset,
+    update_captions_settings,
+    update_music_settings,
+)
 from subscript.default_brand import ensure_default_logo
 
 _BRAND_POSITIONS = ("top_left", "top_right", "bottom_left", "bottom_right")
@@ -29,8 +36,9 @@ def resolve_logo_path(brand: dict[str, Any]) -> Path | None:
     return path if path.is_file() else None
 
 
-def branding_html(brand: dict[str, Any], snip: Callable[[str], str]) -> str:
+def branding_html(brand: dict[str, Any], snip: Callable[[str], str], cfg: dict[str, Any] | None = None) -> str:
     ensure_default_logo(ROOT)
+    cfg = cfg or {}
     logo = resolve_logo_path(brand)
     position = brand.get("position") or "bottom_right"
     if position not in _BRAND_POSITIONS:
@@ -45,8 +53,38 @@ def branding_html(brand: dict[str, Any], snip: Callable[[str], str]) -> str:
     except (TypeError, ValueError):
         margin = 24
 
+    caps = cfg.get("captions") if isinstance(cfg.get("captions"), dict) else {}
+    caps_on = True if "enabled" not in caps else bool(caps.get("enabled"))
+    engine = str((caps or {}).get("engine") or "auto").strip().lower()
+    if engine not in ("auto", "demo", "whisper"):
+        engine = "auto"
+
+    music = cfg.get("music") if isinstance(cfg.get("music"), dict) else {}
+    music_on = True if "enabled" not in music else bool(music.get("enabled"))
+    try:
+        mvol = float(music.get("volume") if music.get("volume") is not None else 0.10)
+    except (TypeError, ValueError):
+        mvol = 0.10
+    mvol = max(0.01, min(0.35, mvol))
+    has_music = resolve_music_asset(cfg) is not None
+    if has_music:
+        music_status = f"Bed ready: {music.get('path') or DEFAULT_MUSIC_REL}"
+    else:
+        music_status = "No music file yet — upload an MP3 or drop assets/music.mp3 (mix skipped until then)."
+
+    if whisper_available():
+        whisper_hint = "faster-whisper is installed — Auto / Whisper can generate real timed captions."
+    else:
+        whisper_hint = (
+            "faster-whisper not installed — Auto/Whisper fall back to demo SRT. "
+            "Optional: pip install -r requirements-whisper.txt"
+        )
+
     def sel(key: str) -> str:
         return "selected" if position == key else ""
+
+    def eng(key: str) -> str:
+        return "selected" if engine == key else ""
 
     html = snip("branding.html")
     return (
@@ -59,6 +97,14 @@ def branding_html(brand: dict[str, Any], snip: Callable[[str], str]) -> str:
         .replace("{{POS_TR}}", sel("top_right"))
         .replace("{{POS_BL}}", sel("bottom_left"))
         .replace("{{POS_BR}}", sel("bottom_right"))
+        .replace("{{CAPS_ENABLED}}", "checked" if caps_on else "")
+        .replace("{{ENG_AUTO}}", eng("auto"))
+        .replace("{{ENG_DEMO}}", eng("demo"))
+        .replace("{{ENG_WHISPER}}", eng("whisper"))
+        .replace("{{WHISPER_HINT}}", whisper_hint)
+        .replace("{{MUSIC_ENABLED}}", "checked" if music_on else "")
+        .replace("{{MUSIC_STATUS}}", music_status)
+        .replace("{{MUSIC_VOLUME}}", f"{mvol:.2f}")
     )
 
 
@@ -67,11 +113,18 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
     brand = cfg.setdefault("brand", {})
     if not (brand.get("logo_path") or "").strip():
         brand["logo_path"] = DEFAULT_LOGO_REL
+    cfg.setdefault("captions", {"enabled": True, "engine": "auto"})
+    cfg.setdefault(
+        "music",
+        {"enabled": True, "path": DEFAULT_MUSIC_REL, "volume": 0.10},
+    )
 
     @app.get("/api/brand")
     def get_brand() -> JSONResponse:
         brand = dict(cfg.get("brand") or {})
         logo = resolve_logo_path(brand)
+        caps = dict(cfg.get("captions") or {})
+        music = dict(cfg.get("music") or {})
         return JSONResponse(
             {
                 "logo_path": brand.get("logo_path") or DEFAULT_LOGO_REL,
@@ -80,6 +133,13 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
                 "margin_px": int(brand.get("margin_px") if brand.get("margin_px") is not None else 24),
                 "has_logo": logo is not None,
                 "logo_url": "/brand/logo" if logo else None,
+                "captions_enabled": bool(caps.get("enabled", True)),
+                "captions_engine": str(caps.get("engine") or "auto"),
+                "whisper_available": whisper_available(),
+                "music_enabled": bool(music.get("enabled", True)),
+                "music_path": music.get("path") or DEFAULT_MUSIC_REL,
+                "music_volume": float(music.get("volume") if music.get("volume") is not None else 0.10),
+                "has_music": resolve_music_asset(cfg) is not None,
             }
         )
 
@@ -98,9 +158,14 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
     @app.post("/brand")
     async def save_brand(
         logo: UploadFile | None = File(None),
+        music: UploadFile | None = File(None),
         position: str = Form("bottom_right"),
         opacity: str = Form("0.85"),
         margin_px: str = Form("24"),
+        captions_enabled: str | None = Form(None),
+        captions_engine: str = Form("auto"),
+        music_enabled: str | None = Form(None),
+        music_volume: str = Form("0.10"),
     ) -> RedirectResponse:
         try:
             pos = (position or "bottom_right").strip()
@@ -143,9 +208,65 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
                 opacity=opacity_val,
                 margin_px=margin_val,
             )
+
+            # HTML checkboxes omit the field when unchecked.
+            caps_on = captions_enabled is not None and str(captions_enabled).strip() not in (
+                "",
+                "0",
+                "false",
+                "off",
+            )
+            update_captions_settings(
+                cfg,
+                enabled=caps_on,
+                engine=(captions_engine or "auto").strip().lower(),
+            )
+
+            music_on = music_enabled is not None and str(music_enabled).strip() not in (
+                "",
+                "0",
+                "false",
+                "off",
+            )
+            try:
+                mvol = float(music_volume)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Music volume must be a number between 0.01 and 0.35.") from exc
+
+            music_rel: str | None = None
+            if music is not None and music.filename:
+                suffix = Path(music.filename).suffix.lower()
+                ctype = (music.content_type or "").lower()
+                ok_audio = suffix in {".mp3", ".m4a", ".aac", ".wav", ".ogg"} or any(
+                    x in ctype for x in ("mpeg", "mp3", "audio")
+                )
+                if not ok_audio:
+                    raise ValueError("Music must be an audio file (MP3 recommended).")
+                ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+                # Normalize to music.mp3 for simple config path (ffmpeg accepts container).
+                dest_m = ASSETS_DIR / ("music" + (suffix if suffix else ".mp3"))
+                if suffix not in {".mp3", ".m4a", ".aac", ".wav", ".ogg"}:
+                    dest_m = ASSETS_DIR / "music.mp3"
+                with dest_m.open("wb") as out:
+                    shutil.copyfileobj(music.file, out)
+                if dest_m.stat().st_size == 0:
+                    dest_m.unlink(missing_ok=True)
+                    raise ValueError("Uploaded music was empty.")
+                music_rel = f"assets/{dest_m.name}"
+
+            update_music_settings(
+                cfg,
+                enabled=music_on,
+                path=music_rel,
+                volume=mvol,
+            )
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/?err={quote(str(exc), safe='')}", status_code=303)
         return RedirectResponse(
-            "/?msg=" + quote("Saved — new clips will use this logo.", safe=""),
+            "/?msg="
+            + quote(
+                "Saved — logo, captions, and music settings apply to new clips.",
+                safe="",
+            ),
             status_code=303,
         )

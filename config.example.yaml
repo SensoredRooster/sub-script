@@ -23,9 +23,20 @@ brand:
   text_size: 24
 
 captions:
-  # When true (default), burn demo "Clip | SUB" SRT onto vertical after reframe.
-  # No Whisper / ML - reliable ffmpeg burn for Windows py3.14.
+  # When true (default), burn SRT onto vertical after reframe (+ optional music).
   enabled: true
+  # auto = faster-whisper if installed, else demo SRT
+  # demo = always placeholder "Clip | SUB"
+  # whisper = prefer STT; fail-soft to demo if missing/errors
+  # Optional STT: pip install -r requirements-whisper.txt
+  engine: auto
+
+music:
+  # Mix a quiet bed under horizontal + vertical when the file exists.
+  # Default volume is low so game audio stays clear (clamped ~0.01–0.35).
+  enabled: true
+  path: "assets/music.mp3"
+  volume: 0.10
 
 output:
   dir: "out"

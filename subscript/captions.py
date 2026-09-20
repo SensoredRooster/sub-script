@@ -1,4 +1,4 @@
-"""Burn SRT/ASS captions onto video with ffmpeg (no Whisper / ML deps)."""
+"""Burn SRT captions onto video; optional faster-whisper STT with demo fallback."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Any
 from subscript.clip import COMPAT_AUDIO, COMPAT_MOVFLAGS, COMPAT_VIDEO, require_ffmpeg
 
 _DEMO_LINE = "Clip | SUB"
+_VALID_ENGINES = frozenset({"auto", "demo", "whisper"})
 
 
 def captions_enabled(cfg: dict[str, Any] | None) -> bool:
@@ -26,6 +27,28 @@ def captions_enabled(cfg: dict[str, Any] | None) -> bool:
         if isinstance(nested, bool):
             return nested
     return True
+
+
+def captions_engine(cfg: dict[str, Any] | None) -> str:
+    """Return captions.engine: auto | demo | whisper (default auto)."""
+    if not cfg:
+        return "auto"
+    caps = cfg.get("captions")
+    if isinstance(caps, dict):
+        raw = str(caps.get("engine") or "auto").strip().lower()
+        if raw in _VALID_ENGINES:
+            return raw
+    return "auto"
+
+
+def whisper_available() -> bool:
+    """True if faster-whisper can be imported (optional extra)."""
+    try:
+        import faster_whisper  # noqa: F401
+
+        return True
+    except Exception:
+        return False
 
 
 def _srt_timestamp(seconds: float) -> str:
@@ -66,6 +89,121 @@ def write_demo_srt(
         )
     path.write_text("\n".join(blocks) + "\n", encoding="utf-8")
     return path
+
+
+def write_srt_from_segments(
+    path: Path,
+    segments: list[tuple[float, float, str]],
+) -> Path:
+    """Write SRT from (start, end, text) segments."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    blocks: list[str] = []
+    idx = 1
+    for start, end, text in segments:
+        line = (text or "").strip()
+        if not line:
+            continue
+        if end <= start:
+            end = start + 0.5
+        blocks.append(
+            f"{idx}\n{_srt_timestamp(start)} --> {_srt_timestamp(end)}\n{line}\n"
+        )
+        idx += 1
+    if not blocks:
+        path.write_text("", encoding="utf-8")
+        return path
+    path.write_text("\n".join(blocks) + "\n", encoding="utf-8")
+    return path
+
+
+def _extract_audio_wav(video: Path, wav: Path) -> Path:
+    """Decode mono 16 kHz WAV for STT (fail raises)."""
+    ffmpeg = require_ffmpeg()
+    wav = Path(wav)
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        ffmpeg,
+        "-y",
+        "-i",
+        str(video),
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-c:a",
+        "pcm_s16le",
+        str(wav),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0 or not wav.is_file() or wav.stat().st_size == 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        tail = "\n".join(err.splitlines()[-15:]) if err else "(no ffmpeg output)"
+        raise RuntimeError(f"audio extract for whisper failed:\n{tail}")
+    return wav
+
+
+def transcribe_whisper_srt(
+    video: Path,
+    srt: Path,
+    *,
+    model_size: str = "base",
+) -> Path:
+    """Run faster-whisper on ``video`` audio and write timed SRT.
+
+    Raises if faster-whisper is missing or transcription fails.
+    """
+    from faster_whisper import WhisperModel  # type: ignore[import-untyped]
+
+    video = Path(video)
+    srt = Path(srt)
+    wav = srt.with_suffix(".wav")
+    try:
+        _extract_audio_wav(video, wav)
+        # CPU int8 keeps optional install usable on Windows without CUDA.
+        model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        segments_iter, _info = model.transcribe(str(wav), vad_filter=True)
+        segs: list[tuple[float, float, str]] = []
+        for seg in segments_iter:
+            segs.append((float(seg.start), float(seg.end), str(seg.text or "")))
+        if not segs:
+            raise RuntimeError("whisper returned no segments")
+        return write_srt_from_segments(srt, segs)
+    finally:
+        try:
+            wav.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def resolve_srt_for_video(
+    video: Path,
+    srt: Path,
+    duration_s: float,
+    cfg: dict[str, Any],
+) -> tuple[Path, str]:
+    """Pick SRT source from captions.engine; always fail-soft to demo.
+
+    Returns ``(srt_path, source_label)`` where source_label is
+    ``whisper`` or ``demo``.
+    """
+    engine = captions_engine(cfg)
+    want_whisper = engine in ("auto", "whisper")
+    if want_whisper and whisper_available():
+        try:
+            transcribe_whisper_srt(video, srt)
+            if srt.is_file() and srt.stat().st_size > 0:
+                return srt, "whisper"
+        except Exception as exc:  # noqa: BLE001
+            print(f"Whisper captions failed ({exc}); using demo SRT.")
+    elif engine == "whisper" and not whisper_available():
+        print(
+            "captions.engine=whisper but faster-whisper is not installed; "
+            "using demo SRT. Optional: pip install -r requirements-whisper.txt"
+        )
+    write_demo_srt(srt, duration_s)
+    return srt, "demo"
 
 
 def _escape_subtitles_path(path: Path) -> str:
@@ -179,7 +317,7 @@ def maybe_caption_vertical(
     *,
     duration_s: float | None = None,
 ) -> Path | None:
-    """If captions enabled, write demo SRT and burn onto vertical -> captioned path."""
+    """If captions enabled, resolve SRT (whisper or demo) and burn onto vertical."""
     if not captions_enabled(cfg):
         return None
     vertical = Path(vertical)
@@ -187,7 +325,14 @@ def maybe_caption_vertical(
         return None
     dur = float(duration_s) if duration_s is not None else probe_duration_seconds(vertical)
     srt = out_dir / f"clip-captions-{stamp}.srt"
-    write_demo_srt(srt, dur)
+    try:
+        resolve_srt_for_video(vertical, srt, dur, cfg)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Caption SRT skipped: {exc}")
+        try:
+            write_demo_srt(srt, dur)
+        except Exception:
+            return None
     dest = out_dir / f"clip-vertical-captioned-{stamp}.mp4"
     try:
         return burn_captions(vertical, srt, dest)

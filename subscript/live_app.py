@@ -98,7 +98,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                     f"Open on YouTube</a></p>"
                 )
         form = _snip("clip_form.html").replace("{{DEFAULT_SECONDS}}", str(default_seconds))
-        branding = branding_html(cfg.get("brand") or {}, _snip)
+        branding = branding_html(cfg.get("brand") or {}, _snip, cfg)
         live = live_card_html(cfg, watcher_holder["w"], snip=_snip, esc=_esc)
         body = form + live + branding + banner + f'<section id="review">{review}</section>'
         return _snip("page.html").replace("{{BODY}}", body)
