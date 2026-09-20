@@ -39,6 +39,43 @@ Smoke test (synthetic quiet/loud/quiet audio):
 python scripts\\smoke_highlights.py
 ```
 
+## Kill-feed OCR (experimental v0)
+
+Optional **Warzone / CoD kill-feed** detection for auto-highlights. **v0 is experimental** — ROI + exact name matching only; accuracy varies by HUD / encode.
+
+| Constraint | Behavior |
+|------------|----------|
+| ROI | Crop uses **fractions of the frame** locked to `stream.resolution` (e.g. `1920x1080`) when set |
+| Player name | Only the **exact** in-game name fires (`detect.player_name` or `stream.player_name`) — other players' kills are ignored |
+| OCR optional | App runs **without** tesseract/easyocr; missing engine → loudness-only + clear note |
+
+Enable in `config.yaml`:
+
+```yaml
+detect:
+  enabled: true
+  player_name: "YourActivisionId"   # exact in-game ID
+  sample_fps: 1.0
+  merge: merge   # or replace
+  roi: { x: 0.62, y: 0.02, w: 0.36, h: 0.28 }
+```
+
+Optional OCR install (not in core `requirements.txt`):
+
+```bat
+pip install -r requirements-ocr.txt
+```
+
+Also install system **Tesseract** if you use `pytesseract` (winget / brew / apt). `easyocr` is pip-only.
+
+When `detect.enabled` and a player name are set, **Auto highlights** may merge kill timestamps with loudness peaks (fail-soft to loudness-only).
+
+Smoke (ROI crop — **no OCR engine required**):
+
+```bat
+python scripts\\smoke_killfeed.py
+```
+
 ## Captions & music bed
 
 ### Captions (demo or optional Whisper)
@@ -269,6 +306,7 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 | Empty review list | Use **Make clip** or fire the live hotkey, then wait for reload |
 | Browser didn't open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
 | Want real speech captions | `pip install -r requirements-whisper.txt` then set engine Auto/Whisper in Branding |
+| Want kill-feed OCR (experimental) | Set `detect.enabled` + exact `player_name`; optional `pip install -r requirements-ocr.txt` |
 | No music under clips | Upload MP3 in Branding or add `assets/music.mp3`; check Music bed enabled |
 | YouTube secrets missing | Follow **Connect YouTube**; put OAuth JSON at `credentials.json` |
 | YouTube login every time | Ensure `token.json` is writable in the project folder (not deleted) |
@@ -282,8 +320,8 @@ python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
 5. Captions burn-in on vertical (demo SRT / optional Whisper) + social export pack on Approve *(shipped)*
 6. YouTube Shorts upload on Approve (OAuth) *(shipped)*
 7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(shipped)*
-8. Optional Whisper captions + quiet music bed *(this PR)*
-9. Later: Warzone kill-feed OCR for fully hands-off detection
+8. Optional Whisper captions + quiet music bed *(shipped)*
+9. Experimental Warzone kill-feed OCR v0 (optional; exact name + ROI) *(this PR)*
 10. Windows `.exe` onedir + ffmpeg-beside-app packaging *(shipped)* — see [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)
 11. Later: Inno Setup installer wrapping `dist\\SubScript\\`
 

@@ -128,8 +128,13 @@ def suggest_highlights_or_fallback(
     *,
     buffer_seconds: float = 30.0,
     top_n: int = 5,
+    cfg: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Analyze with fail-soft fallback to last ``buffer_seconds``.
+
+    When ``cfg`` has ``detect.enabled`` and a player name, optionally merge
+    experimental kill-feed timestamps (exact name match) with loudness peaks.
+    Missing OCR engines or detect errors → loudness-only (fail-soft).
 
     Returns a payload suitable for ``POST /highlights`` JSON::
 
@@ -138,18 +143,26 @@ def suggest_highlights_or_fallback(
           "fallback": bool,
           "message": str,
           "buffer_seconds": float,
+          "detect_note": str,   # optional kill-feed status
         }
     """
     buf = float(buffer_seconds)
+    detect_note = ""
     try:
         suggestions = suggest_highlights(
             source, buffer_seconds=buf, top_n=top_n
+        )
+        for s in suggestions:
+            s.setdefault("source", "loudness")
+        suggestions, detect_note = _maybe_merge_killfeed(
+            source, suggestions, buffer_seconds=buf, top_n=top_n, cfg=cfg
         )
         return {
             "suggestions": suggestions,
             "fallback": False,
             "message": "",
             "buffer_seconds": buf,
+            "detect_note": detect_note,
         }
     except Exception as exc:  # noqa: BLE001 — intentional fail-soft
         return {
@@ -166,7 +179,64 @@ def suggest_highlights_or_fallback(
                 f"falling back to last {int(buf) if buf == int(buf) else buf} seconds."
             ),
             "buffer_seconds": buf,
+            "detect_note": detect_note,
         }
+
+
+def _maybe_merge_killfeed(
+    source: Path,
+    loudness: list[dict[str, Any]],
+    *,
+    buffer_seconds: float,
+    top_n: int,
+    cfg: dict[str, Any] | None,
+) -> tuple[list[dict[str, Any]], str]:
+    """If detect.enabled + player_name, merge kill timestamps; else unchanged."""
+    if not cfg:
+        return loudness, ""
+    try:
+        from subscript.detect_killfeed import (
+            detect_enabled,
+            detect_kills,
+            kills_to_suggestions,
+            merge_highlight_suggestions,
+            resolve_player_name,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return loudness, f"Kill-feed module unavailable ({exc})."
+
+    if not detect_enabled(cfg):
+        return loudness, ""
+    name = resolve_player_name(cfg)
+    if not name:
+        return loudness, "detect.enabled but player_name empty — loudness-only."
+
+    try:
+        result = detect_kills(source, player_name=name, cfg=cfg)
+    except Exception as exc:  # noqa: BLE001
+        return loudness, f"Kill-feed skipped ({exc}); loudness-only."
+
+    note = str(result.get("note") or "")
+    kills = list(result.get("kills") or [])
+    if not kills:
+        return loudness, note or "No kill-feed hits (OCR missing or no exact name match)."
+
+    det = cfg.get("detect") if isinstance(cfg.get("detect"), dict) else {}
+    mode = str(det.get("merge") or "merge").strip().lower()
+    pre_roll = 8.0
+    try:
+        pre_roll = float(det.get("pre_roll") if det.get("pre_roll") is not None else 8.0)
+    except (TypeError, ValueError):
+        pre_roll = 8.0
+
+    kill_sugs = kills_to_suggestions(
+        kills, buffer_seconds=buffer_seconds, pre_roll=pre_roll
+    )
+    merged = merge_highlight_suggestions(
+        loudness, kill_sugs, top_n=top_n, mode=mode
+    )
+    extra = f"Merged {len(kills)} kill-feed hit(s) ({mode})."
+    return merged, (note + " " + extra).strip() if note else extra
 
 
 def _decode_mono_pcm(source: Path) -> list[float]:
