@@ -21,6 +21,22 @@ def require_ffmpeg() -> str:
     return exe
 
 
+def run_ffmpeg(cmd: list[str], what: str = "ffmpeg") -> None:
+    """Run an ffmpeg command; on failure raise RuntimeError with the last stderr lines.
+
+    Decodes output as UTF-8 with replacement so odd bytes in file names can never
+    turn a clear ffmpeg error into a UnicodeDecodeError.
+    """
+    proc = subprocess.run(
+        cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
+    if proc.returncode == 0:
+        return
+    err = (proc.stderr or proc.stdout or "").strip()
+    tail = "\n".join(err.splitlines()[-20:]) if err else "(no ffmpeg output)"
+    raise RuntimeError(f"{what} failed (exit {proc.returncode}).\n{tail}")
+
+
 def clip_last_seconds(
     source: Path,
     dest: Path,
@@ -35,6 +51,10 @@ def clip_last_seconds(
     ``seconds`` of duration (``-t``).
     """
     ffmpeg = require_ffmpeg()
+    source = Path(source)
+    if not source.is_file():
+        raise FileNotFoundError(f"Source video not found: {source}")
+    seconds = max(1, int(seconds))
     dest.parent.mkdir(parents=True, exist_ok=True)
     # Re-encode (not -c copy) so cuts start on a keyframe and WMP can play them
     if start is not None:
@@ -67,5 +87,5 @@ def clip_last_seconds(
             *COMPAT_MOVFLAGS,
             str(dest),
         ]
-    subprocess.run(cmd, check=True, capture_output=True)
+    run_ffmpeg(cmd, what="ffmpeg clip")
     return dest

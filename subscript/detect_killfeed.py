@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from subscript.clip import require_ffmpeg
+from subscript.runtime_paths import find_ffprobe
 
 # Default Warzone-ish kill feed: top-right portion of a 16:9 HUD.
 _DEFAULT_ROI = {"x": 0.62, "y": 0.02, "w": 0.36, "h": 0.28}
@@ -124,8 +125,11 @@ def roi_pixel_box(frame_w: int, frame_h: int, roi: dict[str, float]) -> tuple[in
 
 
 def probe_video_size(source: Path) -> tuple[int, int]:
-    ffmpeg = require_ffmpeg()
-    ffprobe = shutil.which("ffprobe") or ffmpeg.replace("ffmpeg", "ffprobe")
+    ffprobe = find_ffprobe(require_ffmpeg())
+    if not ffprobe:
+        raise RuntimeError(
+            "ffprobe not found — copy ffprobe.exe beside ffmpeg.exe (it ships in the same zip)"
+        )
     proc = subprocess.run(
         [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", str(source)],
         capture_output=True, text=True, check=False,

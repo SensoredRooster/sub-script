@@ -7,10 +7,17 @@
   <link rel="stylesheet" href="/static/review.css">
 </head>
 <body>
-  <header>
-    <h1>sub-script</h1>
-    <p>Drop a VOD or arm the live hotkey → clip → approve, trim, or reject. Nothing uploads without you.</p>
+  <header class="app-header">
+    <div class="brand-lockup"><span class="brand-icon">S</span><div><h1>SubScript</h1><p>From gameplay to publish-ready—without losing control.</p></div></div>
+    <span class="safety-pill"><i></i> Approval required</span>
   </header>
+  <nav class="workflow-nav" aria-label="Video workflow">
+    <a href="#source"><span>1</span>Source</a>
+    <a href="#clip"><span>2</span>Clip</a>
+    <a href="#style"><span>3</span>Style</a>
+    <a href="#review"><span>4</span>Review</a>
+    <a href="#publish"><span>5</span>Publish</a>
+  </nav>
   <main>{{BODY}}</main>
   <script src="/static/app.js"></script>
 </body>

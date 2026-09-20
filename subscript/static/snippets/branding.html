@@ -1,7 +1,8 @@
-<section class="card branding-card">
-  <h2>Branding</h2>
-  <p class="meta">Upload a PNG logo once. Every new clip gets this watermark automatically.</p>
+<section class="workflow-section" id="style">
+  <div class="section-heading"><span class="step-number">3</span><div><p class="eyebrow">Style</p><h2>Make it yours</h2><p>Set your visual identity, captions, and sound once. New clips inherit these choices.</p></div></div>
   <form id="brand-form" class="brand-form" method="post" action="/brand" enctype="multipart/form-data">
+    <div class="style-grid"><div class="control-panel">
+    <h3>Brand watermark</h3><p class="meta">A PNG logo is applied automatically.</p>
     <div class="brand-preview-row">
       <div id="brand-preview-wrap" class="brand-preview-wrap" {{PREVIEW_HIDDEN}}>
         <img id="brand-preview" class="brand-preview" src="{{LOGO_SRC}}" alt="Current logo">
@@ -29,7 +30,7 @@
       </label>
     </div>
 
-    <hr class="brand-divider">
+    </div><div class="control-panel">
     <h3 class="brand-subhead">Captions</h3>
     <p class="meta">Burn timed text on the vertical export. Whisper uses optional <code>faster-whisper</code>; otherwise demo SRT.</p>
     <label class="check-row">
@@ -45,7 +46,7 @@
     </label>
     <p class="meta" id="whisper-hint">{{WHISPER_HINT}}</p>
 
-    <hr class="brand-divider">
+    </div><div class="control-panel">
     <h3 class="brand-subhead">Music bed</h3>
     <p class="meta">Quiet bed under horizontal + vertical. Volume stays low so game audio stays clear. Skip if no file.</p>
     <label class="check-row">
@@ -61,6 +62,7 @@
       <span id="music-volume-val" class="meta">{{MUSIC_VOLUME}}</span>
     </label>
 
-    <button type="submit" id="brand-save" class="primary">Save</button>
+    </div></div>
+    <div class="action-bar"><span class="meta">Applied to clips created after saving.</span><button type="submit" id="brand-save" class="primary">Save style</button></div>
   </form>
 </section>

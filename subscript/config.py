@@ -16,6 +16,9 @@ ASSETS_DIR = ROOT / "assets"
 DEFAULT_LOGO_REL = "assets/logo.png"
 
 
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
 def _example_config_path() -> Path:
     if EXAMPLE_CONFIG.exists():
         return EXAMPLE_CONFIG
@@ -23,6 +26,49 @@ def _example_config_path() -> Path:
     if bundled.exists():
         return bundled
     return EXAMPLE_CONFIG
+
+
+def load_dotenv(path: Path | None = None) -> None:
+    """Best-effort load of ``<app_dir>/.env`` into ``os.environ`` (no python-dotenv dep).
+
+    Existing environment variables win over the file so a shell override still works.
+    """
+    env_path = path or (ROOT / ".env")
+    if not env_path.is_file():
+        return
+    try:
+        for raw in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = val
+    except OSError:
+        pass
+
+
+def dry_run_forced() -> bool:
+    """True when ``SUB_SCRIPT_DRY_RUN`` (env or .env) forces YouTube upload off."""
+    load_dotenv()
+    return os.getenv("SUB_SCRIPT_DRY_RUN", "").strip().lower() in _TRUTHY
+
+
+def apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
+    """Apply environment-driven safety overrides to a loaded config (in place)."""
+    if dry_run_forced():
+        yt = data.get("youtube")
+        if not isinstance(yt, dict):
+            yt = {}
+            data["youtube"] = yt
+        yt["enabled"] = False
+        # platforms.youtube.enabled is the other switch for live Shorts upload.
+        plats = data.get("platforms")
+        if isinstance(plats, dict) and isinstance(plats.get("youtube"), dict):
+            plats["youtube"]["enabled"] = False
+    return data
 
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
@@ -52,10 +98,9 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
             ) from None
     with cfg_path.open(encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
-    # Env overrides
-    if os.getenv("SUB_SCRIPT_DRY_RUN", "").lower() in {"1", "true", "yes"}:
-        data.setdefault("youtube", {})["enabled"] = False
-    return data
+    if not isinstance(data, dict):
+        raise SystemExit(f"{cfg_path} must contain a YAML mapping (key: value lines).")
+    return apply_env_overrides(data)
 
 
 def save_config(data: dict[str, Any], path: Path | None = None) -> Path:

@@ -24,7 +24,9 @@ def run_pipeline(
     duration: float | None = None,
 ) -> Path:
     default_seconds = int(cfg.get("buffer_seconds") or 30)
-    seconds = int(duration) if duration is not None else default_seconds
+    seconds = (
+        max(1, int(round(float(duration)))) if duration is not None else default_seconds
+    )
     out_cfg = cfg.get("output") or {}
     out_dir = Path(out_cfg.get("dir") or "out")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

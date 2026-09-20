@@ -16,13 +16,15 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 
 from subscript.branding_routes import branding_html, register_branding_routes
-from subscript.config import load_config
-from subscript.hotkey import HotkeyWatcher
-from subscript.live_ui import live_card_html, register_live_routes
-from subscript.live_app_actions import register_item_routes
-from subscript.pipeline import run_pipeline
+from subscript.config import dry_run_forced, load_config
 from subscript.highlights import suggest_highlights_or_fallback
+from subscript.hotkey import HotkeyWatcher
+from subscript.live_app_actions import register_item_routes
+from subscript.live_ui import live_card_html, register_live_routes
+from subscript.pipeline import run_pipeline
+from subscript.publishing_routes import publishing_html, register_publishing_routes
 from subscript.queue import ReviewQueue
+from subscript.runtime_paths import find_ffmpeg
 
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 _STATIC = Path(__file__).resolve().parent / "static"
@@ -71,6 +73,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
     register_branding_routes(app, cfg)
     register_live_routes(app, cfg, watcher_holder)
+    register_publishing_routes(app, cfg)
 
     @app.get("/", response_class=HTMLResponse)
     def home(msg: str | None = None, err: str | None = None) -> str:
@@ -78,10 +81,36 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         rows = []
         card_tpl = _snip("card.html")
         for item in pending:
+            captioned_ok = bool(item.vertical_captioned_path) and Path(
+                item.vertical_captioned_path
+            ).is_file()
+            if captioned_ok:
+                vert_variant = "captioned"
+                vert_label = "Vertical 9:16 · captions burned in (this is what gets uploaded)"
+                vert_extra = (
+                    f'<p class="meta"><a href="/media/{_esc(item.id)}?variant=vertical" '
+                    f'target="_blank" rel="noopener">Plain vertical (no captions)</a></p>'
+                )
+            else:
+                vert_variant, vert_label, vert_extra = "vertical", "Vertical 9:16", ""
+            trim_note = ""
+            if item.trim_start is not None and item.trim_end is not None:
+                trim_note = (
+                    f"Trimmed {float(item.trim_start):g}s → {float(item.trim_end):g}s "
+                    "from the master. "
+                )
+            trim_end_default = (
+                float(item.trim_end) if item.trim_end is not None else float(default_seconds)
+            )
             rows.append(
                 card_tpl.replace("{{ID}}", _esc(item.id))
                 .replace("{{TITLE}}", _esc(item.title))
                 .replace("{{CREATED}}", _esc(item.created_at))
+                .replace("{{VERT_VARIANT}}", vert_variant)
+                .replace("{{VERT_LABEL}}", vert_label)
+                .replace("{{VERT_EXTRA}}", vert_extra)
+                .replace("{{TRIM_NOTE}}", _esc(trim_note))
+                .replace("{{TRIM_END}}", f"{trim_end_default:g}")
             )
         review = "\n".join(rows) or _snip("empty.html")
         banner = ""
@@ -97,10 +126,22 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                     f'<a href="{_esc(url)}" target="_blank" rel="noopener">'
                     f"Open on YouTube</a></p>"
                 )
-        form = _snip("clip_form.html").replace("{{DEFAULT_SECONDS}}", str(default_seconds))
-        branding = branding_html(cfg.get("brand") or {}, _snip, cfg)
         live = live_card_html(cfg, watcher_holder["w"], snip=_snip, esc=_esc)
-        body = form + live + branding + banner + f'<section id="review">{review}</section>'
+        form = (
+            _snip("clip_form.html")
+            .replace("{{DEFAULT_SECONDS}}", str(default_seconds))
+            .replace("{{LIVE_CARD}}", live)
+        )
+        branding = branding_html(cfg.get("brand") or {}, _snip, cfg)
+        publishing = publishing_html(cfg, _snip)
+        review_section = (
+            '<section class="workflow-section" id="review">'
+            '<div class="section-heading"><span class="step-number">4</span><div>'
+            '<p class="eyebrow">Review</p><h2>Preview and approve</h2>'
+            '<p>Compare both formats, fine-tune the cut, then approve the final pack.</p>'
+            f'</div></div><div class="review-grid">{review}</div></section>'
+        )
+        body = banner + form + branding + review_section + publishing
         return _snip("page.html").replace("{{BODY}}", body)
 
     @app.post("/clip")
@@ -265,6 +306,13 @@ def main() -> None:
         print("  YouTube upload: ON (Approve will upload Shorts)")
     else:
         print("  YouTube upload: off (Approve saves local pack only)")
+        if dry_run_forced():
+            print("    (forced off by SUB_SCRIPT_DRY_RUN=1 in .env / environment)")
+    ffmpeg = find_ffmpeg()
+    if ffmpeg:
+        print(f"  ffmpeg: {ffmpeg}")
+    else:
+        print("  ffmpeg: NOT FOUND — clipping will fail (see FFMPEG_BESIDE_APP.txt)")
     hotkey = cfg.get("hotkey") or "ctrl+shift+c"
     print(f"  Live hotkey: {hotkey} (Start watcher on the home page)")
     print("  Leave this window open while you use the app.")

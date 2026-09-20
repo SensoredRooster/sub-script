@@ -1,4 +1,4 @@
-<article class="card" id="{{ID}}">
+<article class="review-card" id="{{ID}}">
   <h2>{{TITLE}}</h2>
   <p class="meta">{{CREATED}} · {{ID}}</p>
   <div class="dual-preview">
@@ -7,20 +7,17 @@
       <video controls src="/media/{{ID}}?variant=horizontal"></video>
     </div>
     <div>
-      <p class="meta">Vertical 9:16</p>
-      <video controls src="/media/{{ID}}?variant=vertical"></video>
+      <p class="meta">{{VERT_LABEL}}</p>
+      <video controls src="/media/{{ID}}?variant={{VERT_VARIANT}}"></video>
+      {{VERT_EXTRA}}
     </div>
   </div>
-  <p class="meta">Approve saves both into <code>out\\approved\\</code> and opens that folder.</p>
-  <form class="actions" method="post" action="/items/{{ID}}/approve">
-    <button type="submit" class="ok">Approve (save both)</button>
-  </form>
-  <form class="actions" method="post" action="/items/{{ID}}/trim">
+  <p class="meta">{{TRIM_NOTE}}Approve saves everything into <code>out\approved\{{ID}}\</code> and opens that folder.</p>
+  <div class="review-actions"><form class="actions trim-actions" method="post" action="/items/{{ID}}/trim">
     <label>Start (s) <input name="start" type="number" step="0.1" min="0" value="0" required></label>
-    <label>End (s) <input name="end" type="number" step="0.1" min="0.1" value="30" required></label>
+    <label>End (s) <input name="end" type="number" step="0.1" min="0.1" value="{{TRIM_END}}" required></label>
     <button type="submit">Trim master &amp; rebuild</button>
-  </form>
-  <form class="actions" method="post" action="/items/{{ID}}/reject">
+  </form><form class="actions" method="post" action="/items/{{ID}}/reject">
     <button type="submit" class="bad">Reject</button>
-  </form>
+  </form><form class="actions approve-action" method="post" action="/items/{{ID}}/approve"><button type="submit" class="ok">Approve &amp; build pack</button></form></div>
 </article>

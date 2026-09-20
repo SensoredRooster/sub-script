@@ -2,32 +2,34 @@ Install ffmpeg BESIDE SubScript.exe (recommended)
 =================================================
 
 sub-script looks for ffmpeg next to the app first, then on PATH.
-For end users (double-click .exe), ship ffmpeg.exe in the same folder
-so nobody has to edit PATH or open a terminal.
+For end users (double-click .exe), ship ffmpeg.exe AND ffprobe.exe in the
+same folder so nobody has to edit PATH or open a terminal.
 
 Layout after build:
 
   dist\SubScript\
-    SubScript.exe          ← double-click this
-    ffmpeg.exe             ← COPY THIS HERE (required for clipping)
+    SubScript.exe          <- double-click this
+    ffmpeg.exe             <- COPY THIS HERE (required for clipping)
+    ffprobe.exe            <- copy too (durations / frame size; same zip)
     config.yaml
     config.example.yaml
     FFMPEG_BESIDE_APP.txt
     assets\
-    _internal\             ← PyInstaller runtime (do not delete)
+    _internal\             <- PyInstaller runtime (do not delete)
 
-Where to get ffmpeg.exe
------------------------
-1. https://www.gyan.dev/ffmpeg/builds/  (essentials zip) — or
+Where to get ffmpeg.exe + ffprobe.exe
+-------------------------------------
+1. https://www.gyan.dev/ffmpeg/builds/  (essentials zip) - or
    https://github.com/BtbN/FFmpeg-Builds/releases
-2. Unzip; find bin\ffmpeg.exe
-3. Copy only ffmpeg.exe into dist\SubScript\ (same folder as SubScript.exe)
+2. Unzip; find bin\ffmpeg.exe and bin\ffprobe.exe
+3. Copy both into dist\SubScript\ (same folder as SubScript.exe)
 
 Alternate layouts also work:
-  dist\SubScript\ffmpeg\bin\ffmpeg.exe
-  dist\SubScript\bin\ffmpeg.exe
+  dist\SubScript\ffmpeg\bin\ffmpeg.exe   (+ ffprobe.exe)
+  dist\SubScript\bin\ffmpeg.exe          (+ ffprobe.exe)
 
-Builders: scripts\build_windows.bat prints this reminder after PyInstaller.
-Optional later: Inno Setup can install this whole folder + ffmpeg for users.
+Builders: scripts\build_windows.bat copies ffmpeg.exe / ffprobe.exe from your
+PATH into dist\SubScript\ automatically when it can find them, and prints this
+reminder otherwise. scripts\build_installer.bat wraps the folder with Inno Setup.
 
-Do NOT rely on PATH-only for shipped builds — that causes support tickets.
+Do NOT rely on PATH-only for shipped builds - that causes support tickets.

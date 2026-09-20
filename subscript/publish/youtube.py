@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from subscript.config import dry_run_forced
 from subscript.publish.base import PublishMeta, PublishResult
 from subscript.upload import dry_run_upload, upload_youtube
 
@@ -33,11 +34,14 @@ class YouTubePublisher:
         path = Path(path)
         if not self.enabled:
             payload = dry_run_upload(path, self._yt, self._out_dir)
+            note = "youtube.enabled=false"
+            if dry_run_forced():
+                note += " (forced by SUB_SCRIPT_DRY_RUN)"
             return PublishResult(
                 platform="YouTube",
                 ok=True,
                 status="dry_run",
-                message="youtube.enabled=false",
+                message=note,
                 detail=payload,
             )
         try:

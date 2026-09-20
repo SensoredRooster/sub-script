@@ -25,3 +25,8 @@ assets/music.*
 build/
 dist/
 *.egg-info/
+installer/Output/
+
+# Tests / tooling
+.pytest_cache/
+.kilo/

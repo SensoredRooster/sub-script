@@ -92,14 +92,17 @@ def publish_local(
     }
     (approved / "manifest.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
-    try:
-        if sys.platform.startswith("win"):
-            os.startfile(approved)  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.run(["open", str(approved)], check=False)
-        else:
-            subprocess.run(["xdg-open", str(approved)], check=False)
-    except Exception:
-        pass
+    # Pop the folder open so the user can drag files into each app. Headless runs and
+    # the test suite set SUB_SCRIPT_NO_OPEN=1 to keep Explorer windows from appearing.
+    if os.getenv("SUB_SCRIPT_NO_OPEN", "").strip().lower() not in {"1", "true", "yes", "on"}:
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(approved)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.run(["open", str(approved)], check=False)
+            else:
+                subprocess.run(["xdg-open", str(approved)], check=False)
+        except Exception:
+            pass
 
     return meta

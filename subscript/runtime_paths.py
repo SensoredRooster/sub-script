@@ -64,13 +64,42 @@ def find_ffmpeg() -> str | None:
     return shutil.which("ffmpeg")
 
 
+def find_ffprobe(ffmpeg_path: str | None = None) -> str | None:
+    """Locate ffprobe: beside the app, then next to the resolved ffmpeg binary, then PATH.
+
+    ffprobe is optional (duration / frame-size probing has fallbacks) but ships in
+    every ffmpeg zip, so users are told to copy both binaries beside the app.
+    """
+    root = app_dir()
+    candidates = [
+        root / "ffprobe.exe",
+        root / "ffmpeg" / "bin" / "ffprobe.exe",
+        root / "bin" / "ffprobe.exe",
+        root / "ffprobe",
+        root / "ffmpeg" / "bin" / "ffprobe",
+        root / "bin" / "ffprobe",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return str(path.resolve())
+    ffmpeg = ffmpeg_path or find_ffmpeg()
+    if ffmpeg:
+        exe = Path(ffmpeg)
+        # Swap only the basename (``C:/ffmpeg/bin/ffmpeg.exe`` -> ``.../ffprobe.exe``),
+        # never every "ffmpeg" in the directory part.
+        sibling = exe.with_name(exe.name.replace("ffmpeg", "ffprobe", 1))
+        if sibling != exe and sibling.is_file():
+            return str(sibling.resolve())
+    return shutil.which("ffprobe")
+
+
 def ffmpeg_install_hint() -> str:
     root = app_dir()
     lines = [
         "ffmpeg not found beside the app or on PATH.",
         "  Easiest (recommended for the .exe):",
         "    1. Download a Windows ffmpeg build (essentials zip)",
-        "    2. Copy ffmpeg.exe into this folder:",
+        "    2. Copy ffmpeg.exe (and ffprobe.exe) into this folder:",
         f"         {root}\\ffmpeg.exe",
         "    3. Double-click SubScript.exe again",
         "  Or install system-wide, then reopen the app:",

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sub-script"
+dynamic = ["version"]
+description = "Hotkey / VOD clip -> brand -> review gate -> YouTube Shorts + social export packs (Windows-first)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "SensoredRooster" }]
+keywords = ["ffmpeg", "clips", "shorts", "streaming", "warzone", "obs"]
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "python-multipart>=0.0.9",
+    "PyYAML>=6.0",
+    "pynput>=1.7.6",
+    "google-api-python-client>=2.100.0",
+    "google-auth-oauthlib>=1.1.0",
+    "google-auth-httplib2>=0.2.0",
+]
+
+[project.optional-dependencies]
+# Real speech captions (see requirements-whisper.txt)
+whisper = ["faster-whisper>=1.0.0"]
+# Experimental kill-feed OCR (see requirements-ocr.txt)
+ocr = ["easyocr>=1.7.0", "pytesseract>=0.3.10", "Pillow>=10.0.0"]
+# Builders / contributors (see requirements-dev.txt)
+dev = ["pytest>=8.0", "httpx>=0.27", "pyinstaller>=6.3.0"]
+
+[project.scripts]
+sub-script = "subscript.cli:main"
+
+[project.urls]
+Repository = "https://github.com/SensoredRooster/sub-script"
+
+[tool.setuptools]
+packages = ["subscript", "subscript.publish"]
+
+[tool.setuptools.package-data]
+subscript = ["static/*.js", "static/*.css", "static/snippets/*.html"]
+
+[tool.setuptools.dynamic]
+version = { attr = "subscript.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q -ra"
+markers = [
+    "ffmpeg: test needs a real ffmpeg binary (auto-skipped when none is found)",
+]

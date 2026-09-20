@@ -1,11 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller onedir build for SubScript.exe (Windows).
+# PyInstaller (6.x) onedir build for SubScript.exe (Windows).
 # Run via: scripts\build_windows.bat
 #
 # Output: dist/SubScript/SubScript.exe
-# Place ffmpeg.exe beside SubScript.exe (see scripts/FFMPEG_BESIDE_APP.txt).
+# Place ffmpeg.exe + ffprobe.exe beside SubScript.exe (see scripts/FFMPEG_BESIDE_APP.txt).
 
-block_cipher = None
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = [
     ("subscript/static", "subscript/static"),
@@ -24,34 +24,32 @@ hiddenimports = [
     "uvicorn.protocols.websockets.auto",
     "uvicorn.lifespan",
     "uvicorn.lifespan.on",
+    # python-multipart: new import name first, legacy shim second.
+    "python_multipart",
     "multipart",
     "yaml",
     "pynput",
     "pynput.keyboard",
     "pynput.keyboard._win32",
+    "pynput.mouse",
+    "pynput.mouse._win32",
     "googleapiclient",
     "google_auth_oauthlib",
     "google.auth",
     "google.oauth2",
 ]
 
-# Collect FastAPI / Starlette / Uvicorn package data if hooks are available
-try:
-    from PyInstaller.utils.hooks import collect_all, collect_submodules
-
-    for pkg in ("uvicorn", "fastapi", "starlette"):
-        try:
-            d, _b, h = collect_all(pkg)
-            datas += d
-            hiddenimports += h
-        except Exception:
-            pass
+# Collect FastAPI / Starlette / Uvicorn package data + submodules.
+for pkg in ("uvicorn", "fastapi", "starlette"):
     try:
-        hiddenimports += collect_submodules("subscript")
+        d, _b, h = collect_all(pkg)
+        datas += d
+        hiddenimports += h
     except Exception:
         pass
-except Exception:
-    pass
+
+# Every subscript module (routes are registered via imports the analyser cannot see).
+hiddenimports += collect_submodules("subscript")
 
 a = Analysis(
     ["scripts/run_exe.py"],
@@ -62,14 +60,12 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
+    # Optional heavy extras are never bundled; users pip-install them into a venv build.
+    excludes=["faster_whisper", "easyocr", "pytesseract", "torch", "PIL", "tkinter"],
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
@@ -92,7 +88,6 @@ exe = EXE(
 coll = COLLECT(
     exe,
     a.binaries,
-    a.zipfiles,
     a.datas,
     strip=False,
     upx=False,

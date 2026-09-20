@@ -26,10 +26,9 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 set "VPY=.venv\Scripts\python.exe"
-set "VPIP=.venv\Scripts\pip.exe"
 
 echo Installing runtime + build deps ...
-"%VPIP%" install -r requirements.txt -r requirements-dev.txt
+"%VPY%" -m pip install -r requirements.txt -r requirements-dev.txt
 if errorlevel 1 exit /b 1
 
 if not exist "config.yaml" (
@@ -60,18 +59,33 @@ if not exist "%DIST%\assets" mkdir "%DIST%\assets"
 if exist "assets\.gitkeep" copy /Y "assets\.gitkeep" "%DIST%\assets\.gitkeep" >nul
 copy /Y "scripts\FFMPEG_BESIDE_APP.txt" "%DIST%\FFMPEG_BESIDE_APP.txt" >nul
 
+REM Copy ffmpeg.exe / ffprobe.exe beside the app when this PC has them on PATH.
+for %%T in (ffmpeg ffprobe) do (
+  if not exist "%DIST%\%%T.exe" (
+    for /f "delims=" %%P in ('where %%T.exe 2^>nul') do (
+      if not exist "%DIST%\%%T.exe" (
+        copy /Y "%%P" "%DIST%\%%T.exe" >nul && echo   Copied %%T.exe beside the app from %%P
+      )
+    )
+  )
+)
+
 echo.
 echo  ============================================================
 echo   Built:  %CD%\%DIST%\SubScript.exe
 echo.
-echo   REQUIRED — place ffmpeg.exe beside the app (not PATH-only):
-echo     1. Download a Windows ffmpeg essentials zip
-echo     2. Copy ffmpeg.exe into:
-echo          %CD%\%DIST%\ffmpeg.exe
-echo     3. Double-click SubScript.exe
+if exist "%DIST%\ffmpeg.exe" (
+  echo   ffmpeg.exe is beside the app - the folder is ready to zip / install.
+) else (
+  echo   REQUIRED - place ffmpeg.exe ^(+ ffprobe.exe^) beside the app ^(not PATH-only^):
+  echo     1. Download a Windows ffmpeg essentials zip
+  echo     2. Copy bin\ffmpeg.exe and bin\ffprobe.exe into:
+  echo          %CD%\%DIST%\
+  echo     3. Double-click SubScript.exe
+)
 echo.
 echo   See %DIST%\FFMPEG_BESIDE_APP.txt for details.
-echo   (Optional) Inno Setup installer can wrap this folder later.
+echo   Installer: scripts\build_installer.bat ^(needs Inno Setup 6^).
 echo  ============================================================
 echo.
 exit /b 0

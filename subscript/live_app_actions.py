@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -21,27 +22,41 @@ from subscript.reframe import make_social_pair
 from subscript.trim import trim_clip
 
 
+def _redirect_err(message: str) -> RedirectResponse:
+    return RedirectResponse("/?err=" + quote(message, safe=""), status_code=303)
+
+
+def _redirect_ok(message: str) -> RedirectResponse:
+    return RedirectResponse("/?msg=" + quote(message, safe=""), status_code=303)
+
+
 def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None:
     @app.post("/items/{item_id}/approve")
     def approve(item_id: str) -> RedirectResponse:
         item = queue.get(item_id)
         if not item:
             raise HTTPException(404)
+        if item.status != "pending":
+            return _redirect_err(f"Clip {item_id} is already {item.status}.")
 
         # 1) Always build the shared local social pack (opens folder).
-        meta = publish_local(
-            item_id=item_id,
-            title=item.title,
-            out_dir=out_dir,
-            master=Path(item.edited_path or item.video_path),
-            horizontal=Path(item.horizontal_path) if item.horizontal_path else None,
-            vertical=Path(item.vertical_path) if item.vertical_path else None,
-            vertical_captioned=(
-                Path(item.vertical_captioned_path)
-                if item.vertical_captioned_path
-                else None
-            ),
-        )
+        try:
+            meta = publish_local(
+                item_id=item_id,
+                title=item.title,
+                out_dir=out_dir,
+                master=Path(item.edited_path or item.video_path),
+                horizontal=Path(item.horizontal_path) if item.horizontal_path else None,
+                vertical=Path(item.vertical_path) if item.vertical_path else None,
+                vertical_captioned=(
+                    Path(item.vertical_captioned_path)
+                    if item.vertical_captioned_path
+                    else None
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 — keep the item pending, show why
+            return _redirect_err(f"Approve failed while building the social pack: {exc}")
+
         upload_src = Path(
             item.vertical_captioned_path
             or item.vertical_path
@@ -82,11 +97,8 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         )
         # Pack always succeeds; platform failures stay in the banner (fail-soft).
         if any_hard_fail and not any_upload:
-            return RedirectResponse(
-                "/?err=" + quote(msg, safe=""),
-                status_code=303,
-            )
-        return RedirectResponse("/?msg=" + quote(msg, safe=""), status_code=303)
+            return _redirect_err(msg)
+        return _redirect_ok(msg)
 
     @app.post("/items/{item_id}/trim")
     def trim_and_approve(
@@ -95,47 +107,63 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         item = queue.get(item_id)
         if not item:
             raise HTTPException(404)
-        dest = out_dir / f"clip-trimmed-{item_id}.mp4"
-        trim_clip(Path(item.video_path), dest, start=start, end=end)
-        out_cfg = cfg.get("output") or {}
-        stamp = item_id
-        horizontal, vertical = make_social_pair(
-            dest,
-            out_dir,
-            stamp,
-            shorts_w=int(out_cfg.get("shorts_width") or 1080),
-            shorts_h=int(out_cfg.get("shorts_height") or 1920),
-            landscape_w=int(out_cfg.get("landscape_width") or 1920),
-            landscape_h=int(out_cfg.get("landscape_height") or 1080),
-        )
-        dur = max(0.1, float(end) - float(start))
-        captioned = maybe_caption_vertical(
-            vertical, out_dir, stamp, cfg, duration_s=dur
-        )
+        if item.status != "pending":
+            return _redirect_err(f"Clip {item_id} is already {item.status}.")
+        try:
+            start_s = float(start)
+            end_s = float(end)
+            if start_s < 0:
+                raise ValueError("Start must be 0 or greater.")
+            if end_s <= start_s:
+                raise ValueError("End must be greater than start.")
+
+            # Always trim from the original branded master so repeated trims do not
+            # compound (and never read + overwrite the same file in one ffmpeg run).
+            master = Path(item.video_path)
+            if not master.is_file():
+                raise FileNotFoundError(f"Master clip missing: {master}")
+            stamp = f"{item_id}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+            dest = out_dir / f"clip-trimmed-{stamp}.mp4"
+            trim_clip(master, dest, start=start_s, end=end_s)
+
+            out_cfg = cfg.get("output") or {}
+            horizontal, vertical = make_social_pair(
+                dest,
+                out_dir,
+                stamp,
+                shorts_w=int(out_cfg.get("shorts_width") or 1080),
+                shorts_h=int(out_cfg.get("shorts_height") or 1920),
+                landscape_w=int(out_cfg.get("landscape_width") or 1920),
+                landscape_h=int(out_cfg.get("landscape_height") or 1080),
+            )
+            dur = max(0.1, end_s - start_s)
+            captioned = maybe_caption_vertical(
+                vertical, out_dir, stamp, cfg, duration_s=dur
+            )
+        except Exception as exc:  # noqa: BLE001 — show the reason instead of a 500 page
+            return _redirect_err(f"Trim failed: {exc}")
+
         queue.set_status(
             item_id,
             "pending",
-            trim_start=start,
-            trim_end=end,
+            trim_start=start_s,
+            trim_end=end_s,
             edited_path=str(dest),
-            video_path=str(dest),
             horizontal_path=str(horizontal),
             vertical_path=str(vertical),
             vertical_captioned_path=str(captioned) if captioned else None,
         )
-        return RedirectResponse(
-            "/?msg="
-            + quote(
-                "Trimmed - new horizontal + vertical (+ captioned) previews ready. "
-                "Approve when happy.",
-                safe="",
-            ),
-            status_code=303,
+        return _redirect_ok(
+            "Trimmed - new horizontal + vertical (+ captioned) previews ready. "
+            "Approve when happy."
         )
 
     @app.post("/items/{item_id}/reject")
     def reject(item_id: str) -> RedirectResponse:
-        if not queue.get(item_id):
+        item = queue.get(item_id)
+        if not item:
             raise HTTPException(404)
+        if item.status != "pending":
+            return _redirect_err(f"Clip {item_id} is already {item.status}.")
         queue.set_status(item_id, "rejected")
-        return RedirectResponse("/?msg=" + quote("Rejected.", safe=""), status_code=303)
+        return _redirect_ok("Rejected.")

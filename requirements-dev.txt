@@ -1,2 +1,5 @@
-# Builders only — not needed to run from source / run-app.bat
+# Builders / contributors only — not needed to run from source / run-app.bat
 pyinstaller>=6.3.0
+# Test suite: python -m pytest  (httpx powers FastAPI's TestClient)
+pytest>=8.0
+httpx>=0.27

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
-from subscript.clip import COMPAT_AUDIO, COMPAT_MOVFLAGS, COMPAT_VIDEO, require_ffmpeg
+from subscript.clip import (
+    COMPAT_AUDIO,
+    COMPAT_MOVFLAGS,
+    COMPAT_VIDEO,
+    require_ffmpeg,
+    run_ffmpeg,
+)
+from subscript.runtime_paths import app_dir
 
 _POSITIONS = {
     "top_left": "10:10",
@@ -17,26 +23,20 @@ _POSITIONS = {
 
 
 def _run_ffmpeg(cmd: list[str]) -> None:
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode == 0:
-        return
-    err = (proc.stderr or proc.stdout or "").strip()
-    tail = "\n".join(err.splitlines()[-20:]) if err else "(no ffmpeg output)"
-    raise RuntimeError(
-        f"ffmpeg failed (exit {proc.returncode}).\n{tail}"
-    )
+    run_ffmpeg(cmd, what="ffmpeg brand overlay")
 
 
 def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
     """Overlay logo if present; always re-encode for player compatibility."""
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    logo = Path(brand.get("logo_path") or "")
-    if logo and not logo.is_absolute():
-        # Resolve relative to project root (parent of subscript/)
-        root = Path(__file__).resolve().parents[1]
-        candidate = root / logo
-        if candidate.exists():
+    logo_raw = str(brand.get("logo_path") or "").strip()
+    logo = Path(logo_raw) if logo_raw else None
+    if logo is not None and not logo.is_absolute():
+        # Relative to the app folder: repo root from source, or the folder
+        # beside SubScript.exe when frozen (``__file__`` lives inside _internal there).
+        candidate = app_dir() / logo
+        if candidate.is_file():
             logo = candidate
     margin = int(brand.get("margin_px") or 24)
     pos_key = brand.get("position") or "bottom_right"
@@ -47,7 +47,7 @@ def apply_brand(source: Path, dest: Path, brand: dict[str, Any]) -> Path:
         "bottom_right": f"W-w-{margin}:H-h-{margin}",
     }.get(pos_key, _POSITIONS["bottom_right"])
 
-    if logo.exists() and logo.stat().st_size > 0:
+    if logo is not None and logo.is_file() and logo.stat().st_size > 0:
         opacity = float(brand.get("opacity") or 0.85)
         opacity = max(0.05, min(1.0, opacity))
         # Scale badge down so it never exceeds ~180px / source frame

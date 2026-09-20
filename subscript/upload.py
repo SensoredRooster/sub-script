@@ -9,29 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from subscript.config import ROOT
+from subscript.config import load_dotenv as _load_dotenv
 
 YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
 DEFAULT_SECRETS = "credentials.json"
 DEFAULT_TOKEN = "token.json"
-
-
-def _load_dotenv() -> None:
-    """Best-effort load of repo-root .env into os.environ (no python-dotenv dep)."""
-    env_path = ROOT / ".env"
-    if not env_path.is_file():
-        return
-    try:
-        for raw in env_path.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, val = line.partition("=")
-            key = key.strip()
-            val = val.strip().strip('"').strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = val
-    except OSError:
-        pass
 
 
 def _resolve_path(raw: str | None, default_name: str) -> Path:

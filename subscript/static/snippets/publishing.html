@@ -1,0 +1,53 @@
+<section class="workflow-section" id="publish">
+  <div class="section-heading">
+    <span class="step-number">5</span>
+    <div>
+      <p class="eyebrow">Publish</p>
+      <h2>Choose your destinations</h2>
+      <p>Nothing posts until you approve a clip. Manual destinations create a ready-to-upload folder with instructions.</p>
+    </div>
+  </div>
+  <form id="publishing-form" class="publishing-form" method="post" action="/publishing">
+    <article class="platform-card youtube-card">
+      <div class="platform-card-head">
+        <span class="platform-mark platform-youtube">▶</span>
+        <div><h3>YouTube Shorts</h3><p>Live upload through your Google OAuth credentials</p></div>
+        <label class="switch" aria-label="Enable YouTube"><input type="checkbox" name="youtube_enabled" value="1" {{YT_ENABLED}}><span></span></label>
+      </div>
+      {{YT_DRY_RUN}}
+      <div class="form-grid form-grid-3">
+        <label>Visibility
+          <select name="youtube_privacy">
+            <option value="private" {{PRIV_PRIVATE}}>Private</option>
+            <option value="unlisted" {{PRIV_UNLISTED}}>Unlisted</option>
+            <option value="public" {{PRIV_PUBLIC}}>Public</option>
+          </select>
+        </label>
+        <label class="span-2">Title template
+          <input name="youtube_title" type="text" value="{{YT_TITLE}}">
+        </label>
+        <label class="span-3">Description
+          <textarea name="youtube_description" rows="3">{{YT_DESCRIPTION}}</textarea>
+        </label>
+        <label class="span-2">Tags <span class="field-hint">comma separated</span>
+          <input name="youtube_tags" type="text" value="{{YT_TAGS}}">
+        </label>
+        <label>Category ID
+          <input name="youtube_category" type="text" value="{{YT_CATEGORY}}">
+        </label>
+      </div>
+      <details class="advanced platform-advanced">
+        <summary>Connection files</summary>
+        <div class="form-grid form-grid-2">
+          <label>OAuth credentials<input name="youtube_secrets" type="text" value="{{YT_SECRETS}}"></label>
+          <label>Saved token<input name="youtube_token" type="text" value="{{YT_TOKEN}}"></label>
+        </div>
+      </details>
+    </article>
+    <div class="platform-grid">{{PLATFORM_CARDS}}</div>
+    <div class="save-bar">
+      <div><strong>Destination settings</strong><span>Used when you approve a clip in step 4.</span></div>
+      <button type="submit" class="primary">Save publishing settings</button>
+    </div>
+  </form>
+</section>

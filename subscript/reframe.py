@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
-from subscript.clip import COMPAT_AUDIO, COMPAT_MOVFLAGS, COMPAT_VIDEO, require_ffmpeg
+from subscript.clip import (
+    COMPAT_AUDIO,
+    COMPAT_MOVFLAGS,
+    COMPAT_VIDEO,
+    require_ffmpeg,
+    run_ffmpeg,
+)
 
 
 def _run(cmd: list[str]) -> None:
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "").strip()
-        tail = "\n".join(err.splitlines()[-25:]) if err else "(no ffmpeg output)"
-        raise RuntimeError(f"ffmpeg reframe failed (exit {proc.returncode}).\n{tail}")
+    run_ffmpeg(cmd, what="ffmpeg reframe")
 
 
 def make_horizontal(source: Path, dest: Path, width: int = 1920, height: int = 1080) -> Path:

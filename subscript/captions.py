@@ -6,7 +6,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from subscript.clip import COMPAT_AUDIO, COMPAT_MOVFLAGS, COMPAT_VIDEO, require_ffmpeg
+from subscript.clip import (
+    COMPAT_AUDIO,
+    COMPAT_MOVFLAGS,
+    COMPAT_VIDEO,
+    require_ffmpeg,
+    run_ffmpeg,
+)
+from subscript.runtime_paths import find_ffprobe
 
 _DEMO_LINE = "Clip | SUB"
 _VALID_ENGINES = frozenset({"auto", "demo", "whisper"})
@@ -206,24 +213,38 @@ def resolve_srt_for_video(
     return srt, "demo"
 
 
-def _escape_subtitles_path(path: Path) -> str:
-    """Escape an absolute path for ffmpeg ``subtitles=`` filter (Windows-safe)."""
-    s = path.resolve().as_posix()
-    s = s.replace("\\", "/")
-    s = s.replace(":", r"\:")
-    s = s.replace("'", r"\'")
-    s = s.replace("[", r"\[").replace("]", r"\]")
-    s = s.replace(",", r"\,")
+def _ff_escape(text: str, specials: str) -> str:
+    """Backslash-escape ``specials`` (plus the backslash itself) for one ffmpeg parse level."""
+    out: list[str] = []
+    for ch in text:
+        if ch == "\\" or ch in specials:
+            out.append("\\")
+        out.append(ch)
+    return "".join(out)
+
+
+def escape_filter_path(posix_path: str) -> str:
+    """Escape a file path for use inside an ffmpeg filter option (e.g. ``subtitles=``).
+
+    ffmpeg parses a ``-vf`` string twice: the filtergraph parser first (where
+    ``[ ] , ; '`` and backslash are special), then the per-filter option parser
+    (where ``:`` ``'`` and backslash are special). A Windows drive colon therefore
+    needs *two* levels of escaping: ``C:/x.srt`` must become ``C\\\\:/x.srt``.
+    Escaping only once made ffmpeg split the path at the drive colon and fail with
+    ``Unable to parse "original_size"`` on every Windows machine.
+    """
+    s = _ff_escape(posix_path, ":'")  # option-parser level
+    s = _ff_escape(s, "[],;'")  # filtergraph-parser level
     return s
 
 
+def _escape_subtitles_path(path: Path) -> str:
+    """Escape an absolute path for the ffmpeg ``subtitles=`` filter (Windows-safe)."""
+    return escape_filter_path(Path(path).resolve().as_posix())
+
+
 def _run_ffmpeg(cmd: list[str]) -> None:
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode == 0:
-        return
-    err = (proc.stderr or proc.stdout or "").strip()
-    tail = "\n".join(err.splitlines()[-25:]) if err else "(no ffmpeg output)"
-    raise RuntimeError(f"ffmpeg captions failed (exit {proc.returncode}).\n{tail}")
+    run_ffmpeg(cmd, what="ffmpeg captions")
 
 
 def burn_captions(video: Path, srt: Path, dest: Path) -> Path:
@@ -280,10 +301,9 @@ def burn_captions(video: Path, srt: Path, dest: Path) -> Path:
 
 def probe_duration_seconds(video: Path) -> float:
     """Best-effort duration via ffprobe; falls back to 30s."""
-    import shutil
-
-    ffmpeg = require_ffmpeg()
-    ffprobe = shutil.which("ffprobe") or ffmpeg.replace("ffmpeg", "ffprobe")
+    ffprobe = find_ffprobe(require_ffmpeg())
+    if not ffprobe:
+        return 30.0
     try:
         proc = subprocess.run(
             [

@@ -276,6 +276,47 @@
     });
   }
 
+  // Publishing save state
+  var publishingForm = document.getElementById("publishing-form");
+  if (publishingForm) {
+    publishingForm.addEventListener("submit", function () {
+      var publishingBtn = publishingForm.querySelector('button[type="submit"]');
+      if (publishingBtn) {
+        publishingBtn.disabled = true;
+        publishingBtn.textContent = "Saving destinations…";
+      }
+    });
+  }
+
+  // Keep the compact workflow bar in sync with the visible stage.
+  var workflowLinks = Array.prototype.slice.call(
+    document.querySelectorAll(".workflow-nav a")
+  );
+  if (workflowLinks.length && "IntersectionObserver" in window) {
+    var sections = workflowLinks
+      .map(function (link) {
+        return document.querySelector(link.getAttribute("href"));
+      })
+      .filter(Boolean);
+    var stageObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          workflowLinks.forEach(function (link) {
+            link.classList.toggle(
+              "active",
+              link.getAttribute("href") === "#" + entry.target.id
+            );
+          });
+        });
+      },
+      { rootMargin: "-18% 0px -65% 0px", threshold: 0 }
+    );
+    sections.forEach(function (section) {
+      stageObserver.observe(section);
+    });
+  }
+
   // Live hotkey status card
   var liveCard = document.getElementById("live-hotkey-card");
   if (!liveCard) return;

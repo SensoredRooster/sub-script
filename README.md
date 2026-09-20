@@ -161,6 +161,8 @@ The folder opens automatically so you can drag files into each app. Captions use
 
 **Platforms:** enabled entries under `platforms:` (and/or `youtube.enabled`) fan out on Approve — YouTube can live-upload; others build `for_<platform>/` packs. See **Platform checklist**. If `youtube.enabled` / `platforms.youtube.enabled` is `true`, Approve also uploads `vertical_captioned.mp4` (falls back to `vertical.mp4`) as a Short and shows the YouTube link on the success banner. If `youtube.enabled` is `false` (default), Approve only saves the local pack — safe for testing.
 
+The app home page now follows the complete workflow in order: **Source → Clip → Style → Review → Publish**. Publishing destinations have their own panel; use it to enable YouTube, TikTok, Instagram, Facebook, X, or Rumble and edit YouTube titles, descriptions, tags, visibility, and connection-file paths without editing YAML by hand.
+
 Smoke test:
 
 ```bat

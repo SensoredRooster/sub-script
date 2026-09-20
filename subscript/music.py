@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
-from subscript.clip import COMPAT_AUDIO, COMPAT_MOVFLAGS, COMPAT_VIDEO, require_ffmpeg
+from subscript.clip import (
+    COMPAT_AUDIO,
+    COMPAT_MOVFLAGS,
+    COMPAT_VIDEO,
+    require_ffmpeg,
+    run_ffmpeg,
+)
 from subscript.runtime_paths import app_dir
 
 ROOT = app_dir()
@@ -53,12 +58,7 @@ def resolve_music_path(cfg: dict[str, Any] | None) -> Path | None:
 
 
 def _run_ffmpeg(cmd: list[str]) -> None:
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode == 0:
-        return
-    err = (proc.stderr or proc.stdout or "").strip()
-    tail = "\n".join(err.splitlines()[-25:]) if err else "(no ffmpeg output)"
-    raise RuntimeError(f"ffmpeg music mix failed (exit {proc.returncode}).\n{tail}")
+    run_ffmpeg(cmd, what="ffmpeg music mix")
 
 
 def mix_music_bed(
