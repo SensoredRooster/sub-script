@@ -154,7 +154,15 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     ) -> RedirectResponse:
         try:
             source = await _resolve_source(file, local_path, uploads_dir)
-            if mode == "last30":
+            if mode == "auto":
+                highlights = suggest_highlights_or_fallback(
+                    source, buffer_seconds=float(default_seconds), top_n=1, cfg=cfg
+                )
+                suggestions = highlights.get("suggestions") or []
+                best = suggestions[0] if suggestions else {}
+                clip_start = best.get("start")
+                clip_duration = float(best.get("duration") or default_seconds)
+            elif mode == "last30":
                 clip_start: float | None = None
                 clip_duration: float | None = float(default_seconds)
             else:

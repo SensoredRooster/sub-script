@@ -2,7 +2,7 @@
   <div class="section-heading"><span class="step-number">3</span><div><p class="eyebrow">Style</p><h2>Make it yours</h2><p>Set your visual identity, captions, and sound once. New clips inherit these choices.</p></div></div>
   <form id="brand-form" class="brand-form" method="post" action="/brand" enctype="multipart/form-data">
     <div class="style-grid"><div class="control-panel">
-    <h3>Brand watermark</h3><p class="meta">A PNG logo is applied automatically.</p>
+    <h3>Brand watermark</h3><p class="meta">Your starter identity is ready. Upload your own PNG anytime.</p>
     <div class="brand-preview-row">
       <div id="brand-preview-wrap" class="brand-preview-wrap" {{PREVIEW_HIDDEN}}>
         <img id="brand-preview" class="brand-preview" src="{{LOGO_SRC}}" alt="Current logo">
@@ -32,26 +32,26 @@
 
     </div><div class="control-panel">
     <h3 class="brand-subhead">Captions</h3>
-    <p class="meta">Burn timed text on the vertical export. Whisper uses optional <code>faster-whisper</code>; otherwise demo SRT.</p>
+    <p class="meta">Add timed captions to vertical clips. Real transcription requires the optional speech engine; demo mode uses placeholder text.</p>
     <label class="check-row">
       <input type="checkbox" name="captions_enabled" value="1" id="captions-enabled" {{CAPS_ENABLED}}>
-      Burn captions on vertical
+      Add captions to vertical clips
     </label>
     <label>Engine
       <select name="captions_engine" id="captions-engine">
-        <option value="auto" {{ENG_AUTO}}>Auto (Whisper if installed, else demo)</option>
-        <option value="demo" {{ENG_DEMO}}>Demo only (“Clip | SUB”)</option>
-        <option value="whisper" {{ENG_WHISPER}}>Whisper STT (fail-soft to demo)</option>
+        <option value="auto" {{ENG_AUTO}}>Automatic (demo if unavailable)</option>
+        <option value="demo" {{ENG_DEMO}}>Demo placeholder text</option>
+        <option value="whisper" {{ENG_WHISPER}}>Speech transcription (demo fallback)</option>
       </select>
     </label>
     <p class="meta" id="whisper-hint">{{WHISPER_HINT}}</p>
 
     </div><div class="control-panel">
     <h3 class="brand-subhead">Music bed</h3>
-    <p class="meta">Quiet bed under horizontal + vertical. Volume stays low so game audio stays clear. Skip if no file.</p>
+    <p class="meta">Optional background music for both formats. Keep the volume low so your gameplay stays clear.</p>
     <label class="check-row">
       <input type="checkbox" name="music_enabled" value="1" id="music-enabled" {{MUSIC_ENABLED}}>
-      Mix music bed when file is present
+      Use my background music
     </label>
     <label class="full">Music (MP3)
       <input id="music-file-input" type="file" name="music" accept="audio/mpeg,.mp3,audio/*">

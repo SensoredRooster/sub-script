@@ -1,7 +1,7 @@
 <section class="workflow-section" id="source">
   <div class="section-heading">
     <span class="step-number">1</span>
-    <div><p class="eyebrow">Source</p><h2>Bring in your footage</h2><p>Upload a recording or capture the latest moment from your live buffer.</p></div>
+    <div><p class="eyebrow">Source</p><h2>Bring in your footage</h2><p>Drop a VOD. We select a highlight, apply your saved style, and prepare both video formats for review.</p></div>
   </div>
   <form id="clip-form" class="clip-form" method="post" action="/clip" enctype="multipart/form-data">
     <div class="source-grid">
@@ -10,28 +10,25 @@
         <div id="drop-zone" class="drop-zone" tabindex="0">
           <span class="upload-icon">↑</span><p><strong>Drop your video here</strong></p><p class="meta">MP4, MOV, MKV, WebM or AVI</p>
           <label class="file-btn">Browse files<input id="file-input" type="file" name="file" accept="video/*,.mp4,.mov,.mkv,.webm,.avi,.m4v" hidden></label>
-          <p id="file-label" class="file-label meta">No file chosen</p>
+          <p id="file-label" class="file-label meta">Your next highlight starts here</p>
         </div>
         <details class="advanced">
           <summary>Use a local path for a large file</summary>
           <label class="full">Path<input id="local-path" type="text" name="local_path" placeholder="C:\Videos\my-vod.mp4" autocomplete="off"></label>
         </details>
       </div>
-      <div class="source-option"><span class="option-label">Live replay buffer</span>{{LIVE_CARD}}</div>
+      <aside class="automation-summary"><p class="eyebrow">Your automatic edit</p><h3>One upload. A finished clip.</h3><ol><li><strong>Find the moment</strong><span>Audio analysis selects a highlight.</span></li><li><strong>Make it yours</strong><span>Your watermark, caption settings, and optional music.</span></li><li><strong>Fit every screen</strong><span>Landscape and vertical previews, ready to review.</span></li></ol><a href="#style">Personalize your style →</a></aside>
     </div>
-    <div class="stage-divider" id="clip"><span>2</span><div><p class="eyebrow">Clip</p><h2>Choose the moment</h2></div></div>
-    <div class="clip-options-grid">
-      <div class="control-panel">
-        <label class="check-row feature-check"><input type="checkbox" id="auto-highlights" name="auto_highlights" value="1" checked><span><strong>Find highlights automatically</strong><small>Analyze audio peaks and suggest the best moments.</small></span></label>
-        <div id="highlights-panel" class="highlights-panel" hidden><p class="meta" id="highlights-status">Analyzing audio…</p><div id="highlight-chips" class="highlight-chips" role="list"></div></div>
-      </div>
-      <fieldset class="mode control-panel">
-        <legend>Clip range</legend>
-        <label class="radio"><input type="radio" name="mode" value="last30" checked><span><strong>Last {{DEFAULT_SECONDS}} seconds</strong><small>Fastest option for a recent moment.</small></span></label>
-        <label class="radio"><input type="radio" name="mode" value="custom" id="mode-custom"><span><strong>Custom range</strong><small>Set the exact start and duration.</small></span></label>
-        <div id="custom-fields" class="custom-fields" hidden><label>Start<input id="clip-start" name="start" type="text" placeholder="0 or 1:02:00"></label><label>Length<input id="clip-duration" name="duration" type="text" placeholder="{{DEFAULT_SECONDS}}" value="{{DEFAULT_SECONDS}}"></label></div>
+    <div id="clip" class="auto-choice"><label class="check-row"><input type="checkbox" id="auto-start" checked><span><strong>Start automatically when I choose a video</strong><small>Keep this page open while your clip is prepared. Review before publishing.</small></span></label></div>
+    <details class="advanced edit-options"><summary>Adjust clip selection</summary>
+      <fieldset class="mode control-panel"><legend>Choose a moment</legend>
+        <label class="radio"><input type="radio" name="mode" value="auto" checked><span><strong>Automatic highlight</strong><small>Use the strongest audio peak; fall back to the last {{DEFAULT_SECONDS}} seconds.</small></span></label>
+        <label class="radio"><input type="radio" name="mode" value="last30"><span>Last {{DEFAULT_SECONDS}} seconds</span></label>
+        <label class="radio"><input type="radio" name="mode" value="custom" id="mode-custom"><span>Set a custom range</span></label>
+        <div id="custom-fields" class="custom-fields" hidden><label>Start<input id="clip-start" name="start" type="text" placeholder="0 or 1:02:00"></label><label>Length in seconds<input id="clip-duration" name="duration" type="text" value="{{DEFAULT_SECONDS}}"></label></div>
       </fieldset>
-    </div>
-    <div class="action-bar"><p id="busy" class="meta busy" hidden>Working… this can take a minute for long VODs.</p><button type="submit" id="clip-btn" class="ok primary">Create previews <span>→</span></button></div>
+    </details>
+    <details class="advanced"><summary>Capture from a live replay buffer instead</summary>{{LIVE_CARD}}</details>
+    <div class="action-bar"><p id="busy" role="status" aria-live="polite" class="meta busy" hidden>Preparing your clip: analyzing footage, applying your style, and rendering previews. Long VODs can take several minutes.</p><button type="submit" id="clip-btn" class="ok primary">Create previews <span>→</span></button></div>
   </form>
 </section>

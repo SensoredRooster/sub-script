@@ -38,6 +38,32 @@ def test_home_renders_all_sections(app_env) -> None:
         assert needle in r.text, needle
 
 
+def test_automatic_clip_uses_highlight(app_env, monkeypatch) -> None:
+    source = app_env.tmp / "auto.mp4"
+    source.write_bytes(b"video")
+    calls = []
+    monkeypatch.setattr("subscript.live_app.suggest_highlights_or_fallback",
+                        lambda *args, **kwargs: {"suggestions": [{"start": 42, "duration": 18}]})
+    monkeypatch.setattr("subscript.live_app.run_pipeline",
+                        lambda *args, **kwargs: calls.append(kwargs))
+    result = app_env.client.post("/clip", data={"local_path": str(source), "mode": "auto"}, follow_redirects=False)
+    assert result.status_code == 303
+    assert calls == [{"dry_run": True, "start": 42, "duration": 18.0}]
+
+
+def test_automatic_clip_falls_back_when_no_highlights(app_env, monkeypatch) -> None:
+    source = app_env.tmp / "quiet.mp4"
+    source.write_bytes(b"video")
+    calls = []
+    monkeypatch.setattr("subscript.live_app.suggest_highlights_or_fallback",
+                        lambda *args, **kwargs: {"suggestions": []})
+    monkeypatch.setattr("subscript.live_app.run_pipeline",
+                        lambda *args, **kwargs: calls.append(kwargs))
+    app_env.client.post("/clip", data={"local_path": str(source), "mode": "auto"}, follow_redirects=False)
+    assert calls[0]["start"] is None
+    assert calls[0]["duration"] == float(app_env.cfg.get("buffer_seconds") or 30)
+
+
 def test_publishing_panel_renders_platform_inputs(app_env) -> None:
     text = app_env.client.get("/").text
     for needle in ("YouTube Shorts", "TikTok", "Instagram", "Facebook", "X / Twitter", "Rumble"):
