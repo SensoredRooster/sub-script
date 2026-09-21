@@ -2,6 +2,17 @@
 setlocal
 cd /d "%~dp0"
 
+REM If SubScript is already running, reuse it instead of starting a second
+REM server and showing Windows socket error 10048.
+netstat -ano | findstr /R /C:"127.0.0.1:8787 .*LISTENING" >nul
+if not errorlevel 1 (
+  echo.
+  echo  SubScript is already running at http://127.0.0.1:8787
+  echo  Opening the existing app instead of starting a second copy.
+  start "" "http://127.0.0.1:8787"
+  exit /b 0
+)
+
 REM Prefer built onedir exe when present (double-click product path)
 if exist "dist\SubScript\SubScript.exe" (
   echo.
