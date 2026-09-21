@@ -1,364 +1,582 @@
-# sub-script
+# SubScript
 
-Hotkey / VOD clip -> brand -> **review gate** -> YouTube Shorts.
+SubScript turns gameplay recordings and replay-buffer clips into polished, branded videos.
 
-Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
+It can:
 
-## Public website and legal pages
+- find a strong moment in a VOD;
+- trim a clip without changing the original recording;
+- add a watermark, captions, intro, outro, and optional music;
+- render both landscape 16:9 and vertical 9:16 versions;
+- show both previews before anything is published;
+- save a local social export pack; and
+- optionally publish through supported platform connectors.
 
-The static public site for OAuth developer review lives in [`site/`](site/). It includes the SubScript homepage, [Terms of Service](site/terms/), and [Privacy Policy](site/privacy/), with shared navigation and footer links. See [`docs/GITHUB_PAGES.md`](docs/GITHUB_PAGES.md) for the GitHub Pages setup and the expected Website, Terms, and Privacy URLs for this repository.
+SubScript is a local Windows-first desktop tool. Your videos, configuration, and saved OAuth tokens stay on your computer unless you deliberately publish through a connected platform.
 
-## For users (no terminal)
+## The important idea
 
-1. One-time setup (ask a friend if needed): install **Python 3.11+**, **ffmpeg** (`winget install ffmpeg`), then in this folder:
-   ```bat
+When the browser opens, SubScript starts with only two choices:
+
+1. **Create & Publish a Clip** — make one clip right now.
+2. **Put My Content on Autopilot** — create a saved workflow that watches one replay folder.
+
+The app intentionally keeps these paths separate so a first-time user does not have to understand every setting before making a clip.
+
+## Quick start for an absolute beginner
+
+### First-time setup
+
+Ask for help with this one-time setup if you are not comfortable with Python or Windows terminals.
+
+1. Install Python 3.11 or newer.
+2. Install FFmpeg. The easiest Windows command is:
+
+   ~~~bat
+   winget install ffmpeg
+   ~~~
+
+3. Open this repository folder.
+4. Create the virtual environment and install the app:
+
+   ~~~bat
    python -m venv .venv
    .venv\\Scripts\\pip install -r requirements.txt
    copy config.example.yaml config.yaml
-   ```
-2. **Double-click `run-app.bat`**.
-3. Your browser opens to **http://127.0.0.1:8787**.
-4. Choose **Create & Publish a Clip** for one-off editing, or **Put My Content on Autopilot** to build a saved folder-based workflow.
-5. In the clip workspace, drop a VOD (or Choose file) -> leave **Auto highlights** checked to get loud-moment chips (or **Last 30 seconds** / custom start + length) -> click a chip or **Make clip**.
-5. Preview the clip -> **Approve as-is** / **Trim & approve** / **Reject**.
+   ~~~
 
-**Branding (in the clip workspace):** upload a PNG logo, pick a corner + opacity, and use the **Captions** / **Music bed** toggles (engine + optional MP3). **Save** writes `assets/` + `config.yaml` so every future Make clip picks them up.
+5. Double-click [run-app.bat](run-app.bat).
+6. The browser should open to http://127.0.0.1:8787.
 
-You can also upload multiple short **Intro clips** and **Outro clips** in the same Branding card. SubScript adds one of each to new clips and rotates through the uploaded variants. These are optional; a failed bumper render falls back to the gameplay clip so the main workflow still completes.
+For the packaged version, use [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md). The packaged app is an onedir build and requires ffmpeg.exe beside SubScript.exe.
 
-### Editing a clip
+### Make your first clip
 
-SubScript first creates a master clip, then makes landscape and vertical previews from it. On the **Review** card, watch both previews. **Approve as-is & save** keeps the full selection. To cut it down, enter a start and end time in seconds and choose **Trim & preview again**; SubScript trims the master and rebuilds both formats, captions, music, and post drafts. Nothing publishes until you approve it.
+1. Click **Create & Publish a Clip**.
+2. Drop a video into **Bring in your footage**, or click **Browse files**.
+3. Leave **Start automatically** checked if you are unsure.
+4. Click **Make my clip**.
+5. Wait for the **Review** section to appear.
+6. Watch both previews:
+   - **Horizontal 16:9** for regular video;
+   - **Vertical 9:16** for TikTok, Shorts, and Reels.
+7. Choose one:
+   - **Approve as-is & save**;
+   - **Trim & preview again**; or
+   - **Discard clip**.
 
-Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you're done.
+Nothing is published until you approve the clip. With the default settings, approval saves a local export pack and does not upload anything.
 
-> Prefer a double-click `.exe`? See **[docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)** — PyInstaller **onedir** `SubScript.exe` with **`ffmpeg.exe` beside it** (not PATH-only). `run-app.bat` prefers the exe when `dist\\SubScript\\SubScript.exe` exists.
+## The screen-by-screen flow
 
-## Auto highlights (VOD loudness)
+### 1. Start screen
 
-When you drop a full VOD, sub-script can **suggest clip windows** from audio loudness (ffmpeg PCM / RMS peaks — no ML training).
+URL: /.
 
-1. Leave **Auto highlights** checked on the home page.
-2. Choose / drop a file (or paste a path). The app calls **`POST /highlights`** and shows chips for the top peaks (length = `buffer_seconds`, default 30).
-3. Click a chip to fill **Custom start + length**, then **Make clip**.
+The start screen is the app’s entry point. It does not show the full editor, OAuth settings, or advanced controls. It asks what you want to do today and sends you to the correct workspace.
 
-If analysis fails, the UI **falls back to last 30 seconds** and shows a short message (fail-soft).
+The **Settings** link is for returning users who want to jump directly to publishing connections, autopilot profiles, or brand style.
 
-Smoke test (synthetic quiet/loud/quiet audio):
+### 2. One-off clip workspace
 
-```bat
-python scripts\\smoke_highlights.py
-```
+URL: /clip.
 
-## Kill-feed OCR (experimental v0)
+The clip workspace is the complete manual workflow:
 
-Optional **Warzone / CoD kill-feed** detection for auto-highlights. **v0 is experimental** — ROI + exact name matching only; accuracy varies by HUD / encode.
+Source → Clip → Style → Review → Publish
 
-| Constraint | Behavior |
-|------------|----------|
-| ROI | Crop uses **fractions of the frame** locked to `stream.resolution` (e.g. `1920x1080`) when set |
-| Player name | Only the **exact** in-game name fires (`detect.player_name` or `stream.player_name`) — other players' kills are ignored |
-| OCR optional | App runs **without** tesseract/easyocr; missing engine → loudness-only + clear note |
+The left menu provides shortcuts to those sections. You can use the defaults from top to bottom, or jump to a section when you already know what you want.
 
-Enable in `config.yaml`:
+#### Source
 
-```yaml
-detect:
-  enabled: true
-  player_name: "YourActivisionId"   # exact in-game ID
-  sample_fps: 1.0
-  merge: merge   # or replace
-  roi: { x: 0.62, y: 0.02, w: 0.36, h: 0.28 }
-```
+Choose one of these inputs:
 
-Optional OCR install (not in core `requirements.txt`):
+- drag-and-drop or browse for a video;
+- paste a file path from this computer; or
+- use the live replay-buffer card when a replay source is configured.
 
-```bat
-pip install -r requirements-ocr.txt
-```
+Supported video extensions include .mp4, .mov, .mkv, .webm, .avi, and .m4v.
 
-Also install system **Tesseract** if you use `pytesseract` (winget / brew / apt). `easyocr` is pip-only.
+#### Clip
 
-When `detect.enabled` and a player name are set, **Auto highlights** may merge kill timestamps with loudness peaks (fail-soft to loudness-only).
+The easiest choice is **Auto highlights**. SubScript analyzes audio loudness and suggests moments that may be worth clipping. If analysis cannot run, it falls back to the configured buffer length.
 
-Smoke (ROI crop — **no OCR engine required**):
+You can also choose:
 
-```bat
-python scripts\\smoke_killfeed.py
-```
+- **Last 30 seconds** or the configured buffer length;
+- **Custom start and duration**; or
+- a suggested highlight chip that fills in the custom values for you.
 
-## Captions & music bed
+The original source file is not overwritten.
 
-### Captions (demo or optional Whisper)
+#### Style
 
-Vertical exports can burn timed captions:
+Style settings apply to new clips:
 
-| `captions.engine` | Behavior |
-|-------------------|----------|
-| `auto` (default) | Use **faster-whisper** when installed; otherwise demo SRT (`Clip | SUB`) |
-| `demo` | Always placeholder SRT |
-| `whisper` | Prefer STT; **fail-soft** to demo if missing or errors |
+- watermark/logo and corner position;
+- opacity and margin;
+- captions on or off;
+- caption engine: automatic, demo, or optional Whisper fallback;
+- background music and volume;
+- multiple intro clips; and
+- multiple outro clips.
 
-Whisper is **optional** — not in `requirements.txt`. To enable real speech captions:
+Intro and outro files are optional. When several are uploaded, SubScript rotates through them. If a bumper render fails, the main gameplay render can still complete.
 
-```bat
-pip install -r requirements-whisper.txt
-```
+#### Review
 
-Toggle in the app (**Branding** → Captions) or set `captions.enabled` / `captions.engine` in `config.yaml`.
+The review card shows the actual generated media. The vertical preview is a real 9:16 video, not a square crop or a stretched presentation frame.
 
-Smoke:
+Review actions:
 
-```bat
-python scripts\\smoke_captions.py
-```
+- **Approve as-is & save** keeps the full selected clip;
+- **Trim & preview again** trims the master, rebuilds both formats, and lets you review again;
+- **Discard clip** removes the clip from the pending review queue.
 
-### Music bed (optional, quiet)
+The trim fields use seconds. For example, start 12.5 and end 27 keeps the section from 12.5 seconds through 27 seconds.
 
-If `assets/music.mp3` exists (or `music.path`) and `music.enabled` is true, sub-script mixes a **low-volume** bed under **horizontal + vertical** via ffmpeg `amix` (default volume `0.10`, clamped to ~0.01–0.35 so game audio stays clear). Missing file or mix errors → skip (fail-soft).
+#### Publish
 
-Upload an MP3 from the app **Branding** → Music bed, or drop the file in `assets/`.
+Publishing is optional. Review-first mode is the default and is recommended while testing.
 
-Smoke:
+The Publish section lets you:
 
-```bat
-python scripts\\smoke_music.py
-```
+- choose review-first or automatic delivery;
+- enable or disable destinations;
+- generate sample titles, descriptions, and tags;
+- edit the copy for each platform; and
+- connect supported accounts.
 
-## Live mode (hotkey while you stream)
+Manual export packs work without any account connection.
 
-One-screen setup for dummies:
+### 3. Autopilot management
 
-1. In **OBS** → Settings → Output → Replay Buffer: turn it **On**. Set the replay length to at least your `buffer_seconds` (default **30**).
-2. Note where OBS saves replays (Output path / Recording path). Either:
-   - Save the **exact replay export `.mp4` path** into `config.yaml` as `live_source`, **or**
-   - Put that folder path in `watch_folder` (sub-script grabs the **newest** video each time).
-3. Confirm in `config.yaml`:
-   ```yaml
-   hotkey: "ctrl+shift+c"
-   buffer_seconds: 30
-   live_source: "C:\\Videos\\Replay.mp4"   # or leave empty
-   watch_folder: "C:\\Videos\\OBS"        # or leave empty if live_source is set
-   auto_enqueue: true
-   notify: true
-   ```
-4. **Double-click `run-app.bat`**, open the home page, click **Start watcher** on the **Live hotkey** card (or run `python -m subscript --watch` in a second terminal).
-5. While streaming, hit **Ctrl+Shift+C**. You should hear a beep / see a toast. sub-script clips the last N seconds → brand → H+V → captions → review queue.
-6. In the app: preview → **Approve** (or Trim / Reject).
+URL: /automation.
 
-### Automated workflow wizard
+This page lists saved automated profiles. Each profile displays:
 
-For an ongoing stream workflow, choose **Put My Content on Autopilot**. The management screen keeps saved profiles separate, and **Build a workflow** opens a dedicated five-step slideshow: name + folder, trigger, delivery mode, destinations, then test/save. Each profile owns one VOD folder, so different stream setups cannot be mixed. **Save & start profile** arms that profile immediately and remembers it for the next app launch. Direct posting OAuth is not required for tonight's local upload packs; see the account-connection guide in Publish for the later integration checklist.
+- profile name;
+- current state: Running, Ready to start, or Paused;
+- the folder it watches;
+- the hotkey and clip length;
+- selected destinations; and
+- Edit, Start watching, or Stop watching controls.
 
-If one hotkey fire fails (missing file, ffmpeg hiccup), the app **keeps listening** — check the Live card / console for the error and try again.
+Use **Build a workflow** to create another profile. Profiles remain separate because each one owns a different replay/VOD folder.
 
-CLI-only watch (no browser button):
+### 4. Guided automation builder
 
-```bat
-python -m subscript --watch
-```
+URL: /automation/new.
 
-Optional: `python -m subscript --watch --source path\\to\\replay.mp4`
+Editing an existing profile uses /automation/<profile-id>/edit.
 
-## What Approve does now
+The builder is deliberately a slideshow-style workflow. Only the current step is shown, and **Next** stays disabled until that step is valid.
 
-Hitting **Approve as-is** (or approving after a trim) builds a **social export pack** under `out\\approved\\<id>\\`:
+#### Step 1 — Name + VOD folder
+
+Enter:
+
+- a recognizable profile name, such as Main stream or Ranked clips;
+- the real folder where this profile’s replay files will be saved.
+
+The folder must already exist. Two profiles cannot use the same folder.
+
+#### Step 2 — Trigger
+
+Choose:
+
+- the SubScript shortcut, such as ctrl+shift+c; and
+- the clip length from 5 to 300 seconds.
+
+Do not use the same shortcut as the recorder’s Save Replay shortcut. The intended order is:
+
+1. the recorder finishes writing a replay;
+2. you press the SubScript shortcut;
+3. SubScript finds the newest video in that profile’s folder;
+4. SubScript creates the clip and continues through the saved workflow.
+
+#### Step 3 — Delivery mode
+
+Choose one:
+
+- **Review first** — generate the clip and wait for approval;
+- **Automatic** — continue through the saved delivery plan without waiting for manual approval.
+
+Review-first mode is safest for a first test.
+
+#### Step 4 — Destinations
+
+Choose the destinations for this profile and optionally set each destination’s format and post copy.
+
+Automatic mode requires at least one selected destination. Review-first mode can be saved without a destination so you can use the profile as a local clip watcher.
+
+#### Step 5 — Test + save
+
+Before saving, confirm the trigger order shown on screen. The available actions are:
+
+- **Create safe test preview** — uses the newest replay in the folder, forces review mode, and publishes nothing;
+- **Save profile** — saves the profile without arming its watcher;
+- **Save & start profile** — saves the profile and starts watching immediately.
+
+After saving, SubScript returns to the start screen with a confirmation. Use **Put My Content on Autopilot** again to see and manage the saved profile.
+
+## Live streaming setup
+
+### OBS replay buffer
+
+1. In OBS, open **Settings → Output**.
+2. Turn **Replay Buffer** on.
+3. Set the replay length to at least the profile’s clip length, normally 30 seconds.
+4. Confirm where OBS saves replay files.
+5. Create an autopilot profile using that folder.
+6. Save a replay, wait until OBS finishes writing it, then press the profile’s SubScript shortcut.
+
+SubScript watches for a completed video file. It does not read a half-written file while OBS is still saving it.
+
+The older global live configuration is still supported for compatibility, but new users should use the profile builder because it keeps multiple stream setups separate.
+
+## What happens to a video
+
+The rendering pipeline is:
+
+source → master → brand → landscape + vertical → captions/music → review → approval → export/publish
+
+Every approved pack normally contains:
 
 | File | Purpose |
-|------|---------|
-| `horizontal.mp4` | 16:9 landscape |
-| `vertical.mp4` | 9:16 Shorts / TikTok / Reels |
-| `vertical_captioned.mp4` | Same vertical with burned-in demo captions (`Clip | SUB`) when `captions.enabled` is true |
-| `PLATFORMS.txt` | Checklist: YouTube Shorts, TikTok, IG Reels, Facebook, X, Rumble |
-| `manifest.json` | Metadata for future upload hooks |
+|---|---|
+| master.mp4 | The selected or trimmed master video |
+| horizontal.mp4 | Landscape 16:9 export |
+| vertical.mp4 | Vertical 9:16 export without burned-in captions |
+| vertical_captioned.mp4 | Vertical 9:16 export with captions when enabled |
+| PLATFORMS.txt | Human-readable destination checklist |
+| manifest.json | Export metadata |
+| for_<platform>/ | Platform-specific manual pack and instructions |
 
-The folder opens automatically so you can drag files into each app. Captions use ffmpeg + SRT: **demo** by default, or **real timed STT** when `faster-whisper` is installed (`captions.engine: auto|demo|whisper`). Optional music bed mixes under H+V at low volume when `assets/music.mp3` exists. Toggle captions + music in the app **Branding** card (or `config.yaml`).
+Approved output is saved under:
 
-**Platforms:** enabled entries under `platforms:` (and/or `youtube.enabled`) fan out on Approve — YouTube can live-upload; others build `for_<platform>/` packs. See **Platform checklist**. If `youtube.enabled` / `platforms.youtube.enabled` is `true`, Approve also uploads `vertical_captioned.mp4` (falls back to `vertical.mp4`) as a Short and shows the YouTube link on the success banner. If `youtube.enabled` is `false` (default), Approve only saves the local pack — safe for testing.
+~~~text
+out\\approved\\<clip-id>\\
+~~~
 
-The entry page intentionally shows only two choices: **Create & Publish a Clip** and **Put My Content on Autopilot**. The clip workspace then follows **Source → Clip → Style → Review → Publish**. Publishing destinations have their own panel; use it to enable YouTube, TikTok, Instagram, Facebook, X, or Rumble and edit YouTube titles, descriptions, tags, visibility, and connection-file paths without editing YAML by hand.
+The app opens that folder after approval when Windows allows it.
 
-Smoke test:
+### Video dimensions
 
-```bat
-python scripts\\smoke_captions.py
-```
+The target output dimensions come from the output configuration. The aspect ratios are always maintained:
 
-## Platform checklist
+- landscape: width-to-height ratio 16:9;
+- vertical: width-to-height ratio 9:16;
+- sample production output: 1920x1080 and 1080x1920;
+- small test output: 320x180 and 270x480.
 
-Approve can fan out to multiple platforms via `subscript/publish/`. YouTube and TikTok have live API paths; the other destinations remain local upload packs.
+SubScript also forces square pixels (1:1 sample aspect ratio) so players and platforms do not interpret the video as distorted.
 
-| Platform | Config flag | Default | What happens when enabled |
-|----------|-------------|---------|---------------------------|
-| **YouTube Shorts** | `youtube.enabled` **or** `platforms.youtube.enabled` | `false` | Live OAuth upload (see **Connect YouTube**) |
-| **TikTok** | `platforms.tiktok.enabled` | `false` | Local pack (`mode: manual`), direct post (`mode: api`), or TikTok draft (`mode: upload`) |
-| **Instagram** | `platforms.instagram.enabled` | `false` | Same pattern → `for_instagram/` |
-| **Facebook** | `platforms.facebook.enabled` | `false` | Same pattern → `for_facebook/` |
-| **X (Twitter)** | `platforms.twitter.enabled` | `false` | Same pattern → `for_twitter/` |
-| **Rumble** | `platforms.rumble.enabled` | `false` | Same pattern → `for_rumble/` |
+## Branding and editing details
 
-**Fail-soft:** if one platform errors, Approve still finishes and the banner lists per-platform status (`uploaded` / `manual` / `error` / `not_configured`).
+### Watermark
 
-TikTok direct posting uses Desktop Login Kit with PKCE, refreshable local tokens, creator privacy options, chunked `FILE_UPLOAD`, and status polling. It requires TikTok approval for the requested `video.publish` or `video.upload` scope.
+Upload a PNG from **Style → Watermark**. The saved brand settings are written to assets/ and config.yaml and apply to future clips.
 
-Example — manual TikTok + IG packs on every Approve (YouTube still off):
+### Intro and outro rotation
 
-```yaml
-platforms:
-  youtube:
-    enabled: false
-  tiktok:
-    enabled: true
-    mode: manual
-  instagram:
-    enabled: true
-    mode: manual
-```
+Upload multiple short clips in **Intro & outro clips**. SubScript stores them under:
 
-## Connect TikTok
+~~~text
+assets\\intros\\
+assets\\outros\\
+~~~
 
-1. In the TikTok developer app, add Login Kit and Content Posting API, then request the scope needed by the selected delivery mode: `video.publish` for Direct post or `video.upload` for TikTok drafts.
-2. Register this loopback redirect URI exactly:
-   `http://127.0.0.1:8787/connections/tiktok/callback`
-3. Copy `.env.example` to `.env` and fill in the private values from TikTok:
-   ```text
+The pipeline rotates through the available files. Keep bumpers short and use compatible video/audio formats for the smoothest render.
+
+### Captions
+
+Caption behavior is controlled by captions.engine:
+
+| Value | Behavior |
+|---|---|
+| auto | Use faster-whisper when installed; otherwise use the safe demo fallback |
+| demo | Always use the demo SRT |
+| whisper | Prefer speech-to-text and fall back safely if unavailable |
+
+Whisper is optional:
+
+~~~bat
+.venv\\Scripts\\pip install -r requirements-whisper.txt
+~~~
+
+Without Whisper, the app still renders and the UI clearly indicates that the fallback caption engine is being used.
+
+### Music
+
+Upload an MP3 in the Style section or place one at assets/music.mp3. Keep the bed volume low so gameplay remains understandable. Missing music or a failed mix does not stop the main clip workflow.
+
+## Publishing and OAuth
+
+SubScript keeps local account authentication separate from social publishing permissions. The local /login boundary is only a compatibility boundary for future account authentication; it does not pretend that TikTok, YouTube, or another social provider is the SubScript account system.
+
+### Current destination behavior
+
+| Destination | Current behavior | Credentials needed for local packs? |
+|---|---|---:|
+| YouTube Shorts | OAuth upload when enabled; otherwise local pack | No |
+| TikTok | Local pack, TikTok draft, or direct posting depending on approval/configuration | No for local pack |
+| Instagram | Local upload pack | No |
+| Facebook | Local upload pack | No |
+| X / Twitter | Local upload pack | No |
+| Rumble | Local upload pack | No |
+
+The application is intentionally fail-soft: if one enabled destination fails, the approved local pack is still saved and the banner reports the per-platform result.
+
+Do not request or select a social product/scope until that connector is actually implemented and demonstrated. Unused products and scopes can delay platform review.
+
+### TikTok connector
+
+TikTok is a separate publishing connection. It is not the same thing as opening SubScript.
+
+1. In TikTok for Developers, add the products required by the chosen delivery mode:
+   - Login Kit;
+   - Content Posting API.
+2. Request only the scope you need:
+   - video.publish for Direct post;
+   - video.upload for sending a draft to TikTok.
+3. Register this exact redirect URI:
+
+   ~~~text
+   http://127.0.0.1:8787/connections/tiktok/callback
+   ~~~
+
+4. Put the private values in .env:
+
+   ~~~text
    TIKTOK_CLIENT_KEY=your_client_key
    TIKTOK_CLIENT_SECRET=your_client_secret
    TIKTOK_REDIRECT_URI=http://127.0.0.1:8787/connections/tiktok/callback
-   ```
-4. Restart SubScript. Open **Publish**, enable TikTok, choose **Direct post to TikTok**, and click **Connect TikTok**.
-5. Finish TikTok authorization in the browser. The app saves the refreshable token locally as `tiktok-token.json` (gitignored).
-6. Keep privacy set to **Private** while testing. Unaudited TikTok clients are restricted to private posts until TikTok completes the required audit.
+   ~~~
 
-SubScript uploads the approved local MP4 directly to TikTok using `FILE_UPLOAD`; it does not expose your video files on GitHub Pages or require TikTok to download them from a public URL. If the connector is not approved yet, choose **Local upload pack** or **Send to TikTok drafts** instead.
+5. Restart SubScript.
+6. Open /clip, go to **Publish**, enable TikTok, and choose the delivery mode.
+7. Click **Connect TikTok**.
+8. Finish authorization in the browser and return to SubScript.
 
-## Connect YouTube (optional)
+Tokens are saved locally in the configured token file and are gitignored. Keep TikTok privacy set to **Private** while testing. TikTok may restrict unaudited applications to private posting until review is complete.
 
-Do this once when you want Approve to publish Shorts for real. Leave `youtube.enabled: false` until the steps below work.
+If direct posting is not approved yet, use **Local upload pack** or **Send to TikTok drafts**. Those paths still let you demonstrate the generated video without claiming the direct-post connector is ready.
 
-1. Open [Google Cloud Console](https://console.cloud.google.com/) and create (or pick) a project.
-2. **APIs & Services → Library** → enable **YouTube Data API v3**.
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
-   - If asked, set the OAuth consent screen (External is fine for personal use; add your Google account as a test user).
-   - Application type: **Desktop app**. Download the JSON.
-4. Save that file in this project folder as **`credentials.json`** (same folder as `config.yaml`).  
-   Or put it elsewhere and set `youtube.client_secrets_file` / `YOUTUBE_CLIENT_SECRETS` in `.env`.
-5. In `config.yaml`:
-   ```yaml
+### YouTube connector
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/).
+2. Create or select a project.
+3. Enable **YouTube Data API v3**.
+4. Create an OAuth client ID for a desktop application.
+5. Download the JSON file and save it as credentials.json, or configure another path through .env/config.yaml.
+6. Keep this safe while testing:
+
+   ~~~yaml
    youtube:
-     enabled: true
-     privacy: "unlisted"   # or private / public
+     enabled: false
+     privacy: "unlisted"
      client_secrets_file: "credentials.json"
-   ```
-6. Restart the app (`run-app.bat`). Make a clip → **Approve**.  
-   The first time, your browser opens a Google login — allow access. sub-script saves **`token.json`** (gitignored) so you are not asked again.
-7. After a successful upload, the home page banner shows the YouTube URL (and still opens `out\\approved\\<id>\\`).
+   ~~~
 
-If secrets are missing, Approve still saves the local pack and shows a clear error (no silent failure).
+7. Restart the app, make a clip, and approve it.
+8. When Google sign-in opens, grant access.
+9. Only after a successful private/unlisted test should you set youtube.enabled: true.
 
-Never commit `credentials.json`, `token.json`, or `.env`.
+YouTube upload authorization requires OAuth. API keys alone are not sufficient for uploading or changing user-owned content. The token is stored locally and must never be committed.
 
-## Product shape
+## Configuration basics
 
-| Mode | What it does |
-|------|----------------|
-| **App** | Drop a VOD -> auto-highlight chips (or last-30s / custom) -> clip -> same review queue |
-| **Live** | Hotkey grabs the last ~30s from a buffer/export -> brand -> H+V -> captions -> review queue |
-| **Review** | Local UI: watch clip, approve, quick trim, or reject |
+The normal files are:
 
-## Builder / CLI (optional)
+| File | Purpose |
+|---|---|
+| config.example.yaml | Safe template copied to config.yaml |
+| config.yaml | Your local settings; do not commit private values |
+| .env | Private OAuth and environment overrides; do not commit |
+| out/ | Generated clips, review queue, approved packs, and uploads |
+| assets/ | Logo, intro/outro, and music files |
+| test-clips/ | Optional local sample videos |
 
-Same engine; use when you prefer the terminal.
+Useful settings include:
 
-Produce a clip into the review queue (last 30 seconds by default):
+~~~yaml
+buffer_seconds: 30
+hotkey: "ctrl+shift+c"
 
-```bat
-python -m subscript --source test-clips\\\\your.mp4
-```
+review:
+  require_approval: true
 
-Clip a specific highlight (`--start` + `--duration`; seconds or `HH:MM:SS`):
+output:
+  dir: "out"
+  landscape_width: 1920
+  landscape_height: 1080
+  shorts_width: 1080
+  shorts_height: 1920
+~~~
 
-```bat
-python -m subscript --source test-clips\\\\vod.mp4 --start 3720 --duration 45
-```
+For beginners, change settings in the browser whenever a UI control exists. Edit YAML only for advanced configuration or troubleshooting.
 
-```bat
-python -m subscript --source test-clips\\\\vod.mp4 --start 1:02:00 --duration 00:00:45
-```
+## Local server and port 8787
 
-Open the app / review UI without the bat file:
+The browser app runs on:
 
-```bat
+~~~text
+http://127.0.0.1:8787
+~~~
+
+The port stays open only while the SubScript process is running. It does not expose the app publicly by itself.
+
+The same port matters for TikTok because the registered callback is:
+
+~~~text
+http://127.0.0.1:8787/connections/tiktok/callback
+~~~
+
+If you see:
+
+~~~text
+[WinError 10048] only one usage of each socket address is normally permitted
+~~~
+
+another SubScript process is already using port 8787. Usually this means the app is already running. Open http://127.0.0.1:8787 instead of launching a second copy.
+
+If the existing copy is stuck, close its black terminal window. As a last resort, find the process using the port:
+
+~~~powershell
+Get-NetTCPConnection -LocalPort 8787 | Select-Object OwningProcess
+Get-Process -Id <PID>
+Stop-Process -Id <PID>
+~~~
+
+Do not change the port while completing TikTok setup unless you also update the TikTok redirect URI and .env value to exactly match.
+
+## Troubleshooting for beginners
+
+| Symptom | What it means | Fix |
+|---|---|---|
+| Browser did not open | The server may still be running | Visit http://127.0.0.1:8787 manually |
+| Port 8787 is already in use | Another copy is already running | Use the existing browser window or close the old process |
+| FFmpeg not found | The video processor is missing | Install FFmpeg or place ffmpeg.exe beside the packaged app |
+| Make my clip is disabled | A video has not been selected | Drop a video or use Browse files |
+| Auto highlights failed | Audio analysis could not run | SubScript uses the configured last-N-seconds fallback |
+| Review is empty | No clip has been generated yet | Return to Source and click Make my clip |
+| TikTok Connect is greyed out | Client credentials or redirect setup is missing | Check .env, the exact callback URL, and restart SubScript |
+| TikTok returns an incomplete response | Authorization did not finish or the redirect did not match | Start Connect TikTok again and finish the browser flow |
+| Direct post is unavailable | TikTok has not approved the required product/scope | Use Local upload pack or TikTok drafts while waiting |
+| YouTube asks to sign in every time | The token cannot be saved | Check that token.json is writable and not being deleted |
+| Video looks wrong | The preview or output settings are not being read | Confirm the generated file is the vertical 9:16 variant and restart the app after config changes |
+| An automated profile finds the wrong replay | Two profiles share a folder | Give every profile its own replay folder |
+| Automation does nothing | The watcher is not running or the replay is still being written | Use Start watching, wait for OBS to finish saving, then press the profile hotkey |
+
+## Command-line options
+
+The browser is the recommended interface. These commands use the same pipeline when needed:
+
+Create a clip from a sample file:
+
+~~~bat
+python -m subscript --source test-clips\\your.mp4
+~~~
+
+Create a custom section:
+
+~~~bat
+python -m subscript --source test-clips\\vod.mp4 --start 3720 --duration 45
+python -m subscript --source test-clips\\vod.mp4 --start 1:02:00 --duration 00:00:45
+~~~
+
+Open the browser app:
+
+~~~bat
 python -m subscript --app
-```
+~~~
 
-(`--review` is the same as `--app`.)
+Run the legacy/global live watcher:
 
-Hotkey watch (uses `live_source` / `watch_folder` from config, or `--source`):
-
-```bat
+~~~bat
 python -m subscript --watch
-```
+python -m subscript --watch --source path\\to\\buffer-export.mp4
+~~~
 
-```bat
-python -m subscript --watch --source path\\\\to\\\\buffer-export.mp4
-```
+## Developer workflow
 
-## Setup details (Windows-friendly)
+Install development dependencies:
 
-1. Install **ffmpeg** (for the shipped `.exe`, copy `ffmpeg.exe` **beside** `SubScript.exe` — see `scripts/FFMPEG_BESIDE_APP.txt`. For source/PATH installs):
+~~~bat
+.venv\\Scripts\\pip install -r requirements-dev.txt
+~~~
 
-   ```bat
-   winget install ffmpeg
-   ```
+Run the full test suite:
 
-   Or with Chocolatey: `choco install ffmpeg`. Confirm with `ffmpeg -version`.
+~~~bat
+.venv\\Scripts\\pytest.exe -q
+~~~
 
-2. Python 3.11+ in a venv:
+Run Python compilation checks:
 
-   ```bat
-   python -m venv .venv
-   .venv\\Scripts\\activate
-   pip install -r requirements.txt
-   copy .env.example .env
-   copy config.example.yaml config.yaml
-   ```
+~~~bat
+.venv\\Scripts\\python.exe -m compileall -q subscript
+~~~
 
-   On macOS/Linux, activate with `source .venv/bin/activate` and use `cp` instead of `copy`.
+The test suite covers the entry router, clip workspace, automation slideshow validation, profile separation, start/stop controls, publishing redirects, OAuth callback preservation, review actions, intro/outro uploads, and video dimensions when FFmpeg is available.
 
-3. Sample VODs can live in **`test-clips/`** (gitignored) or you can drop any local file in the app.
+Before committing:
 
-## First-run tips
+~~~bat
+git diff --check
+git status --short --branch
+git log -1 --oneline
+~~~
 
-| Problem | What to do |
-|---------|------------|
-| `ffmpeg not found` | Copy `ffmpeg.exe` next to `SubScript.exe`, **or** install via winget/choco and reopen the terminal |
-| `config.yaml not found` | `copy config.example.yaml config.yaml` (or just run `run-app.bat`) |
-| `Source video not found` | Choose a real file in the app, or pass a path under `test-clips\\\\` |
-| Live hotkey: no source | Set `live_source` or `watch_folder` in `config.yaml` |
-| Live hotkey did nothing | Click **Start watcher** on the Live card; leave `run-app.bat` open |
-| Empty review list | Use **Make clip** or fire the live hotkey, then wait for reload |
-| Browser didn't open | Visit http://127.0.0.1:8787 while `run-app.bat` is running |
-| Want real speech captions | `pip install -r requirements-whisper.txt` then set engine Auto/Whisper in Branding |
-| Want kill-feed OCR (experimental) | Set `detect.enabled` + exact `player_name`; optional `pip install -r requirements-ocr.txt` |
-| No music under clips | Upload MP3 in Branding or add `assets/music.mp3`; check Music bed enabled |
-| YouTube secrets missing | Follow **Connect YouTube**; put OAuth JSON at `credentials.json` |
-| YouTube login every time | Ensure `token.json` is writable in the project folder (not deleted) |
+Then commit and push:
 
-## Roadmap
+~~~bat
+git add README.md docs subscript tests
+git commit -m "docs: document the redesigned SubScript flow"
+git push origin main
+~~~
 
-1. Hotkey / file clip + brand + review gate (approve / trim / reject)
-2. Desktop app home: drop VOD -> clip -> review *(shipped)*
-3. Live hotkey → OBS replay / watch folder → auto enqueue *(shipped)*
-4. VOD auto highlights (loudness peaks → chip suggestions) *(shipped)*
-5. Captions burn-in on vertical (demo SRT / optional Whisper) + social export pack on Approve *(shipped)*
-6. YouTube Shorts upload on Approve (OAuth) *(shipped)*
-7. Multi-platform publish stubs (TikTok / IG / FB / X / Rumble) on Approve *(shipped)*
-8. Optional Whisper captions + quiet music bed *(shipped)*
-9. Experimental Warzone kill-feed OCR v0 (optional; exact name + ROI) *(this PR)*
-10. Windows `.exe` onedir + ffmpeg-beside-app packaging *(shipped)* — see [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md)
-11. Later: Inno Setup installer wrapping `dist\\SubScript\\`
+Confirm alignment:
+
+~~~bat
+git fetch origin
+git status --short --branch
+~~~
+
+The expected result is a clean working tree showing main...origin/main with no ahead/behind count.
+
+## Public website and legal pages
+
+The public static site for developer review is in [docs/](docs/). It includes the public homepage, [Terms of Service](docs/terms/), and [Privacy Policy](docs/privacy/). See [docs/GITHUB_PAGES.md](docs/GITHUB_PAGES.md) for the GitHub Pages setup and expected Website, Terms, and Privacy URLs.
+
+## Repository map
+
+| Location | Role |
+|---|---|
+| subscript/live_app.py | Main FastAPI app and clip workspace route |
+| subscript/automation_profiles.py | Automation management, builder, and profile persistence |
+| subscript/live_ui.py | Live watcher and profile watcher helpers |
+| subscript/pipeline.py | Main render pipeline |
+| subscript/reframe.py | Landscape and vertical rendering |
+| subscript/publishing_routes.py | Publishing settings and OAuth callback routes |
+| subscript/publish/ | Platform publishing adapters and local export packs |
+| subscript/static/snippets/ | HTML screen templates |
+| subscript/static/review.css | Shared visual styling |
+| subscript/static/app.js | Clip controls and automation slideshow behavior |
+| tests/ | Automated regression tests |
+| docs/ | Public site and setup documentation |
+
+## Safety rules
+
+- Do not commit .env, config.yaml, credentials.json, token.json, or TikTok token files.
+- Keep TikTok privacy set to Private while testing.
+- Keep YouTube disabled until a private or unlisted test succeeds.
+- Use Review first until the generated clips and copy are reliable.
+- Use a different folder for every automated profile.
+- Do not select platform products/scopes that the app does not actually use.
+- Keep the local server terminal open while using the browser app.
 
 ## License
 
-Private - SensoredRooster.
+Private — SensoredRooster.
