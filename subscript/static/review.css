@@ -70,3 +70,53 @@ a{color:var(--accent)}
 .presentation-mode .workflow-nav{grid-template-columns:repeat(3,minmax(0,1fr))}.presentation-mode .quick-start{grid-template-columns:repeat(3,minmax(0,1fr))}.presentation-mode .quick-start-link{display:none}
 @media(max-width:760px){.quick-start{grid-template-columns:1fr}.quick-start-link{justify-self:start}.presentation-mode .workflow-nav{grid-template-columns:repeat(3,minmax(5.5rem,1fr))}}
 @media(max-width:760px){.automation-cta{align-items:stretch;flex-direction:column}.automation-cta a{white-space:normal}.wizard-steps{grid-template-columns:1fr}.wizard-progress{align-items:flex-start;flex-direction:column}.wizard-progress span:last-child{text-align:left}.wizard-actions{align-items:stretch;flex-direction:column}.wizard-actions button{width:100%}.wizard-summary-status{float:none;display:block;margin-top:.25rem}}
+
+/* Quiet studio pass: fewer nested surfaces, clearer first-run path, same controls. */
+:root{--content-width:1120px;--radius:14px;--surface-quiet:#172119;--line-quiet:#2c3b30}
+body{background:radial-gradient(ellipse at 88% -8%,#29402a38,transparent 40%),var(--bg)}
+.app-header,main,.workflow-nav{max-width:var(--content-width)}
+.app-header{padding:1.25rem 0 .85rem}
+.app-header h1{font-size:1.25rem}
+.workflow-nav{padding:.35rem;border-radius:999px;background:#141d18f5;border-color:var(--line-quiet);box-shadow:0 8px 24px #00000018}
+.workflow-nav a{min-height:2.4rem;border-radius:999px;font-size:.78rem}
+.workflow-nav a.active{background:#223025}
+main{padding:1.35rem 0 4rem;gap:1rem}
+.studio-intro{padding:1rem 0 .75rem}
+.studio-intro h2{font-size:clamp(2.15rem,4.2vw,3.6rem);margin:.55rem 0 .85rem}
+.studio-tags{margin-top:1rem}
+.quick-start{margin-top:1rem;padding:.8rem 1rem;background:var(--surface-quiet);border-color:var(--line-quiet);gap:.75rem}
+.workflow-section{padding:1.25rem;border-radius:var(--radius);box-shadow:0 8px 26px #00000012}
+.section-heading{margin-bottom:1rem;gap:.75rem}
+.section-heading h2{font-size:1.28rem}
+.section-heading p:last-child{font-size:.86rem}
+.source-grid{grid-template-columns:1.15fr .85fr;gap:.85rem}
+.drop-zone{min-height:14rem;border-radius:var(--radius)}
+.automation-summary{padding:1rem;border-radius:var(--radius);background:var(--surface-quiet);border:1px solid var(--line-quiet)}
+.automation-summary h3{font-size:1.15rem;margin:.35rem 0 1rem}
+.automation-summary ol{gap:.85rem}
+.automation-cta{padding:.85rem 1rem;border-color:#405536;background:#1a281c}
+.automation-cta strong{font-size:.92rem}
+.action-bar{padding:.7rem .8rem}
+
+/* Make the automated-flow setup feel like one guided drawer instead of four cards. */
+#capture-setup{padding:0;background:transparent;border:0;box-shadow:none}
+#capture-setup>details{border:1px solid var(--line-quiet);border-radius:var(--radius);background:var(--surface);overflow:hidden}
+#capture-setup>details>summary{display:flex;align-items:center;gap:.75rem;padding:.9rem 1rem;cursor:pointer;list-style:none;font-size:.9rem}
+#capture-setup>details>summary::-webkit-details-marker{display:none}
+#capture-setup>details>summary::before{content:"+";display:grid;place-items:center;width:1.5rem;height:1.5rem;border:1px solid var(--line-quiet);border-radius:50%;color:var(--accent);font-size:1rem}
+#capture-setup>details[open]>summary{border-bottom:1px solid var(--line-quiet);background:var(--surface-quiet)}
+#capture-setup>details[open]>summary::before{content:"−"}
+.wizard-summary-status{margin-left:auto;float:none}
+.workflow-wizard{max-width:900px;margin:0 auto;padding:1rem}
+.wizard-intro{margin:0 0 .8rem;padding:0;border:0;background:transparent}
+.wizard-intro h2{font-size:1.25rem}
+.wizard-steps{gap:.55rem;margin:.75rem 0 0}
+.wizard-steps li{display:flex;flex-direction:column;align-items:flex-start;min-width:0;gap:.45rem;padding:.7rem;border:1px solid var(--line-quiet);border-radius:10px;background:var(--surface-quiet)}
+.wizard-steps li::before{width:1.35rem;height:1.35rem;font-size:.68rem}
+.wizard-steps li strong,.wizard-steps li span{min-width:0;overflow-wrap:normal}
+.wizard-progress{margin:.75rem 0;padding:.65rem .8rem}
+.wizard-step{padding:1rem;border-radius:12px;background:#18251b}
+.wizard-step h3{font-size:1.02rem}
+.wizard-actions{margin-top:.1rem}
+@media(max-width:1120px){.app-header,main{padding-left:1rem;padding-right:1rem}}
+@media(max-width:760px){.app-header{padding-top:1rem}.workflow-nav{margin-left:.75rem;margin-right:.75rem}.studio-intro h2{font-size:2.25rem}.quick-start{padding:.75rem}.workflow-section{padding:1rem}.source-grid{grid-template-columns:1fr}.workflow-wizard{padding:.8rem}.wizard-steps{grid-template-columns:1fr}}
