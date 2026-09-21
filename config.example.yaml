@@ -7,6 +7,8 @@ live_source: ""
 watch_folder: ""
 # After hotkey: always run clip → brand → H+V → captions and enqueue for review.
 auto_enqueue: true
+# Set by the in-app automated-flow wizard when you choose Save & start.
+auto_start_watcher: false
 # Windows toast when possible; otherwise console beep / print.
 notify: true
 
@@ -34,6 +36,10 @@ detect:
 
 brand:
   logo_path: "assets/logo.png"
+  # Optional reusable bumpers. Upload them in the app instead of editing YAML.
+  # One intro and one outro are selected per clip when multiple are configured.
+  intro_paths: []
+  outro_paths: []
   opacity: 0.85
   position: "bottom_right"
   margin_px: 24

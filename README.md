@@ -4,6 +4,10 @@ Hotkey / VOD clip -> brand -> **review gate** -> YouTube Shorts.
 
 Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 
+## Public website and legal pages
+
+The static public site for OAuth developer review lives in [`site/`](site/). It includes the SubScript homepage, [Terms of Service](site/terms/), and [Privacy Policy](site/privacy/), with shared navigation and footer links. See [`docs/GITHUB_PAGES.md`](docs/GITHUB_PAGES.md) for the GitHub Pages setup and the expected Website, Terms, and Privacy URLs for this repository.
+
 ## For users (no terminal)
 
 1. One-time setup (ask a friend if needed): install **Python 3.11+**, **ffmpeg** (`winget install ffmpeg`), then in this folder:
@@ -18,6 +22,12 @@ Nothing uploads until you **Approve as-is**, **Trim & approve**, or **Reject**.
 5. Preview the clip -> **Approve as-is** / **Trim & approve** / **Reject**.
 
 **Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, and use the **Captions** / **Music bed** toggles (engine + optional MP3). **Save** writes `assets/` + `config.yaml` so every future Make clip picks them up.
+
+You can also upload multiple short **Intro clips** and **Outro clips** in the same Branding card. SubScript adds one of each to new clips and rotates through the uploaded variants. These are optional; a failed bumper render falls back to the gameplay clip so the main workflow still completes.
+
+### Editing a clip
+
+SubScript first creates a master clip, then makes landscape and vertical previews from it. On the **Review** card, watch both previews. **Approve as-is & save** keeps the full selection. To cut it down, enter a start and end time in seconds and choose **Trim & preview again**; SubScript trims the master and rebuilds both formats, captions, music, and post drafts. Nothing publishes until you approve it.
 
 Leave the black `run-app.bat` window open while you work. Close it (or Ctrl+C) when you're done.
 
@@ -134,6 +144,10 @@ One-screen setup for dummies:
 4. **Double-click `run-app.bat`**, open the home page, click **Start watcher** on the **Live hotkey** card (or run `python -m subscript --watch` in a second terminal).
 5. While streaming, hit **Ctrl+Shift+C**. You should hear a beep / see a toast. sub-script clips the last N seconds → brand → H+V → captions → review queue.
 6. In the app: preview → **Approve** (or Trim / Reject).
+
+### Automated workflow wizard
+
+For an ongoing stream workflow, click **Start workflow setup** on the home page. The guided setup shows one step at a time, requires a saved replay before continuing, checks the folder/shortcut/clip length inputs, and explains exactly what happens next. **Save & start automated workflow** arms the watcher immediately and remembers that choice so the trigger can start again when the app restarts. Direct posting OAuth is not required for tonight's local upload packs; see the account-connection guide in Publish for the later integration checklist.
 
 If one hotkey fire fails (missing file, ffmpeg hiccup), the app **keeps listening** — check the Live card / console for the error and try again.
 

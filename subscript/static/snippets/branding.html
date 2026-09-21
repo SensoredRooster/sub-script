@@ -1,8 +1,8 @@
 <section class="workflow-section" id="style">
-  <div class="section-heading"><span class="step-number">3</span><div><p class="eyebrow">Style</p><h2>Make it yours</h2><p>Set your visual identity, captions, and sound once. New clips inherit these choices.</p></div></div>
+  <div class="section-heading"><span class="step-number">3</span><div><p class="eyebrow">Style · optional</p><h2>Make it yours</h2><p>Starter settings are already in place. Change these only when you want a different look or sound.</p></div></div>
   <form id="brand-form" class="brand-form" method="post" action="/brand" enctype="multipart/form-data">
     <div class="style-grid"><div class="control-panel">
-    <h3>Brand watermark</h3><p class="meta">Your starter identity is ready. Upload your own PNG anytime.</p>
+    <h3>Watermark</h3><p class="meta">Your starter logo is ready. Upload your own PNG anytime, or leave this as-is.</p>
     <div class="brand-preview-row">
       <div id="brand-preview-wrap" class="brand-preview-wrap" {{PREVIEW_HIDDEN}}>
         <img id="brand-preview" class="brand-preview" src="{{LOGO_SRC}}" alt="Current logo">
@@ -31,8 +31,20 @@
     </div>
 
     </div><div class="control-panel">
+    <h3>Intro &amp; outro clips</h3>
+    <p class="meta">Optional. Upload multiple short videos and SubScript rotates through them, adding one before and/or after each gameplay clip.</p>
+    <label class="full">Intro clips
+      <input id="intro-files-input" type="file" name="intros" accept="video/*,.mp4,.mov,.mkv,.webm,.avi,.m4v" multiple>
+    </label>
+    <p class="meta sequence-status">{{INTRO_STATUS}}</p>
+    <label class="full">Outro clips
+      <input id="outro-files-input" type="file" name="outros" accept="video/*,.mp4,.mov,.mkv,.webm,.avi,.m4v" multiple>
+    </label>
+    <p class="meta sequence-status">{{OUTRO_STATUS}}</p>
+
+    </div><div class="control-panel">
     <h3 class="brand-subhead">Captions</h3>
-    <p class="meta">Add timed captions to landscape and vertical exports. Real transcription requires the optional speech engine; demo mode uses placeholder text.</p>
+    <p class="meta">Add words on screen. Automatic is the easiest choice and falls back safely if speech transcription is not installed.</p>
     <label class="check-row">
       <input type="checkbox" name="captions_enabled" value="1" id="captions-enabled" {{CAPS_ENABLED}}>
       Add captions to both video formats
@@ -47,8 +59,8 @@
     <p class="meta" id="whisper-hint">{{WHISPER_HINT}}</p>
 
     </div><div class="control-panel">
-    <h3 class="brand-subhead">Music bed</h3>
-    <p class="meta">Optional background music for both formats. Keep the volume low so your gameplay stays clear.</p>
+    <h3 class="brand-subhead">Background music</h3>
+    <p class="meta">Optional music under both videos. Upload an MP3 first; keep the volume low so your gameplay stays clear.</p>
     <label class="check-row">
       <input type="checkbox" name="music_enabled" value="1" id="music-enabled" {{MUSIC_ENABLED}}>
       Use my background music

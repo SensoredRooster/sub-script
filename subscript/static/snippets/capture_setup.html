@@ -1,11 +1,62 @@
 <section class="workflow-section" id="capture-setup">
   <details class="advanced">
-    <summary><strong>Set up live clipping — guided setup</strong></summary>
-    <p class="meta">Connect your replay recorder, check a sample, then enable your shortcut.</p>
-    <form method="post" action="/capture/setup" class="clip-form">
-      <div class="control-panel"><p class="eyebrow">1 / Prepare your recorder</p><h3>Save a replay first</h3><p class="meta">In OBS, enable Replay Buffer in Settings → Output. In Settings → Hotkeys, assign Save Replay a shortcut. Start Replay Buffer and save a test replay. For another recorder, use its save-clip control.</p><p class="meta">Use a different shortcut for SubScript. This version processes saved footage; it does not trigger the recorder. Wait for saving to finish before processing.</p><a href="https://obsproject.com/forum/resources/how-to-setup-instant-replay-in-obs-studio.613/" target="_blank" rel="noopener">OBS replay setup guide ↗</a></div>
-      <div class="control-panel"><p class="eyebrow">2 / Connect SubScript</p><h3>Where are your replays saved?</h3><label>Replay folder<input name="folder" type="text" value="{{FOLDER}}" placeholder="C:\Users\you\Videos\Replays" required></label><p class="meta">Copy the folder from your recorder settings. Use a dedicated replay folder to avoid selecting unrelated recordings.</p><div class="form-grid form-grid-2"><label>SubScript processing shortcut<input name="hotkey" type="text" value="{{CAPTURE_HOTKEY}}" required></label><label>Clip length (seconds)<input name="seconds" type="number" min="5" max="300" value="{{SECONDS}}" required></label></div></div>
-      <div class="control-panel"><p class="eyebrow">3 / Verify before you play</p><h3>Make a test preview</h3><p class="meta">We check the folder, shortcut format, and video processor, then render the latest replay. Tests always stop for review, even in automatic mode. Test previews do not verify in-game shortcut conflicts.</p><div class="actions"><button name="action" value="test" type="submit">Create a test preview</button><button name="action" value="save" type="submit" class="primary">Save capture setup</button></div><p class="meta">After saving, expand the live replay controls above and select Start watcher. During play: save a replay, wait for saving to finish, then press the SubScript shortcut. If a game blocks the shortcut, test it outside the game.</p></div>
-    </form>
+    <summary><strong>Set up an automated workflow — guided setup</strong><span class="wizard-summary-status">4 clear steps</span></summary>
+    <div class="workflow-wizard" id="workflow-wizard">
+      <div class="wizard-intro">
+        <p class="eyebrow">Automated workflow setup</p>
+        <h2>Play normally. Press one trigger. Get a clip.</h2>
+        <p class="meta">This setup connects your recorder to SubScript. We will not publish anything until you choose what should happen after each clip.</p>
+        <ol class="wizard-steps" aria-label="Workflow setup steps">
+          <li><strong>Prepare</strong><span>Save one replay from OBS or your recorder.</span></li>
+          <li><strong>Connect</strong><span>Tell SubScript where replays go and choose a shortcut.</span></li>
+          <li><strong>Decide</strong><span>Choose clip length and review or automatic delivery.</span></li>
+          <li><strong>Test</strong><span>Make a safe preview, then turn the workflow on.</span></li>
+        </ol>
+      </div>
+      <div class="wizard-progress" role="status" aria-live="polite"><strong>Step <span id="workflow-step-number">1</span> of 4</strong><span id="workflow-step-status">Prepare one replay before continuing.</span></div>
+      <form method="post" action="/capture/setup" class="clip-form" id="workflow-setup-form" novalidate>
+        <section class="control-panel wizard-step" data-wizard-step="0">
+          <p class="eyebrow">1 / Prepare</p>
+          <h3>Save one replay first</h3>
+          <p class="meta">In OBS, enable Replay Buffer in Settings → Output, assign Save Replay a shortcut in Settings → Hotkeys, start Replay Buffer, and save one test replay. Other recorders should use their save-clip control.</p>
+          <p class="meta">This setup processes saved footage. SubScript does not press your recorder's Save Replay key for you. Wait until the replay finishes writing before you continue.</p>
+          <label class="wizard-check"><input type="checkbox" data-wizard-check="replay-ready"> I saved a test replay and know which folder it went into.</label>
+          <p class="wizard-validation" data-wizard-message="replay-ready">Check this box after the replay is saved.</p>
+          <a href="https://obsproject.com/forum/resources/how-to-setup-instant-replay-in-obs-studio.613/" target="_blank" rel="noopener">OBS replay setup guide ↗</a>
+          <div class="wizard-actions"><span></span><button type="button" data-wizard-next>Next: connect SubScript →</button></div>
+        </section>
+
+        <section class="control-panel wizard-step" data-wizard-step="1" hidden>
+          <p class="eyebrow">2 / Connect</p>
+          <h3>Point SubScript at the replay folder</h3>
+          <label>Replay folder<input name="folder" type="text" value="{{FOLDER}}" placeholder="C:\Users\you\Videos\Replays" required data-wizard-input="folder" autocomplete="off"></label>
+          <p class="meta">Use the exact folder where your recorder saves replay videos. A dedicated folder prevents unrelated recordings from being picked up. We verify that the folder exists when you test or save.</p>
+          <label>SubScript trigger shortcut<input name="hotkey" type="text" value="{{CAPTURE_HOTKEY}}" placeholder="ctrl+shift+c" required data-wizard-input="hotkey" autocomplete="off"></label>
+          <p class="meta">Use a different shortcut from your recorder's Save Replay key. During play: save the replay, wait for it to finish, then press this SubScript shortcut.</p>
+          <p class="wizard-validation" data-wizard-message="connection">Enter a replay folder and a shortcut such as ctrl+shift+c.</p>
+          <div class="wizard-actions"><button type="button" data-wizard-back>← Back</button><button type="button" data-wizard-next>Next: choose delivery →</button></div>
+        </section>
+
+        <section class="control-panel wizard-step" data-wizard-step="2" hidden>
+          <p class="eyebrow">3 / Decide</p>
+          <h3>Choose what each trigger should do</h3>
+          <label>Clip length (seconds)<input name="seconds" type="number" min="5" max="300" value="{{SECONDS}}" required data-wizard-input="seconds"></label>
+          <label>After a clip is ready<select name="review_mode" data-wizard-input="review_mode"><option value="review" {{FLOW_REVIEW_SELECTED}}>Review every clip first (recommended)</option><option value="automatic" {{FLOW_AUTO_SELECTED}}>Publish automatically to enabled destinations</option></select></label>
+          <p class="meta">Review first is safest: the workflow makes clips automatically, but you approve each one before publishing. Automatic mode skips that check and only uses destinations you enabled in Publish.</p>
+          <p class="wizard-validation" data-wizard-message="delivery">Choose a clip length between 5 and 300 seconds.</p>
+          <div class="wizard-actions"><button type="button" data-wizard-back>← Back</button><button type="button" data-wizard-next>Next: test the workflow →</button></div>
+        </section>
+
+        <section class="control-panel wizard-step" data-wizard-step="3" hidden>
+          <p class="eyebrow">4 / Test</p>
+          <h3>Make a safe preview, then turn it on</h3>
+          <p class="meta">The safe test uses the newest replay in your folder and never publishes. Watch it in Review. If it looks right, return here and choose Save &amp; start automated workflow.</p>
+          <label class="wizard-check"><input type="checkbox" data-wizard-check="start-confirm"> I understand the trigger order: save a replay, wait for it to finish, then press the SubScript shortcut.</label>
+          <p class="wizard-validation" data-wizard-message="start-confirm">Confirm the trigger order before arming the workflow.</p>
+          <div class="actions wizard-final-actions"><button name="action" value="test" type="submit">Create safe test preview</button><button name="action" value="save" type="submit">Save workflow</button><button name="action" value="save_and_start" type="submit" class="primary" data-start-flow>Save &amp; start automated workflow</button></div>
+          <div class="wizard-actions"><button type="button" data-wizard-back>← Back</button><span></span></div>
+        </section>
+      </form>
+    </div>
   </details>
 </section>

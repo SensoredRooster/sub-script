@@ -14,6 +14,7 @@ def test_setup_saves_and_clears_old_source(app_env, monkeypatch):
     assert saved["watch_folder"] == str(app_env.tmp.resolve())
     assert saved["hotkey"] == "ctrl+alt+c"
     assert saved["buffer_seconds"] == 20
+    assert saved["auto_start_watcher"] is False
 
 
 def test_setup_test_never_uploads(app_env, monkeypatch):
@@ -42,3 +43,38 @@ def test_setup_missing_replay_gives_actionable_error(app_env, monkeypatch):
     monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
     response = app_env.client.post("/capture/setup", data={"folder": str(app_env.tmp), "action": "test"}, follow_redirects=False)
     assert "No%20replay" in response.headers["location"]
+
+
+def test_home_explains_automated_flow_wizard(app_env):
+    page = app_env.client.get("/").text
+    assert "Set up an automated workflow" in page
+    assert "Save &amp; start automated workflow" in page
+    assert "Next: connect SubScript" in page
+    assert "I saved a test replay" in page
+    assert 'name="review_mode"' in page
+
+
+def test_save_and_start_flow_arms_watcher(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+
+    class FakeWatcher:
+        def start(self):
+            self.started = True
+
+    fake = FakeWatcher()
+    monkeypatch.setattr("subscript.live_ui.ensure_watcher", lambda holder, cfg: fake)
+    response = app_env.client.post(
+        "/capture/setup",
+        data={
+            "folder": str(app_env.tmp),
+            "hotkey": "ctrl+alt+c",
+            "seconds": "20",
+            "review_mode": "automatic",
+            "action": "save_and_start",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert fake.started is True
+    assert app_env.cfg["review"]["require_approval"] is False
+    assert app_env.cfg["auto_start_watcher"] is True

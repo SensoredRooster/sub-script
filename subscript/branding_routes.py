@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import mimetypes
+import re
 import shutil
 from pathlib import Path
 from typing import Any, Callable
@@ -12,7 +13,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from subscript.captions import whisper_available
-from subscript.config import ASSETS_DIR, DEFAULT_LOGO_REL, ROOT, update_brand_settings
+from subscript.config import ASSETS_DIR, DEFAULT_LOGO_REL, ROOT, save_config, update_brand_settings
 from subscript.config_polish import (
     DEFAULT_MUSIC_REL,
     resolve_music_asset,
@@ -22,6 +23,7 @@ from subscript.config_polish import (
 from subscript.default_brand import ensure_default_logo
 
 _BRAND_POSITIONS = ("top_left", "top_right", "bottom_left", "bottom_right")
+_BRAND_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 _SNIPPETS = Path(__file__).resolve().parent / "static" / "snippets"
 
 
@@ -86,6 +88,13 @@ def branding_html(brand: dict[str, Any], snip: Callable[[str], str], cfg: dict[s
     def eng(key: str) -> str:
         return "selected" if engine == key else ""
 
+    def sequence_status(key: str, label: str) -> str:
+        raw = brand.get(key) or []
+        if isinstance(raw, str):
+            raw = [raw]
+        count = len(raw) if isinstance(raw, list) else 0
+        return f"{count} {label} ready — one is chosen for each new clip." if count else f"No {label.lower()} yet — optional."
+
     html = snip("branding.html")
     return (
         html.replace("{{PREVIEW_HIDDEN}}", "" if logo else "hidden")
@@ -105,6 +114,8 @@ def branding_html(brand: dict[str, Any], snip: Callable[[str], str], cfg: dict[s
         .replace("{{MUSIC_ENABLED}}", "checked" if music_on else "")
         .replace("{{MUSIC_STATUS}}", music_status)
         .replace("{{MUSIC_VOLUME}}", f"{mvol:.2f}")
+        .replace("{{INTRO_STATUS}}", sequence_status("intro_paths", "intro clips"))
+        .replace("{{OUTRO_STATUS}}", sequence_status("outro_paths", "outro clips"))
     )
 
 
@@ -159,6 +170,8 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
     async def save_brand(
         logo: UploadFile | None = File(None),
         music: UploadFile | None = File(None),
+        intros: list[UploadFile] = File(default=[]),
+        outros: list[UploadFile] = File(default=[]),
         position: str = Form("bottom_right"),
         opacity: str = Form("0.85"),
         margin_px: str = Form("24"),
@@ -208,6 +221,34 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
                 opacity=opacity_val,
                 margin_px=margin_val,
             )
+
+            def save_video_variants(files: list[UploadFile], folder: str, key: str) -> None:
+                if not files:
+                    return
+                target_dir = ASSETS_DIR / folder
+                target_dir.mkdir(parents=True, exist_ok=True)
+                existing = list((cfg.get("brand") or {}).get(key) or [])
+                for upload in files:
+                    if not upload or not upload.filename:
+                        continue
+                    suffix = Path(upload.filename).suffix.lower()
+                    if suffix not in _BRAND_VIDEO_SUFFIXES:
+                        raise ValueError(f"{folder[:-1].capitalize()} clips must be MP4, MOV, MKV, WebM, AVI, or M4V.")
+                    safe = re.sub(r"[^\w.\-]+", "_", Path(upload.filename).stem)[:80] or "clip"
+                    dest = target_dir / f"{safe}{suffix}"
+                    with dest.open("wb") as out:
+                        shutil.copyfileobj(upload.file, out)
+                    if dest.stat().st_size == 0:
+                        dest.unlink(missing_ok=True)
+                        raise ValueError(f"Uploaded {folder[:-1]} was empty.")
+                    rel = f"assets/{folder}/{dest.name}"
+                    if rel not in existing:
+                        existing.append(rel)
+                cfg.setdefault("brand", {})[key] = existing
+
+            save_video_variants(intros, "intros", "intro_paths")
+            save_video_variants(outros, "outros", "outro_paths")
+            save_config(cfg)
 
             # HTML checkboxes omit the field when unchecked.
             caps_on = captions_enabled is not None and str(captions_enabled).strip() not in (

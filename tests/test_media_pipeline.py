@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from subscript.brand import apply_brand
+from subscript.brand import apply_brand, compose_brand_sequence
 from subscript.clip import clip_last_seconds, run_ffmpeg
 from subscript.music import maybe_mix_music, music_volume, resolve_music_path
 from subscript.pipeline import run_pipeline
@@ -40,6 +40,27 @@ def test_apply_brand_with_and_without_logo(synth_video: Path, tmp_path: Path) ->
     assert plain.is_file() and plain.stat().st_size > 0
     empty = apply_brand(synth_video, tmp_path / "empty.mp4", {"logo_path": ""})
     assert empty.is_file()
+
+
+def test_compose_brand_sequence_joins_reusable_intro_and_outro(synth_video: Path, tmp_path: Path) -> None:
+    intro = clip_last_seconds(synth_video, tmp_path / "intro.mp4", seconds=1)
+    outro = clip_last_seconds(synth_video, tmp_path / "outro.mp4", seconds=1, start=0)
+    joined = compose_brand_sequence(
+        [intro, synth_video, outro], tmp_path / "joined.mp4", width=320, height=180
+    )
+    assert joined.is_file() and joined.stat().st_size > 0
+
+
+def test_compose_brand_sequence_accepts_silent_bumpers(synth_video: Path, tmp_path: Path) -> None:
+    silent = tmp_path / "silent.mp4"
+    subprocess.run(
+        [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=640x360:r=30", "-t", "0.5", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(silent)],
+        check=True, capture_output=True,
+    )
+    joined = compose_brand_sequence(
+        [silent, synth_video, silent], tmp_path / "joined-silent.mp4", width=320, height=180
+    )
+    assert joined.is_file() and joined.stat().st_size > 0
 
 
 def test_make_social_pair(synth_video: Path, tmp_path: Path) -> None:
@@ -100,6 +121,29 @@ def test_run_pipeline_end_to_end(synth_video: Path, tmp_path: Path, monkeypatch)
         assert value, attr
         assert Path(value).is_file() and Path(value).stat().st_size > 0, attr
     assert item.source_path == str(synth_video)
+
+
+def test_run_pipeline_can_rotate_intro_and_outro_assets(synth_video: Path, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("SUB_SCRIPT_DRY_RUN", "0")
+    intro = clip_last_seconds(synth_video, tmp_path / "intro.mp4", seconds=1)
+    outro = clip_last_seconds(synth_video, tmp_path / "outro.mp4", seconds=1, start=0)
+    out_dir = tmp_path / "sequence-out"
+    cfg = {
+        "buffer_seconds": 30,
+        "brand": {
+            "logo_path": "",
+            "intro_paths": [str(intro)],
+            "outro_paths": [str(outro)],
+        },
+        "captions": {"enabled": False},
+        "music": {"enabled": False},
+        "output": {"dir": str(out_dir), "shorts_width": 270, "shorts_height": 480, "landscape_width": 320, "landscape_height": 180},
+        "review": {"require_approval": True},
+    }
+    branded = run_pipeline(synth_video, cfg, dry_run=True, start=0.0, duration=1)
+    assert branded.is_file()
+    item = ReviewQueue(out_dir / "review-queue.json").list(status="pending")[0]
+    assert Path(item.video_path).stat().st_size == branded.stat().st_size
 
 
 def test_run_pipeline_without_review_gate_writes_dry_run(synth_video: Path, tmp_path: Path, monkeypatch) -> None:

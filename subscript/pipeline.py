@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import shutil
 from typing import Any
 
-from subscript.brand import apply_brand
+from subscript.brand import apply_brand, choose_sequence_assets, compose_brand_sequence
 from subscript.buffer import BufferSource
 from subscript.captions import maybe_caption_vertical, maybe_caption_horizontal
 from subscript.clip import clip_last_seconds
@@ -36,7 +37,26 @@ def run_pipeline(
 
     src = BufferSource(path=source, buffer_seconds=seconds).resolve()
     clip_last_seconds(src, raw, seconds=seconds, start=start)
-    apply_brand(raw, branded, cfg.get("brand") or {})
+    brand_cfg = cfg.get("brand") or {}
+    intro, outro = choose_sequence_assets(brand_cfg, stamp)
+    if intro or outro:
+        branded_core = out_dir / f"clip-branded-core-{stamp}.mp4"
+        apply_brand(raw, branded_core, brand_cfg)
+        parts = [path for path in (intro, branded_core, outro) if path is not None]
+        try:
+            compose_brand_sequence(
+                parts,
+                branded,
+                width=int(out_cfg.get("landscape_width") or 1920),
+                height=int(out_cfg.get("landscape_height") or 1080),
+            )
+        except Exception as exc:  # noqa: BLE001 — a bad optional bumper never blocks clipping
+            print(f"Brand sequence skipped ({exc}); continuing with the gameplay clip.")
+            shutil.copy2(branded_core, branded)
+        finally:
+            branded_core.unlink(missing_ok=True)
+    else:
+        apply_brand(raw, branded, brand_cfg)
 
     shorts_w = int(out_cfg.get("shorts_width") or 1080)
     shorts_h = int(out_cfg.get("shorts_height") or 1920)

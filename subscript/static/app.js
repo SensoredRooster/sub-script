@@ -1,4 +1,21 @@
 (function () {
+  var presentationToggle = document.getElementById("presentation-toggle");
+  if (presentationToggle) {
+    var presentationKey = "subscript-clean-view";
+    var setPresentationMode = function (enabled) {
+      document.body.classList.toggle("presentation-mode", enabled);
+      presentationToggle.setAttribute("aria-pressed", String(enabled));
+      presentationToggle.textContent = enabled ? "Show settings" : "Clean view";
+      try { window.localStorage.setItem(presentationKey, enabled ? "1" : "0"); } catch (_) {}
+    };
+    var storedPresentation = false;
+    try { storedPresentation = window.localStorage.getItem(presentationKey) === "1"; } catch (_) {}
+    presentationToggle.addEventListener("click", function () {
+      setPresentationMode(!document.body.classList.contains("presentation-mode"));
+    });
+    setPresentationMode(storedPresentation);
+  }
+
   var publishing = document.getElementById("publishing-form");
   if (publishing) {
     var destinationNames = {youtube:"YouTube",tiktok:"TikTok",instagram:"Instagram",facebook:"Facebook",twitter:"X",rumble:"Rumble"};
@@ -70,6 +87,9 @@
   });
   function revealCaptureSetup() {
     if (window.location.hash === "#capture-setup") {
+      if (document.body.classList.contains("presentation-mode") && presentationToggle) {
+        presentationToggle.click();
+      }
       var details = document.querySelector("#capture-setup > details");
       if (details) details.open = true;
     }
@@ -153,7 +173,7 @@
       if (submitting) { event.preventDefault(); return; }
       if (!(input && input.files && input.files.length) && !(localPath && localPath.value.trim())) {
         event.preventDefault();
-        label.textContent = "Choose a video or enter a local file path to begin.";
+        label.textContent = "Choose a video above to begin.";
         drop.focus();
         return;
       }
@@ -162,7 +182,7 @@
       if (busy) busy.hidden = false;
       if (btn) {
         btn.disabled = true;
-        btn.textContent = "Working…";
+        btn.textContent = "Making your clip…";
       }
     });
   }
@@ -230,6 +250,99 @@
         publishingBtn.textContent = "Saving destinations…";
       }
     });
+  }
+
+  // Guided automated workflow setup: one visible step at a time, with a clear
+  // reason to continue or a clear correction to make before continuing.
+  var workflowWizard = document.getElementById("workflow-wizard");
+  if (workflowWizard) {
+    var workflowForm = document.getElementById("workflow-setup-form");
+    var workflowSteps = Array.prototype.slice.call(workflowWizard.querySelectorAll("[data-wizard-step]"));
+    var workflowStepNumber = document.getElementById("workflow-step-number");
+    var workflowStepStatus = document.getElementById("workflow-step-status");
+    var workflowCurrent = 0;
+    var replayReady = workflowWizard.querySelector('[data-wizard-check="replay-ready"]');
+    var startConfirm = workflowWizard.querySelector('[data-wizard-check="start-confirm"]');
+    var flowMessages = {
+      0: "Check the box after the replay is saved.",
+      1: "Enter a replay folder and a shortcut such as ctrl+shift+c.",
+      2: "Choose a clip length between 5 and 300 seconds.",
+      3: "Confirm the trigger order before arming the workflow."
+    };
+    var flowReadyMessages = {
+      0: "Replay ready. Now connect SubScript to that folder.",
+      1: "Connection details look good. Now choose delivery.",
+      2: "Delivery choice saved for this setup. Now test it.",
+      3: "You are ready. Test first, then save and start when the preview looks right."
+    };
+    function workflowHotkeyValid(value) {
+      return /^(?:(?:ctrl|alt|shift)\+)+[a-z0-9]$/.test(String(value || "").trim().toLowerCase());
+    }
+    function workflowStepValid(index) {
+      if (index === 0) return !!(replayReady && replayReady.checked);
+      if (index === 1) {
+        var folder = workflowWizard.querySelector('[name="folder"]');
+        var hotkey = workflowWizard.querySelector('[name="hotkey"]');
+        return !!(folder && folder.value.trim() && hotkey && workflowHotkeyValid(hotkey.value));
+      }
+      if (index === 2) {
+        var seconds = Number((workflowWizard.querySelector('[name="seconds"]') || {}).value);
+        return Number.isFinite(seconds) && seconds >= 5 && seconds <= 300;
+      }
+      return !!(startConfirm && startConfirm.checked);
+    }
+    function renderWorkflowStep() {
+      workflowSteps.forEach(function (section, index) {
+        section.hidden = index !== workflowCurrent;
+      });
+      if (workflowStepNumber) workflowStepNumber.textContent = String(workflowCurrent + 1);
+      if (workflowStepStatus) workflowStepStatus.textContent = workflowStepValid(workflowCurrent) ? flowReadyMessages[workflowCurrent] : flowMessages[workflowCurrent];
+      workflowWizard.querySelectorAll("[data-wizard-next]").forEach(function (button) {
+        button.disabled = !workflowStepValid(workflowCurrent);
+      });
+      workflowWizard.querySelectorAll("[data-wizard-back]").forEach(function (button) {
+        button.hidden = workflowCurrent === 0;
+      });
+      var startButton = workflowWizard.querySelector("[data-start-flow]");
+      if (startButton) startButton.disabled = !workflowStepValid(3);
+      workflowWizard.querySelectorAll("[data-wizard-message]").forEach(function (message) {
+        var key = message.getAttribute("data-wizard-message");
+        var relevant = (workflowCurrent === 0 && key === "replay-ready") ||
+          (workflowCurrent === 1 && key === "connection") ||
+          (workflowCurrent === 2 && key === "delivery") ||
+          (workflowCurrent === 3 && key === "start-confirm");
+        message.hidden = !relevant || workflowStepValid(workflowCurrent);
+        if (relevant && !workflowStepValid(workflowCurrent)) message.textContent = flowMessages[workflowCurrent];
+      });
+    }
+    workflowWizard.querySelectorAll("[data-wizard-next]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (!workflowStepValid(workflowCurrent) || workflowCurrent >= workflowSteps.length - 1) return;
+        workflowCurrent += 1;
+        renderWorkflowStep();
+        var heading = workflowSteps[workflowCurrent].querySelector("h3");
+        if (heading) { heading.tabIndex = -1; heading.focus(); }
+      });
+    });
+    workflowWizard.querySelectorAll("[data-wizard-back]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (workflowCurrent <= 0) return;
+        workflowCurrent -= 1;
+        renderWorkflowStep();
+      });
+    });
+    workflowWizard.querySelectorAll("input, select").forEach(function (input) {
+      input.addEventListener("input", renderWorkflowStep);
+      input.addEventListener("change", renderWorkflowStep);
+    });
+    if (workflowForm) workflowForm.addEventListener("submit", function (event) {
+      var submitter = event.submitter;
+      if (submitter && submitter.value === "save_and_start" && !workflowStepValid(3)) {
+        event.preventDefault();
+        renderWorkflowStep();
+      }
+    });
+    renderWorkflowStep();
   }
 
   // Keep the compact workflow bar in sync with the visible stage.

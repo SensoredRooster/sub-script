@@ -47,9 +47,26 @@ def generate_posts(cfg, srt: Path | None = None):
     if selected_format(cfg, "youtube") == "horizontal":
         title, description = drafts["youtube"]
         drafts["youtube"] = (title, description.replace(" #Shorts", ""))
-    return {key: {"title": title[:95], "description": description[:260] if key == "twitter" else description[:1800],
-                  "tags": tags, "basis": "Transcript excerpt + creator settings" if speech else "Creator settings only; no transcript available"}
-            for key, (title, description) in drafts.items()}
+    result = {}
+    platform_settings = cfg.get("platforms") or {}
+    for key, (title, description) in drafts.items():
+        override = platform_settings.get(key) or {}
+        title_template = str(override.get("title_template") or "").strip()
+        if title_template:
+            replacements = {"game": game, "creator": creator, "hook": hook, "timestamp": ""}
+            for placeholder, value in replacements.items():
+                title_template = title_template.replace("{" + placeholder + "}", value)
+            title = title_template
+        if str(override.get("description") or "").strip():
+            description = str(override["description"]).strip()
+        raw_override_tags = override.get("tags")
+        if isinstance(raw_override_tags, str):
+            raw_override_tags = raw_override_tags.split(",")
+        if raw_override_tags:
+            tags = [str(tag).strip().lstrip("#") for tag in raw_override_tags if str(tag).strip().lstrip("#")]
+        result[key] = {"title": title[:95], "description": description[:260] if key == "twitter" else description[:1800],
+                       "tags": tags, "basis": "Saved platform defaults" if title_template or override.get("description") or override.get("tags") else ("Transcript excerpt + creator settings" if speech else "Creator settings only; no transcript available")}
+    return result
 
 
 def editor_html(item):

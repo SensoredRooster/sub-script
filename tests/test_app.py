@@ -70,6 +70,10 @@ def test_publishing_panel_renders_platform_inputs(app_env) -> None:
         assert needle in text
     assert 'name="youtube_title"' in text
     assert 'name="tiktok_enabled"' in text
+    for platform in ("tiktok", "instagram", "facebook", "twitter", "rumble"):
+        assert f'name="{platform}_title"' in text
+        assert f'name="{platform}_description"' in text
+        assert f'name="{platform}_tags"' in text
 
 
 def test_publishing_save_persists_settings(app_env) -> None:
@@ -91,6 +95,36 @@ def test_publishing_save_persists_settings(app_env) -> None:
     assert saved["youtube"]["privacy"] == "public"
     assert saved["youtube"]["tags"] == ["warzone", "win"]
     assert saved["platforms"]["instagram"] == {"enabled": True, "mode": "manual", "format": "vertical"}
+
+
+def test_manual_platform_defaults_save_apply_and_clear(app_env) -> None:
+    response = app_env.client.post(
+        "/publishing",
+        data={
+            "tiktok_enabled": "1",
+            "tiktok_title": "Big play {game}",
+            "tiktok_description": "Watch this one, {creator}.",
+            "tiktok_tags": "gaming, #clips",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    saved = yaml.safe_load(app_env.cfg_path.read_text(encoding="utf-8"))
+    assert saved["platforms"]["tiktok"]["title_template"] == "Big play {game}"
+    assert saved["platforms"]["tiktok"]["tags"] == ["gaming", "clips"]
+
+    app_env.cfg["post_copy"] = {"enabled": True, "game": "Example", "creator": "Sam"}
+    from subscript.post_metadata import generate_posts
+    posts = generate_posts(app_env.cfg)
+    assert posts["tiktok"]["title"] == "Big play Example"
+    assert posts["tiktok"]["tags"] == ["gaming", "clips"]
+
+    response = app_env.client.post("/publishing", data={}, follow_redirects=False)
+    assert response.status_code == 303
+    saved = yaml.safe_load(app_env.cfg_path.read_text(encoding="utf-8"))
+    assert "title_template" not in saved["platforms"]["tiktok"]
+    assert "description" not in saved["platforms"]["tiktok"]
+    assert "tags" not in saved["platforms"]["tiktok"]
 
 
 def test_publishing_rejects_invalid_youtube_privacy(app_env) -> None:
@@ -240,6 +274,27 @@ def test_api_brand_and_logo(app_env) -> None:
     assert j["music_enabled"] is False
     r = app_env.client.get("/brand/logo")
     assert r.status_code == 200 and r.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_brand_save_accepts_multiple_intro_and_outro_clips(app_env) -> None:
+    files = [
+        ("intros", ("intro-one.mp4", b"intro-one", "video/mp4")),
+        ("intros", ("intro-two.mp4", b"intro-two", "video/mp4")),
+        ("outros", ("outro-one.mp4", b"outro-one", "video/mp4")),
+    ]
+    response = app_env.client.post(
+        "/brand",
+        data={"position": "bottom_right", "opacity": "0.85", "margin_px": "24"},
+        files=files,
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert app_env.cfg["brand"]["intro_paths"] == [
+        "assets/intros/intro-one.mp4", "assets/intros/intro-two.mp4"
+    ]
+    assert app_env.cfg["brand"]["outro_paths"] == ["assets/outros/outro-one.mp4"]
+    assert (app_env.tmp / "assets" / "intros" / "intro-one.mp4").is_file()
+    assert (app_env.tmp / "assets" / "outros" / "outro-one.mp4").is_file()
 
 
 def test_brand_save_persists_to_isolated_config(app_env) -> None:

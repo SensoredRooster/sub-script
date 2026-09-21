@@ -3,20 +3,34 @@
     <span class="step-number">5</span>
     <div>
       <p class="eyebrow">Publish</p>
-      <h2>Choose your destinations</h2>
-      <p>Choose whether clips wait for review or publish automatically. Manual destinations always create upload packs.</p>
+      <h2>Choose your destinations <span class="heading-note">(optional)</span></h2>
+      <p>This is optional. Review-first mode is already on, so you can make and save clips without connecting any accounts.</p>
     </div>
   </div>
+  <details class="advanced oauth-guide">
+    <summary><strong>What does “connect an account” mean?</strong></summary>
+    <div class="control-panel">
+      <p class="meta"><strong>For tonight:</strong> TikTok, Instagram, Facebook, X, and Rumble use local upload packs. You can approve a clip, open its platform folder, and upload it yourself. No OAuth setup or account password is needed.</p>
+      <p class="meta"><strong>For direct posting later:</strong> each network needs its own developer app, client ID/secret, approved posting permissions, a return URL for sign-in, secure token storage and refresh, and a platform-specific upload/status integration. Some platforms also require app review before real accounts can use it.</p>
+      <ul class="oauth-checklist">
+        <li><strong>TikTok</strong> — developer app + Content Posting API approval + <code>video.upload</code> for drafts or <code>video.publish</code> for direct posts.</li>
+        <li><strong>Instagram/Facebook</strong> — Meta developer app, a Professional Instagram account linked to a Facebook Page, the correct Page/Instagram permissions, and Meta app review.</li>
+        <li><strong>X</strong> — X developer app, user-context write/media access, and an account/API access plan that permits posting.</li>
+        <li><strong>Rumble</strong> — keep using the upload pack until an official supported upload/OAuth path is confirmed.</li>
+      </ul>
+      <p class="meta">That is a separate integration project, not something you should have to configure before making clips tonight.</p>
+    </div>
+  </details>
   <form id="publishing-form" class="publishing-form" method="post" action="/publishing">
     <div class="control-panel">
-      <h3>Publishing mode</h3>
-      <label>After processing a new clip
+      <h3>When a clip is ready</h3>
+      <label>What should happen after processing?
         <select name="publishing_mode">
           <option value="review" {{REVIEW_SELECTED}}>Review first (recommended)</option>
           <option value="automatic" {{AUTO_SELECTED}}>Automatic — publish without review</option>
         </select>
       </label>
-      <p class="meta">Automatic mode applies to new VOD and live-hotkey clips. It saves your export pack and immediately sends clips to enabled destinations using their saved visibility. YouTube requires a working connection; other destinations currently create manual upload packs. Existing review clips remain pending.</p>
+      <p class="meta">Review first is safest: you watch the clip and approve it yourself. Automatic mode skips that check for new clips and should only be used after you are comfortable with the results.</p>
     </div>
     <div class="control-panel form-grid">
       <h3>Create titles, descriptions &amp; tags</h3>

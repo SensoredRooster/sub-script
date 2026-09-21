@@ -78,6 +78,17 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     register_capture_setup(app, cfg, watcher_holder)
     register_publishing_routes(app, cfg)
 
+    # A user who explicitly chose “Save & start automated workflow” should not need
+    # to re-arm the global trigger after restarting the app.
+    if cfg.get("auto_start_watcher"):
+        try:
+            from subscript.buffer import resolve_live_source
+            from subscript.live_ui import ensure_watcher
+            resolve_live_source(cfg)
+            ensure_watcher(watcher_holder, cfg).start()
+        except Exception as exc:  # noqa: BLE001 — app still opens so setup can be fixed
+            print(f"Automated flow was saved but could not start: {exc}")
+
     @app.get("/", response_class=HTMLResponse)
     def home(msg: str | None = None, err: str | None = None) -> str:
         pending = queue.list(status="pending")
@@ -121,7 +132,12 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         if err:
             banner = f'<p class="banner bad-banner">{_esc(err)}</p>'
         elif msg:
-            banner = f'<p class="banner ok-banner">{_esc(msg)}</p>'
+            visible_msg = msg
+            if msg.startswith("Approved — social pack"):
+                visible_msg = "Approved — your finished files are saved. Nothing was uploaded because YouTube is off."
+            elif msg.startswith("Trimmed - new horizontal"):
+                visible_msg = "Your trimmed clip is ready. Watch it again, then approve it when happy."
+            banner = f'<p class="banner ok-banner">{_esc(visible_msg)}</p>'
             m = _YT_URL_RE.search(msg)
             if m:
                 url = m.group(0)
@@ -138,11 +154,17 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         )
         branding = branding_html(cfg.get("brand") or {}, _snip, cfg)
         publishing = publishing_html(cfg, _snip)
+        review_heading = "Your clip is ready" if pending else "Preview and approve"
+        review_intro = (
+            "Watch both previews, trim if you want, then approve the version you love."
+            if pending
+            else "Your clip will appear here after you choose a video above."
+        )
         review_section = (
             '<section class="workflow-section" id="review">'
             '<div class="section-heading"><span class="step-number">4</span><div>'
-            '<p class="eyebrow">Review</p><h2>Preview and approve</h2>'
-            '<p>Compare both formats, fine-tune the cut, then approve the final pack.</p>'
+            f'<p class="eyebrow">Review</p><h2>{review_heading}</h2>'
+            f'<p>{review_intro}</p>'
             f'</div></div><div class="review-grid">{review}</div></section>'
         )
         body = banner + form + setup_html(cfg, _snip) + branding + review_section + publishing
@@ -189,12 +211,12 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         return RedirectResponse(
             "/?msg="
             + quote(
-                ("Ready - horizontal + vertical (+ captioned) previews below. "
-                 "Approve saves a social pack to out\\approved\\.")
+                ("Your clip is ready. Watch the previews below, then approve it when you like it. "
+                 "Nothing is published before approval.")
                 if (cfg.get("review") or {}).get("require_approval", True) else
                 "Automatic processing complete. Export pack and publishing results are saved in out/approved. Only enabled live destinations upload; manual destinations create packs.",
                 safe="",
-            ),
+            ) + ("#review" if (cfg.get("review") or {}).get("require_approval", True) else ""),
             status_code=303,
         )
 

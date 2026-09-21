@@ -70,6 +70,13 @@ def _selected(value: str, expected: str) -> str:
     return "selected" if value == expected else ""
 
 
+def _platform_tags(value: Any) -> str:
+    raw = value or []
+    if isinstance(raw, str):
+        return raw
+    return ", ".join(str(tag) for tag in raw)
+
+
 def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
     """Render discoverable platform controls from the active configuration."""
     youtube = dict(cfg.get("youtube") or {})
@@ -86,7 +93,9 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
     cards: list[str] = []
     for key, name, detail in _MANUAL_PLATFORMS:
         item = dict(platforms.get(key) or {})
-        mode = str(item.get("mode") or "manual").lower()
+        title = escape(str(item.get("title_template") or ""), quote=True)
+        description = escape(str(item.get("description") or ""))
+        tags = escape(_platform_tags(item.get("tags")), quote=True)
         cards.append(
             f'<article class="platform-card" data-platform="{key}">'
             '<div class="platform-card-head">'
@@ -100,7 +109,10 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
             f'<label>Output format<select name="{key}_format">' + ''.join(
                 f'<option value="{value}" {_selected(selected_format(cfg, key), value)}>{label}</option>'
                 for value, label in FORMATS[key].items()) + '</select></label>'
-            '<p class="meta">Download-ready video and post copy. Upload the pack using your account on this platform. No account connection is needed in SubScript.</p></div></article>'
+            f'<label>Default post title / caption <span class="field-hint">optional</span><input name="{key}_title" type="text" maxlength="95" value="{title}" placeholder="Leave blank for automatic copy"></label>'
+            f'<label>Default description <span class="field-hint">optional</span><textarea name="{key}_description" rows="3" maxlength="1800">{description}</textarea></label>'
+            f'<label>Default tags <span class="field-hint">comma separated</span><input name="{key}_tags" type="text" value="{tags}" placeholder="gaming, highlights"></label>'
+            '<p class="meta">These defaults are used for new clip drafts. Upload-ready packs are created locally. No account connection is needed in SubScript.</p></div></article>'
         )
 
     return (
@@ -197,6 +209,11 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         twitter_mode: str = Form("manual"),
         rumble_enabled: str | None = Form(None),
         rumble_mode: str = Form("manual"),
+        tiktok_title: str = Form(""), tiktok_description: str = Form(""), tiktok_tags: str = Form(""),
+        instagram_title: str = Form(""), instagram_description: str = Form(""), instagram_tags: str = Form(""),
+        facebook_title: str = Form(""), facebook_description: str = Form(""), facebook_tags: str = Form(""),
+        twitter_title: str = Form(""), twitter_description: str = Form(""), twitter_tags: str = Form(""),
+        rumble_title: str = Form(""), rumble_description: str = Form(""), rumble_tags: str = Form(""),
     ) -> RedirectResponse:
         formats = dict(youtube=youtube_format, tiktok=tiktok_format, instagram=instagram_format,
                        facebook=facebook_format, twitter=twitter_format, rumble=rumble_format)
@@ -230,18 +247,27 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         platforms = dict(cfg.get("platforms") or {})
         platforms["youtube"] = {"enabled": youtube["enabled"], "format": youtube_format}
         incoming = {
-            "tiktok": (tiktok_enabled, tiktok_mode),
-            "instagram": (instagram_enabled, instagram_mode),
-            "facebook": (facebook_enabled, facebook_mode),
-            "twitter": (twitter_enabled, twitter_mode),
-            "rumble": (rumble_enabled, rumble_mode),
+            "tiktok": (tiktok_enabled, tiktok_mode, tiktok_title, tiktok_description, tiktok_tags),
+            "instagram": (instagram_enabled, instagram_mode, instagram_title, instagram_description, instagram_tags),
+            "facebook": (facebook_enabled, facebook_mode, facebook_title, facebook_description, facebook_tags),
+            "twitter": (twitter_enabled, twitter_mode, twitter_title, twitter_description, twitter_tags),
+            "rumble": (rumble_enabled, rumble_mode, rumble_title, rumble_description, rumble_tags),
         }
-        for key, (enabled, raw_mode) in incoming.items():
+        for key, (enabled, raw_mode, title, description, tags) in incoming.items():
             mode = raw_mode.strip().lower()
             mode = "manual"
             current = dict(platforms.get(key) or {})
             current.update({"enabled": enabled is not None, "mode": mode})
             current["format"] = formats[key]
+            if any(str(value or "").strip() for value in (title, description, tags)):
+                current.update({
+                    "title_template": title.strip(),
+                    "description": description.strip(),
+                    "tags": [tag.strip().lstrip("#") for tag in tags.split(",") if tag.strip().lstrip("#")],
+                })
+            else:
+                for field in ("title_template", "description", "tags"):
+                    current.pop(field, None)
             platforms[key] = current
         cfg["platforms"] = platforms
         review = dict(cfg.get("review") or {})

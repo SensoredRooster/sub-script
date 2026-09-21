@@ -27,8 +27,9 @@ def _redirect_err(message: str) -> RedirectResponse:
     return RedirectResponse("/?err=" + quote(message, safe=""), status_code=303)
 
 
-def _redirect_ok(message: str) -> RedirectResponse:
-    return RedirectResponse("/?msg=" + quote(message, safe=""), status_code=303)
+def _redirect_ok(message: str, anchor: str | None = None) -> RedirectResponse:
+    suffix = f"#{anchor.lstrip('#')}" if anchor else ""
+    return RedirectResponse("/?msg=" + quote(message, safe="") + suffix, status_code=303)
 
 
 def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None:
@@ -196,7 +197,8 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         )
         return _redirect_ok(
             "Trimmed - new horizontal + vertical (+ captioned) previews ready. "
-            "Approve when happy."
+            "Watch them again, then approve when happy.",
+            "review",
         )
 
     @app.post("/items/{item_id}/reject")

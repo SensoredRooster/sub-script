@@ -1,26 +1,26 @@
 <section class="workflow-section" id="source">
   <div class="section-heading">
     <span class="step-number">1</span>
-    <div><p class="eyebrow">Source</p><h2>Bring in your footage</h2><p>Drop a VOD. We select a highlight, apply your saved style, and prepare both video formats for review.</p></div>
+    <div><p class="eyebrow">Source</p><h2>Bring in your footage</h2><p>Choose a video to begin. If you’re not sure what to change, leave the defaults alone.</p></div>
   </div>
   <form id="clip-form" class="clip-form" method="post" action="/clip" enctype="multipart/form-data">
     <div class="source-grid">
       <div class="source-option">
         <span class="option-label">VOD or recording</span>
         <div id="drop-zone" class="drop-zone" tabindex="0">
-          <span class="upload-icon">↑</span><p><strong>Drop your video here</strong></p><p class="meta">MP4, MOV, MKV, WebM or AVI</p>
+          <span class="upload-icon">↑</span><p><strong>Drop your video here</strong></p><p class="meta">or browse for an MP4, MOV, MKV, WebM or AVI</p>
           <label class="file-btn">Browse files<input id="file-input" type="file" name="file" accept="video/*,.mp4,.mov,.mkv,.webm,.avi,.m4v" hidden></label>
-          <p id="file-label" class="file-label meta">Your next highlight starts here</p>
+          <p id="file-label" class="file-label meta">We’ll find a good moment for you</p>
         </div>
         <details class="advanced">
-          <summary>Use a local path for a large file</summary>
+          <summary>Have a large file on this computer? (optional)</summary>
           <label class="full">Path<input id="local-path" type="text" name="local_path" placeholder="C:\Videos\my-vod.mp4" autocomplete="off"></label>
         </details>
       </div>
       <aside class="automation-summary"><p class="eyebrow">Your automatic edit</p><h3>One upload. A finished clip.</h3><ol><li><strong>Find the moment</strong><span>Audio analysis selects a highlight.</span></li><li><strong>Make it yours</strong><span>Your watermark, caption settings, and optional music.</span></li><li><strong>Fit every screen</strong><span>Landscape and vertical previews, ready to review.</span></li></ol><a href="#style">Personalize your style →</a></aside>
     </div>
-    <div id="clip" class="auto-choice"><label class="check-row"><input type="checkbox" id="auto-start" checked><span><strong>Start automatically when I choose a video</strong><small>Keep this page open while your clip is prepared. Review before publishing.</small></span></label></div>
-    <details class="advanced edit-options"><summary>Adjust clip selection</summary>
+    <div id="clip" class="auto-choice"><label class="check-row"><input type="checkbox" id="auto-start" checked><span><strong>Start automatically</strong><small>Recommended: choose a video and wait for the Review section. Nothing is published yet.</small></span></label></div>
+    <details class="advanced edit-options"><summary>Want to choose the moment yourself? (optional)</summary>
       <fieldset class="mode control-panel"><legend>Choose a moment</legend>
         <label class="radio"><input type="radio" name="mode" value="auto" checked><span><strong>Automatic highlight</strong><small>Use the strongest audio peak; fall back to the last {{DEFAULT_SECONDS}} seconds.</small></span></label>
         <label class="radio"><input type="radio" name="mode" value="last30"><span>Last {{DEFAULT_SECONDS}} seconds</span></label>
@@ -28,7 +28,8 @@
         <div id="custom-fields" class="custom-fields" hidden><label>Start<input id="clip-start" name="start" type="text" placeholder="0 or 1:02:00"></label><label>Length in seconds<input id="clip-duration" name="duration" type="text" value="{{DEFAULT_SECONDS}}"></label></div>
       </fieldset>
     </details>
+    <div class="automation-cta"><div><p class="eyebrow">Want this to happen while you play?</p><strong>Set up an automated workflow</strong><p class="meta">A guided 4-step setup tells you exactly what to enter, checks each step, and lets you test before turning it on.</p></div><a href="#capture-setup">Start workflow setup <span aria-hidden="true">→</span></a></div>
     <details class="advanced"><summary>Capture from a live replay buffer instead</summary>{{LIVE_CARD}}</details>
-    <div class="action-bar"><p id="busy" role="status" aria-live="polite" class="meta busy" hidden>Preparing your clip: analyzing footage, applying your style, and rendering previews. Long VODs can take several minutes.</p><button type="submit" id="clip-btn" class="ok primary">Create previews <span>→</span></button></div>
+    <div class="action-bar"><p id="busy" role="status" aria-live="polite" class="meta busy" hidden>Making your clip: finding a moment, applying your style, and rendering previews. Long videos can take several minutes.</p><button type="submit" id="clip-btn" class="ok primary">Make my clip <span aria-hidden="true">→</span></button></div>
   </form>
 </section>
