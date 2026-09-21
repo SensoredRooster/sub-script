@@ -107,10 +107,61 @@
     var customRadio = form.querySelector('input[name="mode"][value="custom"]');
     var localPath = document.getElementById("local-path");
     var submitting = false;
+    var composer = document.querySelector("[data-vertical-composer]");
+    var composerVideo = composer && composer.querySelector("[data-composer-video]");
+    var composerObjectUrl = null;
+    var composerPresets = {
+      gameplay_facecam:{gameplay:[0,0,.72,1],facecam:[.72,0,.28,.28]},
+      facecam_top:{gameplay:[0,0,.72,1],facecam:[.72,0,.28,.28]},
+      gameplay_top:{gameplay:[0,0,.72,1],facecam:[.72,0,.28,.28]},
+      gameplay_only:{gameplay:[0,0,1,1],facecam:[0,0,0,0]},
+      facecam_overlay:{gameplay:[0,0,1,1],facecam:[.72,0,.28,.28]},
+      blurred_background:{gameplay:[0,0,1,1],facecam:[0,0,0,0]}
+    };
+    function composerField(name) { return composer && composer.querySelector('[name="' + name + '"]'); }
+    function setComposerRegion(kind, values) {
+      ["x","y","w","h"].forEach(function (key, index) { var field = composerField(kind + "_" + key); if (field) field.value = values[index]; });
+    }
+    function drawComposer() {
+      if (!composer) return;
+      ["gameplay","facecam"].forEach(function (kind) {
+        var region = composer.querySelector('[data-composer-region="' + kind + '"]');
+        if (!region) return;
+        var vals = ["x","y","w","h"].map(function (key) { return Number((composerField(kind + "_" + key) || {}).value) || 0; });
+        region.style.left = (vals[0] * 100) + "%"; region.style.top = (vals[1] * 100) + "%";
+        region.style.width = (vals[2] * 100) + "%"; region.style.height = (vals[3] * 100) + "%";
+        region.hidden = vals[2] <= 0 || vals[3] <= 0;
+      });
+      var mode = composerField("vertical_layout_mode");
+      composer.classList.toggle("composer-active", !!mode && mode.value === "composer");
+    }
+    function syncComposerPreset() {
+      if (!composer) return;
+      var preset = composerField("vertical_preset");
+      var values = composerPresets[preset && preset.value] || composerPresets.gameplay_facecam;
+      setComposerRegion("gameplay", values.gameplay); setComposerRegion("facecam", values.facecam); drawComposer();
+    }
+    if (composer) {
+      var presetControl = composerField("vertical_preset");
+      if (presetControl) presetControl.addEventListener("change", syncComposerPreset);
+      composer.querySelectorAll("input, select").forEach(function (control) { control.addEventListener("input", drawComposer); control.addEventListener("change", drawComposer); });
+      drawComposer();
+    }
+    function setComposerSource(file) {
+      if (!composerVideo) return;
+      if (composerObjectUrl) URL.revokeObjectURL(composerObjectUrl);
+      composerObjectUrl = file ? URL.createObjectURL(file) : null;
+      composerVideo.src = composerObjectUrl || "";
+      if (composerObjectUrl) composerVideo.load();
+      var empty = composer && composer.querySelector("[data-composer-empty]");
+      if (empty) empty.hidden = !!composerObjectUrl;
+    }
     function startSelectedVideo() {
       if (localPath) localPath.value = "";
       var automatic = document.getElementById("auto-start");
-      if (automatic && automatic.checked) form.requestSubmit();
+      setComposerSource(input && input.files && input.files[0]);
+      var composerMode = composerField("vertical_layout_mode");
+      if (automatic && automatic.checked && (!composerMode || composerMode.value !== "composer")) form.requestSubmit();
     }
 
     function setFileName(file) {
@@ -127,6 +178,15 @@
       input.addEventListener("change", function () {
         setFileName(input.files && input.files[0]);
         if (input.files && input.files[0]) startSelectedVideo();
+      });
+    }
+
+    var folderField = document.querySelector('[name="folder"]');
+    if (folderField && composerVideo) {
+      folderField.addEventListener("change", function () {
+        if (!folderField.value.trim()) return;
+        composerVideo.src = "/automation/source-preview?folder=" + encodeURIComponent(folderField.value.trim());
+        composerVideo.load();
       });
     }
 

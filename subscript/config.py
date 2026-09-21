@@ -71,6 +71,20 @@ def apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def migrate_config(data: dict[str, Any]) -> dict[str, Any]:
+    """Apply additive, in-memory defaults so old configs/profiles keep working."""
+    data.setdefault("schema_version", 3)
+    if not isinstance(data.get("automation_profiles"), list):
+        data["automation_profiles"] = []
+    for profile in data["automation_profiles"]:
+        if not isinstance(profile, dict):
+            continue
+        # Old profiles intentionally remain center-crop until their owner chooses
+        # a composer preset; this avoids changing an established workflow silently.
+        profile.setdefault("vertical_layout", {"version": 1, "mode": "center_crop", "preset": "center_crop"})
+    return data
+
+
 def load_config(path: Path | None = None) -> dict[str, Any]:
     cfg_path = path or DEFAULT_CONFIG
     if not cfg_path.exists():
@@ -100,7 +114,8 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
         data = yaml.safe_load(f) or {}
     if not isinstance(data, dict):
         raise SystemExit(f"{cfg_path} must contain a YAML mapping (key: value lines).")
-    return apply_env_overrides(data)
+    applied = apply_env_overrides(data)
+    return migrate_config(applied) if applied else applied
 
 
 def save_config(data: dict[str, Any], path: Path | None = None) -> Path:

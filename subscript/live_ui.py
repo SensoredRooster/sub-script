@@ -97,6 +97,7 @@ def profile_runtime_cfg(cfg: dict[str, Any], profile: dict[str, Any]) -> dict[st
         buffer_seconds=int(profile.get("buffer_seconds") or 30),
     )
     runtime_cfg["platforms"] = deepcopy(profile.get("platforms") or cfg.get("platforms") or {})
+    runtime_cfg["vertical_layout"] = deepcopy(profile.get("vertical_layout") or cfg.get("vertical_layout") or {})
     runtime_cfg.setdefault("review", {})["require_approval"] = profile.get("review_mode", "review") == "review"
     return runtime_cfg
 

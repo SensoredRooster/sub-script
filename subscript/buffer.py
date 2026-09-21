@@ -37,8 +37,18 @@ def newest_video_in(folder: Path) -> Path | None:
         return None
     candidates: list[Path] = []
     for p in folder.iterdir():
-        if p.is_file() and p.suffix.lower() in _VIDEO_SUFFIXES:
-            candidates.append(p)
+        if not p.is_file() or p.suffix.lower() not in _VIDEO_SUFFIXES:
+            continue
+        # Recorders often leave a zero-byte or still-locked file briefly.  Do not
+        # select obvious partial exports or files that cannot be opened yet.
+        if p.name.lower().endswith((".tmp", ".part", ".partial")) or p.stat().st_size <= 0:
+            continue
+        try:
+            with p.open("rb") as handle:
+                handle.read(1)
+        except OSError:
+            continue
+        candidates.append(p)
     if not candidates:
         return None
     return max(candidates, key=lambda p: p.stat().st_mtime)

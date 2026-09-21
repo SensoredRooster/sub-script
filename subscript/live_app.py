@@ -29,6 +29,7 @@ from subscript.publishing_routes import publishing_html, register_publishing_rou
 from subscript.queue import ReviewQueue
 from subscript.post_metadata import editor_html
 from subscript.runtime_paths import find_ffmpeg
+from subscript.layout import layout_from_form
 
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 _STATIC = Path(__file__).resolve().parent / "static"
@@ -195,6 +196,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             _snip("clip_form.html")
             .replace("{{DEFAULT_SECONDS}}", str(default_seconds))
             .replace("{{LIVE_CARD}}", live)
+            .replace("{{VERTICAL_COMPOSER}}", _snip("vertical_composer.html"))
         )
         branding = branding_html(cfg.get("brand") or {}, _snip, cfg)
         publishing = publishing_html(cfg, _snip)
@@ -228,6 +230,17 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         mode: str = Form("last30"),
         start: str = Form(""),
         duration: str = Form(""),
+        vertical_layout_mode: str = Form("center_crop"),
+        vertical_preset: str = Form("gameplay_facecam"),
+        vertical_background: str = Form("solid"),
+        vertical_gap: str = Form("18"),
+        vertical_border: str = Form("0"),
+        vertical_border_color: str = Form("white@0.86"),
+        caption_safe_zone: str = Form("bottom"),
+        gameplay_x: str = Form(""), gameplay_y: str = Form(""), gameplay_w: str = Form(""), gameplay_h: str = Form(""),
+        facecam_x: str = Form(""), facecam_y: str = Form(""), facecam_w: str = Form(""), facecam_h: str = Form(""),
+        gameplay_box_x: str = Form(""), gameplay_box_y: str = Form(""), gameplay_box_w: str = Form(""), gameplay_box_h: str = Form(""),
+        facecam_box_x: str = Form(""), facecam_box_y: str = Form(""), facecam_box_w: str = Form(""), facecam_box_h: str = Form(""),
     ) -> RedirectResponse:
         try:
             source = await _resolve_source(file, local_path, uploads_dir)
@@ -249,8 +262,17 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                     raise ValueError("Start time is required for a custom clip.")
                 if clip_duration is None or clip_duration <= 0:
                     raise ValueError("Duration must be greater than zero.")
+            layout_values = {
+                "vertical_layout_mode": vertical_layout_mode, "vertical_preset": vertical_preset,
+                "vertical_background": vertical_background, "vertical_gap": vertical_gap,
+                "vertical_border": vertical_border, "vertical_border_color": vertical_border_color,
+                "caption_safe_zone": caption_safe_zone,
+                **{key: value for key, value in locals().items() if key.startswith(("gameplay_", "facecam_"))},
+            }
+            pipeline_cfg = dict(cfg)
+            pipeline_cfg["vertical_layout"] = layout_from_form(layout_values)
             run_pipeline(
-                source, cfg, dry_run=bool((cfg.get("review") or {}).get("require_approval", True)), start=clip_start, duration=clip_duration
+                source, pipeline_cfg, dry_run=bool((cfg.get("review") or {}).get("require_approval", True)), start=clip_start, duration=clip_duration
             )
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/clip?err={quote(str(exc), safe='')}", status_code=303)

@@ -67,6 +67,8 @@ For the packaged version, use [docs/WINDOWS_EXE.md](docs/WINDOWS_EXE.md). The pa
 
 Nothing is published until you approve the clip. With the default settings, approval saves a local export pack and does not upload anything.
 
+When a landscape recording has a baked-in facecam, open **Shape the vertical version** before making the clip. The Vertical Layout Composer stores gameplay and facecam boxes as normalized regions, offers reusable top/bottom/overlay/blurred-background presets, and applies the saved composition to one-off renders and automated profile safe tests. Existing profiles remain center-crop until you choose a composer preset.
+
 ## The screen-by-screen flow
 
 ### 1. Start screen
@@ -122,6 +124,8 @@ Style settings apply to new clips:
 - multiple outro clips.
 
 Intro and outro files are optional. When several are uploaded, SubScript rotates through them. If a bumper render fails, the main gameplay render can still complete.
+
+The Vertical Layout Composer lives with the source workflow so you can compare a representative frame with a 9:16 planning canvas. Its templates keep the caption safe zone and watermark room in mind; the saved source regions are proportional rather than tied to one exact recorder resolution.
 
 #### Review
 

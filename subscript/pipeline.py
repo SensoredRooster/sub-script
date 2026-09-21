@@ -15,6 +15,7 @@ from subscript.music import maybe_mix_social_pair
 from subscript.queue import ReviewQueue
 from subscript.post_metadata import generate_posts
 from subscript.reframe import make_social_pair
+from subscript.layout import normalize_layout, probe_media
 
 
 def run_pipeline(
@@ -36,6 +37,11 @@ def run_pipeline(
     branded = out_dir / f"clip-branded-{stamp}.mp4"
 
     src = BufferSource(path=source, buffer_seconds=seconds).resolve()
+    metadata = probe_media(src)
+    if metadata and (int(metadata.get("width") or 0) < 2 or int(metadata.get("height") or 0) < 2):
+        raise ValueError("The selected recording has no readable video stream. Wait for the recorder to finish writing, then choose it again.")
+    if metadata.get("duration") and start is not None and float(start) >= float(metadata["duration"]):
+        raise ValueError(f"The clip start ({float(start):g}s) is past this recording's {float(metadata['duration']):g}s duration.")
     clip_last_seconds(src, raw, seconds=seconds, start=start)
     brand_cfg = cfg.get("brand") or {}
     intro, outro = choose_sequence_assets(brand_cfg, stamp)
@@ -70,6 +76,7 @@ def run_pipeline(
         shorts_h=shorts_h,
         landscape_w=land_w,
         landscape_h=land_h,
+        vertical_layout=normalize_layout(cfg.get("vertical_layout")),
     )
 
     # Optional music bed under both social exports (skip if missing / disabled).
@@ -95,6 +102,7 @@ def run_pipeline(
             vertical_path=vertical,
             vertical_captioned_path=captioned,
             post_metadata=posts,
+            vertical_layout=normalize_layout(cfg.get("vertical_layout")),
         )
         host = (cfg.get("review") or {}).get("host", "127.0.0.1")
         port = int((cfg.get("review") or {}).get("port", 8787))
@@ -122,7 +130,9 @@ def run_pipeline(
     queue = ReviewQueue(out_dir / "review-queue.json")
     item = queue.enqueue(branded, src, title=f"Highlight {stamp}",
                          horizontal_path=horizontal, vertical_path=vertical,
-                         vertical_captioned_path=captioned, post_metadata=posts)
+                         vertical_captioned_path=captioned,
+                         vertical_layout=normalize_layout(cfg.get("vertical_layout")),
+                         post_metadata=posts)
     publish_local(item_id=item.id, title=item.title, out_dir=out_dir,
                   master=branded, horizontal=horizontal, vertical=vertical,
                   vertical_captioned=captioned, open_folder=False)

@@ -115,6 +115,23 @@ def test_automation_profile_saves_by_folder(app_env, monkeypatch):
     assert "Main stream" in app_env.client.get("/automation").text
 
 
+def test_automation_profile_persists_normalized_vertical_layout(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    response = app_env.client.post("/automation/save", data={
+        "profile_name": "Vertical stream", "folder": str(app_env.tmp), "hotkey": "ctrl+alt+c",
+        "seconds": "20", "review_mode": "review", "action": "save",
+        "vertical_layout_mode": "composer", "vertical_preset": "facecam_overlay",
+        "gameplay_x": "0.05", "gameplay_y": "0", "gameplay_w": "0.7", "gameplay_h": "1",
+        "facecam_x": "0.8", "facecam_y": "0.1", "facecam_w": "0.4", "facecam_h": "0.3",
+    }, follow_redirects=False)
+    assert response.status_code == 303
+    saved = yaml.safe_load(app_env.cfg_path.read_text())
+    layout = saved["automation_profiles"][0]["vertical_layout"]
+    assert layout["mode"] == "composer"
+    assert layout["preset"] == "facecam_overlay"
+    assert layout["regions"]["facecam"] == {"x": 0.8, "y": 0.1, "w": 0.2, "h": 0.3}
+
+
 def test_automation_profile_rejects_duplicate_folder(app_env, monkeypatch):
     monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
     app_env.cfg["automation_profiles"] = [{"id": "existing", "name": "Existing", "folder": str(app_env.tmp)}]

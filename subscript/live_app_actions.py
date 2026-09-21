@@ -175,6 +175,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
                 shorts_h=int(out_cfg.get("shorts_height") or 1920),
                 landscape_w=int(out_cfg.get("landscape_width") or 1920),
                 landscape_h=int(out_cfg.get("landscape_height") or 1080),
+                vertical_layout=item.vertical_layout or cfg.get("vertical_layout"),
             )
             dur = max(0.1, end_s - start_s)
             captioned = maybe_caption_vertical(
@@ -193,6 +194,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             horizontal_path=str(horizontal),
             vertical_path=str(vertical),
             vertical_captioned_path=str(captioned) if captioned else None,
+            vertical_layout=item.vertical_layout or cfg.get("vertical_layout") or {},
             post_metadata=generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt"),
         )
         return _redirect_ok(

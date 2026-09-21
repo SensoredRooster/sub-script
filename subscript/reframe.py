@@ -11,6 +11,7 @@ from subscript.clip import (
     require_ffmpeg,
     run_ffmpeg,
 )
+from subscript.layout import make_vertical_with_layout
 
 
 def _run(cmd: list[str]) -> None:
@@ -35,20 +36,20 @@ def make_horizontal(source: Path, dest: Path, width: int = 1920, height: int = 1
     return dest
 
 
-def make_vertical(source: Path, dest: Path, width: int = 1080, height: int = 1920) -> Path:
-    """Center-crop to 9:16 for Shorts / TikTok / Reels."""
+def make_vertical(
+    source: Path,
+    dest: Path,
+    width: int = 1080,
+    height: int = 1920,
+    layout: dict | None = None,
+) -> Path:
+    """Render a true 9:16 output, optionally using a normalized composer template."""
+    if layout:
+        return make_vertical_with_layout(source, dest, width=width, height=height, layout=layout)
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    vf = (
-        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"crop={width}:{height},setsar=1"
-    )
-    cmd = [
-        ffmpeg, "-y", "-i", str(source),
-        "-vf", vf,
-        *COMPAT_VIDEO, *COMPAT_AUDIO, *COMPAT_MOVFLAGS,
-        str(dest),
-    ]
+    vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
+    cmd = [ffmpeg, "-y", "-i", str(source), "-vf", vf, *COMPAT_VIDEO, *COMPAT_AUDIO, *COMPAT_MOVFLAGS, str(dest)]
     _run(cmd)
     return dest
 
@@ -62,9 +63,10 @@ def make_social_pair(
     shorts_h: int = 1920,
     landscape_w: int = 1920,
     landscape_h: int = 1080,
+    vertical_layout: dict | None = None,
 ) -> tuple[Path, Path]:
     horizontal = out_dir / f"clip-horizontal-{stamp}.mp4"
     vertical = out_dir / f"clip-vertical-{stamp}.mp4"
     make_horizontal(source, horizontal, width=landscape_w, height=landscape_h)
-    make_vertical(source, vertical, width=shorts_w, height=shorts_h)
+    make_vertical(source, vertical, width=shorts_w, height=shorts_h, layout=vertical_layout)
     return horizontal, vertical

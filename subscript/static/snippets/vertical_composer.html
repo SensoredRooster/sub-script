@@ -1,0 +1,23 @@
+<details class="vertical-composer" data-vertical-composer>
+  <summary><span class="composer-summary-icon">9:16</span><span><strong>Shape the vertical version</strong><small>Optional: define gameplay and facecam regions once, then reuse this composition.</small></span></summary>
+  <div class="composer-body">
+    <div class="composer-intro"><p class="eyebrow">Vertical Layout Composer</p><p>Choose a preset, then adjust the source boxes if your facecam lives in another corner. Coordinates are proportional, so the template survives compatible recording sizes.</p></div>
+    <div class="composer-grid">
+      <div class="composer-pane"><div class="composer-pane-heading"><strong>Source frame</strong><span>Drag the handles or edit the normalized values.</span></div><div class="composer-source-stage" data-composer-source-stage><video data-composer-video muted playsinline preload="metadata" aria-label="Representative source video"></video><div class="composer-region gameplay" data-composer-region="gameplay"><span>Gameplay / focus</span></div><div class="composer-region facecam" data-composer-region="facecam"><span>Facecam</span></div><p class="composer-no-source" data-composer-empty>No source preview yet. Choose a clip or enter a profile folder first.</p></div></div>
+      <div class="composer-pane"><div class="composer-pane-heading"><strong>9:16 output</strong><span>Safe zones keep faces, captions, and watermarks away from platform UI.</span></div><div class="composer-output-stage" data-composer-output-stage><div class="composer-output-gameplay">Gameplay</div><div class="composer-output-facecam">Facecam</div><div class="composer-safe-zone">caption safe zone</div></div></div>
+    </div>
+    <div class="composer-controls">
+      <label>Vertical layout<select name="vertical_layout_mode" data-composer-mode><option value="center_crop">Center crop (no composer)</option><option value="composer">Use composer template</option></select></label>
+      <label>Preset<select name="vertical_preset" data-composer-preset><option value="gameplay_facecam">Gameplay + Facecam</option><option value="facecam_top">Facecam Top / Gameplay Bottom</option><option value="gameplay_top">Gameplay Top / Facecam Bottom</option><option value="gameplay_only">Gameplay Only</option><option value="facecam_overlay">Facecam Overlay</option><option value="blurred_background">Blurred Background + Reframed Gameplay</option></select></label>
+      <label>Background<select name="vertical_background"><option value="solid">Solid</option><option value="blurred">Blurred source</option></select></label>
+      <label>Gap <span class="field-hint">px</span><input name="vertical_gap" type="number" min="0" max="200" value="18"></label>
+      <label>Border <span class="field-hint">px</span><input name="vertical_border" type="number" min="0" max="32" value="0"></label>
+      <label>Caption safe zone<select name="caption_safe_zone"><option value="bottom">Bottom safe zone</option><option value="middle">Middle safe zone</option><option value="top">Top safe zone</option></select></label>
+    </div>
+    <div class="composer-coordinates">
+      <fieldset><legend>Gameplay source region</legend><label>X <input name="gameplay_x" data-composer-field="gameplay.x" type="number" min="0" max="1" step="0.01" value="0"></label><label>Y <input name="gameplay_y" data-composer-field="gameplay.y" type="number" min="0" max="1" step="0.01" value="0"></label><label>Width <input name="gameplay_w" data-composer-field="gameplay.w" type="number" min="0" max="1" step="0.01" value="0.72"></label><label>Height <input name="gameplay_h" data-composer-field="gameplay.h" type="number" min="0" max="1" step="0.01" value="1"></label></fieldset>
+      <fieldset><legend>Facecam source region</legend><label>X <input name="facecam_x" data-composer-field="facecam.x" type="number" min="0" max="1" step="0.01" value="0.72"></label><label>Y <input name="facecam_y" data-composer-field="facecam.y" type="number" min="0" max="1" step="0.01" value="0"></label><label>Width <input name="facecam_w" data-composer-field="facecam.w" type="number" min="0" max="1" step="0.01" value="0.28"></label><label>Height <input name="facecam_h" data-composer-field="facecam.h" type="number" min="0" max="1" step="0.01" value="0.28"></label></fieldset>
+    </div>
+    <p class="field-hint composer-note">The preview is a planning surface; the saved normalized regions are applied by FFmpeg during the real render. Safe tests never publish.</p>
+  </div>
+</details>

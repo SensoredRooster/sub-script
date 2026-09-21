@@ -27,6 +27,8 @@ class QueueItem:
     horizontal_path: str | None = None
     vertical_path: str | None = None
     vertical_captioned_path: str | None = None
+    # Normalized composer template used for this render; legacy queue files omit it.
+    vertical_layout: dict[str, Any] = field(default_factory=dict)
     post_metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -72,6 +74,7 @@ class ReviewQueue:
         horizontal_path: Path | None = None,
         vertical_path: Path | None = None,
         vertical_captioned_path: Path | None = None,
+        vertical_layout: dict[str, Any] | None = None,
         post_metadata: dict[str, Any] | None = None,
     ) -> QueueItem:
         data = self._read()
@@ -87,6 +90,7 @@ class ReviewQueue:
             vertical_captioned_path=(
                 str(vertical_captioned_path) if vertical_captioned_path else None
             ),
+            vertical_layout=vertical_layout or {},
         )
         data.setdefault("items", []).append(item.to_dict())
         self._write(data)

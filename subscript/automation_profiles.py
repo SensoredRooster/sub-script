@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 from html import escape
+import mimetypes
+import re
 from pathlib import Path
 from urllib.parse import quote
 from uuid import uuid4
@@ -15,6 +17,7 @@ from subscript import capture_setup
 from subscript.auth import is_authenticated, login_redirect
 from subscript.config import save_config
 from subscript.output_formats import FORMATS, selected_format
+from subscript.layout import layout_from_form, normalize_layout
 
 
 def _profiles(cfg: dict) -> list[dict]:
@@ -78,9 +81,31 @@ def _render_page(cfg: dict, snip, holder: dict, *, profile: dict | None = None, 
             .replace("{{FLOW_REVIEW_SELECTED}}", "selected" if (profile or {}).get("review_mode", "review") == "review" else "")
             .replace("{{FLOW_AUTO_SELECTED}}", "selected" if (profile or {}).get("review_mode") == "automatic" else "")
             .replace("{{AUTOMATION_PROFILES}}", capture_setup._profile_setup_html(editor_cfg))
+            .replace("{{VERTICAL_COMPOSER}}", _composer_html(snip, (profile or {}).get("vertical_layout")))
             .replace("{{DELETE_CONTROL}}", delete_control)
             .replace("{{MESSAGE}}", f'<p class="banner ok-banner">{escape(message)}</p>' if message else "")
             .replace("{{ERROR}}", f'<p class="banner bad-banner">{escape(error)}</p>' if error else ""))
+    return html
+
+
+def _composer_html(snip, layout: dict | None) -> str:
+    """Fill the shared composer with a saved profile template."""
+    html = snip("vertical_composer.html")
+    current = normalize_layout(layout)
+    mode = current["mode"]
+    preset = current["preset"] if mode == "composer" else "gameplay_facecam"
+    html = html.replace('<option value="center_crop">', f'<option value="center_crop" {"selected" if mode != "composer" else ""}>')
+    html = html.replace('<option value="composer">', f'<option value="composer" {"selected" if mode == "composer" else ""}>')
+    for option in ("gameplay_facecam", "facecam_top", "gameplay_top", "gameplay_only", "facecam_overlay", "blurred_background"):
+        html = html.replace(f'<option value="{option}">', f'<option value="{option}" {"selected" if option == preset else ""}>')
+    if mode == "composer":
+        regions, boxes, style = current["regions"], current["boxes"], current["style"]
+        for prefix, region in (("gameplay", regions["gameplay"]), ("facecam", regions["facecam"]), ("gameplay_box", boxes["gameplay"]), ("facecam_box", boxes["facecam"])):
+            for key, value in region.items():
+                html = re.sub(rf'(name="{prefix}_{key}"[^>]*value=")[^"]*(")', rf'\g<1>{value}\2', html)
+        html = re.sub(r'(name="vertical_gap"[^>]*value=")[^"]*(")', rf'\g<1>{style["gap"]}\2', html)
+        html = re.sub(r'(name="vertical_border"[^>]*value=")[^"]*(")', rf'\g<1>{style["border"]}\2', html)
+        html = html.replace(f'<option value="{style["background"]}">', f'<option value="{style["background"]}" selected>')
     return html
 
 
@@ -179,6 +204,7 @@ def _build_profile(cfg: dict, form, existing: dict | None, action: str) -> dict:
         "buffer_seconds": seconds,
         "review_mode": review_mode,
         "platforms": current_platforms,
+        "vertical_layout": layout_from_form(form),
         "enabled": action == "save_and_start" or (bool((existing or {}).get("enabled")) and action != "pause"),
     }
 
@@ -262,6 +288,17 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
             return login_redirect(request)
         return _render_page(cfg, snip, holder)
 
+    @app.get("/automation/source-preview")
+    def source_preview(request: Request, folder: str = ""):
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        source = capture_setup.newest_video_in(Path(folder.strip().strip('"')).expanduser()) if folder.strip() else None
+        if not source:
+            return HTMLResponse("No representative VOD found.", status_code=404)
+        from fastapi.responses import FileResponse
+        mime, _ = mimetypes.guess_type(str(source))
+        return FileResponse(source, media_type=mime or "video/mp4")
+
     @app.get("/automation/{profile_id}/edit", response_class=HTMLResponse)
     def edit_profile(request: Request, profile_id: str, msg: str | None = None, err: str | None = None):
         if not is_authenticated(request, cfg):
@@ -317,6 +354,7 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
                 test_cfg = deepcopy(cfg)
                 test_cfg.update(watch_folder=profile["folder"], live_source="", hotkey=profile["hotkey"], buffer_seconds=profile["buffer_seconds"])
                 test_cfg["platforms"] = deepcopy(profile["platforms"])
+                test_cfg["vertical_layout"] = deepcopy(profile.get("vertical_layout") or {})
                 test_cfg.setdefault("review", {})["require_approval"] = True
                 capture_setup.run_pipeline(source, test_cfg, dry_run=True, duration=profile["buffer_seconds"])
                 profile["enabled"] = False

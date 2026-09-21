@@ -13,6 +13,7 @@ from subscript.music import maybe_mix_music, music_volume, resolve_music_path
 from subscript.pipeline import run_pipeline
 from subscript.queue import ReviewQueue
 from subscript.reframe import make_social_pair
+from subscript.layout import aspect_ratio, normalize_layout, probe_media
 from subscript.trim import trim_clip
 from tests.conftest import FFMPEG, needs_ffmpeg
 
@@ -67,6 +68,25 @@ def test_make_social_pair(synth_video: Path, tmp_path: Path) -> None:
     h, v = make_social_pair(synth_video, tmp_path, "t", shorts_w=270, shorts_h=480, landscape_w=320, landscape_h=180)
     assert h.name == "clip-horizontal-t.mp4" and v.name == "clip-vertical-t.mp4"
     assert h.stat().st_size > 0 and v.stat().st_size > 0
+
+
+def test_vertical_composer_normalizes_regions_and_keeps_true_ratio(synth_video: Path, tmp_path: Path) -> None:
+    layout = normalize_layout({
+        "mode": "composer", "preset": "facecam_overlay",
+        "regions": {"gameplay": {"x": -1, "y": 0, "w": 2, "h": 1}, "facecam": {"x": .8, "y": .1, "w": .5, "h": .5}},
+        "style": {"border": 2},
+    })
+    assert layout["mode"] == "composer"
+    assert layout["regions"]["gameplay"] == {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}
+    assert layout["regions"]["facecam"]["w"] == 0.2
+    _h, vertical = make_social_pair(
+        synth_video, tmp_path, "composer", shorts_w=270, shorts_h=480,
+        landscape_w=320, landscape_h=180, vertical_layout=layout,
+    )
+    metadata = probe_media(vertical)
+    assert (metadata["width"], metadata["height"]) == (270, 480)
+    assert metadata["sample_aspect_ratio"] == "1:1"
+    assert aspect_ratio(metadata) == pytest.approx(9 / 16, rel=0.001)
 
 
 def test_trim_clip_validation_and_output(synth_video: Path, tmp_path: Path) -> None:
