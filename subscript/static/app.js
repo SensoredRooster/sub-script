@@ -135,6 +135,40 @@
       var mode = composerField("vertical_layout_mode");
       composer.classList.toggle("composer-active", !!mode && mode.value === "composer");
     }
+    function composerNumber(kind, key) { return Number((composerField(kind + "_" + key) || {}).value) || 0; }
+    function updateComposerRegion(kind, values) {
+      ["x","y","w","h"].forEach(function (key) { var field = composerField(kind + "_" + key); if (field) field.value = Math.max(0, Math.min(1, values[key])).toFixed(2); });
+      drawComposer();
+    }
+    function enableComposerManipulation() {
+      if (!composer) return;
+      var stage = composer.querySelector("[data-composer-source-stage]");
+      if (!stage) return;
+      composer.querySelectorAll("[data-composer-region]").forEach(function (region) {
+        var kind = region.getAttribute("data-composer-region");
+        var interaction = null;
+        region.addEventListener("pointerdown", function (event) {
+          if (event.target.closest("[data-composer-resize]")) return;
+          var rect = stage.getBoundingClientRect();
+          interaction = {type:"move",startX:event.clientX,startY:event.clientY,rect:rect,x:composerNumber(kind,"x"),y:composerNumber(kind,"y"),w:composerNumber(kind,"w"),h:composerNumber(kind,"h")};
+          region.setPointerCapture(event.pointerId); event.preventDefault();
+        });
+        region.addEventListener("pointermove", function (event) {
+          if (!interaction) return;
+          var dx = (event.clientX - interaction.startX) / interaction.rect.width;
+          var dy = (event.clientY - interaction.startY) / interaction.rect.height;
+          if (interaction.type === "resize") updateComposerRegion(kind, {x:interaction.x,y:interaction.y,w:Math.max(.03,Math.min(1-interaction.x,interaction.w+dx)),h:Math.max(.03,Math.min(1-interaction.y,interaction.h+dy))});
+          else updateComposerRegion(kind, {x:Math.max(0,Math.min(1-interaction.w,interaction.x+dx)),y:Math.max(0,Math.min(1-interaction.h,interaction.y+dy)),w:interaction.w,h:interaction.h});
+        });
+        region.addEventListener("pointerup", function () { interaction = null; });
+        var handle = region.querySelector("[data-composer-resize]");
+        if (handle) handle.addEventListener("pointerdown", function (event) {
+          var rect = stage.getBoundingClientRect();
+          interaction = {type:"resize",startX:event.clientX,startY:event.clientY,rect:rect,x:composerNumber(kind,"x"),y:composerNumber(kind,"y"),w:composerNumber(kind,"w"),h:composerNumber(kind,"h")};
+          region.setPointerCapture(event.pointerId); event.preventDefault(); event.stopPropagation();
+        });
+      });
+    }
     function syncComposerPreset() {
       if (!composer) return;
       var preset = composerField("vertical_preset");
@@ -145,6 +179,7 @@
       var presetControl = composerField("vertical_preset");
       if (presetControl) presetControl.addEventListener("change", syncComposerPreset);
       composer.querySelectorAll("input, select").forEach(function (control) { control.addEventListener("input", drawComposer); control.addEventListener("change", drawComposer); });
+      enableComposerManipulation();
       drawComposer();
     }
     function setComposerSource(file) {
