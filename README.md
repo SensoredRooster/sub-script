@@ -25,6 +25,8 @@ The app intentionally keeps these paths separate so a first-time user does not h
 
 ## Quick start for an absolute beginner
 
+**New tester? Start with the dedicated [Windows Installation Guide](INSTALL.md).** It walks through Git, Python, FFmpeg, setup, launching SubScript, updating to the latest version, and common troubleshooting in PowerShell.
+
 ### First-time setup
 
 Ask for help with this one-time setup if you are not comfortable with Python or Windows terminals.
