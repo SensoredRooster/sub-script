@@ -11,14 +11,14 @@
     <summary><strong>What does “connect an account” mean?</strong></summary>
     <div class="control-panel">
       <p class="meta"><strong>For tonight:</strong> TikTok, Instagram, Facebook, X, and Rumble use local upload packs. You can approve a clip, open its platform folder, and upload it yourself. No OAuth setup or account password is needed.</p>
-      <p class="meta"><strong>For direct posting later:</strong> each network needs its own developer app, client ID/secret, approved posting permissions, a return URL for sign-in, secure token storage and refresh, and a platform-specific upload/status integration. Some platforms also require app review before real accounts can use it.</p>
+      <p class="meta"><strong>For direct posting:</strong> TikTok now has a built-in connector. Add the local client key and secret, register the shown return URL, connect your account, and choose Direct post. TikTok approval is still required before an unaudited app can post beyond its allowed test conditions.</p>
       <ul class="oauth-checklist">
         <li><strong>TikTok</strong> — developer app + Content Posting API approval + <code>video.upload</code> for drafts or <code>video.publish</code> for direct posts.</li>
         <li><strong>Instagram/Facebook</strong> — Meta developer app, a Professional Instagram account linked to a Facebook Page, the correct Page/Instagram permissions, and Meta app review.</li>
         <li><strong>X</strong> — X developer app, user-context write/media access, and an account/API access plan that permits posting.</li>
         <li><strong>Rumble</strong> — keep using the upload pack until an official supported upload/OAuth path is confirmed.</li>
       </ul>
-      <p class="meta">That is a separate integration project, not something you should have to configure before making clips tonight.</p>
+      <p class="meta">If TikTok is not approved yet, choose Local upload pack. Your clip workflow remains fully usable while the connector is waiting for review.</p>
     </div>
   </details>
   <form id="publishing-form" class="publishing-form" method="post" action="/publishing">
@@ -89,4 +89,5 @@
     </div>
   </form>
   <form id="youtube-connect-form" method="post" action="/connections/youtube/connect"></form>
+  <form id="tiktok-connect-form" method="post" action="/connections/tiktok/connect"></form>
 </section>

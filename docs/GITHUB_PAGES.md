@@ -28,4 +28,4 @@ Confirm the final URL shown by **Settings → Pages** before submitting a review
 
 Do not commit `.env`, `config.yaml`, `credentials.json`, `token.json`, OAuth client secrets, access tokens, or refresh tokens. The repository ignore rules already cover the known local credential filenames. Before pushing, review `git status` and `git diff --cached` and verify that no secret has been staged.
 
-Before a TikTok, Meta, or X developer review, replace the bracketed legal contact and governing-law placeholders in `docs/terms/index.html` and `docs/privacy/index.html` with the actual business details. The site describes local processing and export preparation accurately; it does not claim direct publishing to platforms that are only prepared as local/manual packs.
+Before a TikTok, Meta, or X developer review, replace the bracketed legal contact and governing-law placeholders in `docs/terms/index.html` and `docs/privacy/index.html` with the actual business details. The site describes local processing and export preparation accurately; optional direct posting still requires the relevant connector, account authorization, and platform approval.

@@ -30,7 +30,7 @@ class PublishResult:
 
     platform: str
     ok: bool
-    status: str  # uploaded | dry_run | manual | skipped | error | not_configured
+    status: str  # uploaded | submitted | dry_run | manual | skipped | error | not_configured
     message: str = ""
     url: str | None = None
     folder: str | None = None

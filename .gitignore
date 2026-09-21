@@ -12,6 +12,7 @@ out/
 .vscode/
 credentials.json
 token.json
+tiktok-token.json
 client_secret*.json
 client_secrets.json
 assets/logo.png

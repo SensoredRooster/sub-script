@@ -6,14 +6,22 @@ from collections.abc import Callable
 from html import escape
 from typing import Any
 from urllib.parse import quote
+import webbrowser
 
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, Query
 from fastapi.responses import RedirectResponse, JSONResponse
 from subscript.post_metadata import generate_posts, PLATFORMS
 from subscript.output_formats import FORMATS, selected_format
 
 from subscript.config import dry_run_forced, save_config
 from subscript.upload import client_secrets_path, token_path, get_youtube_credentials
+from subscript.publish.tiktok import (
+    TikTokAPIError,
+    begin_authorization,
+    connection_status as tiktok_connection_status,
+    finish_authorization,
+)
+from subscript.publish.base import NotConfiguredError
 
 
 def youtube_connection_status(cfg):
@@ -52,6 +60,28 @@ def youtube_connection_html(cfg):
             f'<p class="meta">{status["detail"]}</p>'
             f'{button}'
             '<p class="meta">Connection and publishing are separate. Your account can stay connected while uploads are off. Saved authorization is checked locally; Google may require sign-in again when uploading.</p></div>')
+
+
+def tiktok_connection_html(cfg):
+    tiktok_cfg = dict((cfg.get("platforms") or {}).get("tiktok") or {})
+    tiktok_cfg["review"] = dict(cfg.get("review") or {})
+    status = tiktok_connection_status(tiktok_cfg)
+    label = "Reconnect TikTok" if status["state"] == "connected" else "Connect TikTok"
+    disabled = "" if status["configured"] else "disabled"
+    setup = (
+        '<p class="meta">Set <code>TIKTOK_CLIENT_KEY</code> and <code>TIKTOK_CLIENT_SECRET</code> in the local <code>.env</code> file. '
+        f'Register this exact redirect URI in TikTok: <code>{escape(status["redirect_uri"])}</code></p>'
+        if not status["configured"] else ""
+    )
+    button = f'<button type="submit" form="tiktok-connect-form" {disabled}>{label}</button>'
+    return (
+        f'<div class="connection-panel connection-{status["state"]}" aria-label="TikTok connection">'
+        '<div class="connection-summary">'
+        f'<span class="connection-badge"><span aria-hidden="true">●</span> {escape(status["label"])}</span>'
+        '<span class="connection-delivery">Direct posting is off until enabled</span></div>'
+        f'<p class="meta">{escape(status["detail"])}</p>{setup}{button}'
+        '<p class="meta">Manual upload packs still work without an account connection. Direct posting requires TikTok approval for the selected permission.</p></div>'
+    )
 
 _MANUAL_PLATFORMS = (
     ("tiktok", "TikTok", "Vertical video + posting instructions"),
@@ -96,6 +126,30 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
         title = escape(str(item.get("title_template") or ""), quote=True)
         description = escape(str(item.get("description") or ""))
         tags = escape(_platform_tags(item.get("tags")), quote=True)
+        tiktok_controls = (
+            tiktok_connection_html(cfg)
+            + '<label>Delivery<select name="tiktok_mode">'
+            f'<option value="manual" {_selected(str(item.get("mode") or "manual"), "manual")}>Local upload pack</option>'
+            f'<option value="api" {_selected(str(item.get("mode") or "manual"), "api")}>Direct post to TikTok</option>'
+            f'<option value="upload" {_selected(str(item.get("mode") or "manual"), "upload")}>Send to TikTok drafts</option>'
+            '</select></label>'
+            '<label>Privacy for direct posts<select name="tiktok_privacy">'
+            f'<option value="SELF_ONLY" {_selected(str(item.get("privacy_level") or "SELF_ONLY"), "SELF_ONLY")}>Private (recommended for testing)</option>'
+            f'<option value="MUTUAL_FOLLOW_FRIENDS" {_selected(str(item.get("privacy_level") or ""), "MUTUAL_FOLLOW_FRIENDS")}>Friends</option>'
+            f'<option value="FOLLOWER_OF_CREATOR" {_selected(str(item.get("privacy_level") or ""), "FOLLOWER_OF_CREATOR")}>Followers</option>'
+            f'<option value="PUBLIC_TO_EVERYONE" {_selected(str(item.get("privacy_level") or ""), "PUBLIC_TO_EVERYONE")}>Everyone</option>'
+            '</select></label>'
+            if key == "tiktok" else ""
+        )
+        delivery_note = (
+            "Choose Local upload pack for tonight, or Direct post after TikTok approves video.publish."
+            if key == "tiktok" else "These defaults are used for new clip drafts. Upload-ready packs are created locally. No account connection is needed in SubScript."
+        )
+        card_prefix = (
+            f'<div class="platform-settings" {"" if item.get("enabled") else "hidden"}>{tiktok_controls}'
+            if key == "tiktok" else
+            f'<div class="platform-settings" {"" if item.get("enabled") else "hidden"}><input type="hidden" name="{key}_mode" value="manual">'
+        )
         cards.append(
             f'<article class="platform-card" data-platform="{key}">'
             '<div class="platform-card-head">'
@@ -104,15 +158,16 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
             '<label class="switch" aria-label="Enable '
             f'{escape(name)}"><input type="checkbox" name="{key}_enabled" value="1" '
             f"{_checked(item.get('enabled'))}><span></span></label></div>"
-            f'<div class="platform-settings" {"" if item.get("enabled") else "hidden"}>'
-            f'<input type="hidden" name="{key}_mode" value="manual">'
+            f'{card_prefix}'
+        )
+        cards[-1] += (
             f'<label>Output format<select name="{key}_format">' + ''.join(
                 f'<option value="{value}" {_selected(selected_format(cfg, key), value)}>{label}</option>'
                 for value, label in FORMATS[key].items()) + '</select></label>'
             f'<label>Default post title / caption <span class="field-hint">optional</span><input name="{key}_title" type="text" maxlength="95" value="{title}" placeholder="Leave blank for automatic copy"></label>'
             f'<label>Default description <span class="field-hint">optional</span><textarea name="{key}_description" rows="3" maxlength="1800">{description}</textarea></label>'
             f'<label>Default tags <span class="field-hint">comma separated</span><input name="{key}_tags" type="text" value="{tags}" placeholder="gaming, highlights"></label>'
-            '<p class="meta">These defaults are used for new clip drafts. Upload-ready packs are created locally. No account connection is needed in SubScript.</p></div></article>'
+            f'<p class="meta">{delivery_note}</p></div></article>'
         )
 
     return (
@@ -178,6 +233,34 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
             return RedirectResponse("/?err=" + quote("YouTube connection was not completed. Try again and finish Google sign-in. If connection setup is missing, contact the app administrator.") + "#publish", status_code=303)
         return RedirectResponse("/?msg=" + quote("YouTube account connected. Choose your upload settings in the YouTube tile.") + "#publish", status_code=303)
 
+    @app.post("/connections/tiktok/connect")
+    def connect_tiktok():
+        try:
+            tiktok_cfg = dict((cfg.get("platforms") or {}).get("tiktok") or {})
+            tiktok_cfg["review"] = dict(cfg.get("review") or {})
+            url = begin_authorization(tiktok_cfg)
+            webbrowser.open(url, new=2, autoraise=True)
+        except Exception as exc:  # noqa: BLE001 — the UI gets a safe next step
+            message = str(exc) if isinstance(exc, (NotConfiguredError, TikTokAPIError)) else "TikTok connection could not be started. Check the local setup and try again."
+            return RedirectResponse("/?err=" + quote(message) + "#publish", status_code=303)
+        return RedirectResponse("/?msg=" + quote("TikTok sign-in opened in your browser. Finish authorization, then return here.") + "#publish", status_code=303)
+
+    @app.get("/connections/tiktok/callback")
+    def tiktok_callback(code: str | None = Query(None), state: str | None = Query(None), error: str | None = Query(None), error_description: str | None = Query(None)):
+        if error:
+            detail = error_description or error
+            return RedirectResponse("/?err=" + quote(f"TikTok authorization was not completed: {detail}") + "#publish", status_code=303)
+        if not code or not state:
+            return RedirectResponse("/?err=" + quote("TikTok did not return a complete authorization response. Try Connect TikTok again.") + "#publish", status_code=303)
+        try:
+            tiktok_cfg = dict((cfg.get("platforms") or {}).get("tiktok") or {})
+            tiktok_cfg["review"] = dict(cfg.get("review") or {})
+            finish_authorization(tiktok_cfg, code=code, state=state)
+        except Exception as exc:  # noqa: BLE001
+            message = str(exc) if isinstance(exc, (NotConfiguredError, TikTokAPIError)) else "TikTok authorization could not be saved. Try connecting again."
+            return RedirectResponse("/?err=" + quote(message) + "#publish", status_code=303)
+        return RedirectResponse("/?msg=" + quote("TikTok connected. Save Direct post in the TikTok tile to enable live posting.") + "#publish", status_code=303)
+
     @app.post("/publishing")
     def save_publishing(
         youtube_format: str = Form("vertical"),
@@ -201,6 +284,7 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         youtube_token: str | None = Form(None),
         tiktok_enabled: str | None = Form(None),
         tiktok_mode: str = Form("manual"),
+        tiktok_privacy: str = Form("SELF_ONLY"),
         instagram_enabled: str | None = Form(None),
         instagram_mode: str = Form("manual"),
         facebook_enabled: str | None = Form(None),
@@ -255,10 +339,17 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         }
         for key, (enabled, raw_mode, title, description, tags) in incoming.items():
             mode = raw_mode.strip().lower()
-            mode = "manual"
+            allowed_modes = {"manual", "api", "upload"} if key == "tiktok" else {"manual"}
+            if mode not in allowed_modes:
+                return RedirectResponse("/?err=" + quote(f"Invalid {key} delivery mode.") + "#publish", status_code=303)
             current = dict(platforms.get(key) or {})
             current.update({"enabled": enabled is not None, "mode": mode})
             current["format"] = formats[key]
+            if key == "tiktok":
+                privacy_level = tiktok_privacy.strip().upper()
+                if privacy_level not in {"SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "PUBLIC_TO_EVERYONE"}:
+                    return RedirectResponse("/?err=" + quote("Choose a valid TikTok privacy setting.") + "#publish", status_code=303)
+                current["privacy_level"] = privacy_level
             if any(str(value or "").strip() for value in (title, description, tags)):
                 current.update({
                     "title_template": title.strip(),

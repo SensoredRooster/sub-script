@@ -95,8 +95,8 @@ youtube:
 
 # ---------------------------------------------------------------------------
 # Multi-platform Approve fan-out (subscript/publish/)
-# YouTube is the only live API by default. Flip enabled: true on others for
-# real for_<platform>/ packs + POST_INSTRUCTIONS.txt (or mode: api later).
+# YouTube and TikTok have live API paths. Other destinations create
+# real for_<platform>/ packs + POST_INSTRUCTIONS.txt.
 # Either platforms.youtube.enabled or youtube.enabled turns on live Shorts upload.
 # ---------------------------------------------------------------------------
 platforms:
@@ -105,7 +105,13 @@ platforms:
     enabled: false
   tiktok:
     enabled: false
-    mode: manual  # manual | api (api raises NotConfiguredError until wired)
+    mode: manual  # manual | api (direct post) | upload (TikTok draft)
+    # Set these in .env instead of committing them to config.yaml.
+    client_key: ""
+    client_secret: ""
+    redirect_uri: "http://127.0.0.1:8787/connections/tiktok/callback"
+    token_file: "tiktok-token.json"
+    privacy_level: "SELF_ONLY"
   instagram:
     enabled: false
     mode: manual

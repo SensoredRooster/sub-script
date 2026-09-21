@@ -185,12 +185,12 @@ python scripts\\smoke_captions.py
 
 ## Platform checklist
 
-Approve can fan out to multiple platforms via `subscript/publish/`. **YouTube is the only live API by default.**
+Approve can fan out to multiple platforms via `subscript/publish/`. YouTube and TikTok have live API paths; the other destinations remain local upload packs.
 
 | Platform | Config flag | Default | What happens when enabled |
 |----------|-------------|---------|---------------------------|
 | **YouTube Shorts** | `youtube.enabled` **or** `platforms.youtube.enabled` | `false` | Live OAuth upload (see **Connect YouTube**) |
-| **TikTok** | `platforms.tiktok.enabled` | `false` | Copies clip to `out/approved/<id>/for_tiktok/` + `POST_INSTRUCTIONS.txt` (`mode: manual`) |
+| **TikTok** | `platforms.tiktok.enabled` | `false` | Local pack (`mode: manual`), direct post (`mode: api`), or TikTok draft (`mode: upload`) |
 | **Instagram** | `platforms.instagram.enabled` | `false` | Same pattern → `for_instagram/` |
 | **Facebook** | `platforms.facebook.enabled` | `false` | Same pattern → `for_facebook/` |
 | **X (Twitter)** | `platforms.twitter.enabled` | `false` | Same pattern → `for_twitter/` |
@@ -198,7 +198,7 @@ Approve can fan out to multiple platforms via `subscript/publish/`. **YouTube is
 
 **Fail-soft:** if one platform errors, Approve still finishes and the banner lists per-platform status (`uploaded` / `manual` / `error` / `not_configured`).
 
-**API stubs:** set `platforms.<name>.mode: api` to exercise the live-API path early — it raises `NotConfiguredError` with enablement steps until credentials are wired.
+TikTok direct posting uses Desktop Login Kit with PKCE, refreshable local tokens, creator privacy options, chunked `FILE_UPLOAD`, and status polling. It requires TikTok approval for the requested `video.publish` or `video.upload` scope.
 
 Example — manual TikTok + IG packs on every Approve (YouTube still off):
 
@@ -213,6 +213,23 @@ platforms:
     enabled: true
     mode: manual
 ```
+
+## Connect TikTok
+
+1. In the TikTok developer app, add Login Kit and Content Posting API, then request the scope needed by the selected delivery mode: `video.publish` for Direct post or `video.upload` for TikTok drafts.
+2. Register this loopback redirect URI exactly:
+   `http://127.0.0.1:8787/connections/tiktok/callback`
+3. Copy `.env.example` to `.env` and fill in the private values from TikTok:
+   ```text
+   TIKTOK_CLIENT_KEY=your_client_key
+   TIKTOK_CLIENT_SECRET=your_client_secret
+   TIKTOK_REDIRECT_URI=http://127.0.0.1:8787/connections/tiktok/callback
+   ```
+4. Restart SubScript. Open **Publish**, enable TikTok, choose **Direct post to TikTok**, and click **Connect TikTok**.
+5. Finish TikTok authorization in the browser. The app saves the refreshable token locally as `tiktok-token.json` (gitignored).
+6. Keep privacy set to **Private** while testing. Unaudited TikTok clients are restricted to private posts until TikTok completes the required audit.
+
+SubScript uploads the approved local MP4 directly to TikTok using `FILE_UPLOAD`; it does not expose your video files on GitHub Pages or require TikTok to download them from a public URL. If the connector is not approved yet, choose **Local upload pack** or **Send to TikTok drafts** instead.
 
 ## Connect YouTube (optional)
 
