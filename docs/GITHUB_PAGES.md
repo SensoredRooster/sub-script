@@ -1,16 +1,16 @@
 # SubScript public site and GitHub Pages
 
-The public OAuth-review site lives in [`site/`](../site/). It is intentionally separate from the desktop app's `subscript/static/` directory, so publishing the site does not change the local application UI or package contents.
+The public OAuth-review site lives in this `docs/` directory. It is intentionally separate from the desktop app's `subscript/static/` directory, so publishing the site does not change the local application UI or package contents.
 
-## Enable Pages
+## Enable Pages without GitHub Actions
 
 1. Push the repository's `main` branch to GitHub.
 2. Open **Settings → Pages** for `SensoredRooster/sub-script`.
-3. Under **Build and deployment**, choose **GitHub Actions** as the source.
-4. Run **Actions → Deploy public site to GitHub Pages → Run workflow** once if the first push did not start a run.
-5. Wait for the workflow to finish, then open the URL shown in the `github-pages` environment. GitHub Pages serves the same static files over HTTPS.
+3. Under **Build and deployment**, choose **Deploy from a branch**.
+4. Choose branch **main** and folder **/docs**, then click **Save**.
+5. Wait for GitHub Pages to publish the site. This branch-based setup avoids requiring a GitHub Actions billing account.
 
-The workflow only publishes `site/`; it does not build or run the desktop application and it does not read credential files.
+GitHub Pages only publishes these static files; it does not build or run the desktop application and it does not read credential files.
 
 ## URLs for the current repository
 
@@ -28,4 +28,4 @@ Confirm the final URL shown by **Settings → Pages** before submitting a review
 
 Do not commit `.env`, `config.yaml`, `credentials.json`, `token.json`, OAuth client secrets, access tokens, or refresh tokens. The repository ignore rules already cover the known local credential filenames. Before pushing, review `git status` and `git diff --cached` and verify that no secret has been staged.
 
-Before a TikTok, Meta, or X developer review, replace the bracketed legal contact and governing-law placeholders in `site/terms/index.html` and `site/privacy/index.html` with the actual business details. The site describes local processing and export preparation accurately; it does not claim direct publishing to platforms that are only prepared as local/manual packs.
+Before a TikTok, Meta, or X developer review, replace the bracketed legal contact and governing-law placeholders in `docs/terms/index.html` and `docs/privacy/index.html` with the actual business details. The site describes local processing and export preparation accurately; it does not claim direct publishing to platforms that are only prepared as local/manual packs.
