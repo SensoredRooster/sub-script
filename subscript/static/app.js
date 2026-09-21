@@ -263,17 +263,22 @@
     var workflowCurrent = 0;
     var replayReady = workflowWizard.querySelector('[data-wizard-check="replay-ready"]');
     var startConfirm = workflowWizard.querySelector('[data-wizard-check="start-confirm"]');
+    var reviewModeInput = workflowWizard.querySelector('[name="review_mode"]');
+    var profileToggles = Array.prototype.slice.call(workflowWizard.querySelectorAll("[data-profile-toggle]"));
+    var profileHelp = document.getElementById("workflow-profile-help");
     var flowMessages = {
       0: "Check the box after the replay is saved.",
       1: "Enter a replay folder and a shortcut such as ctrl+shift+c.",
       2: "Choose a clip length between 5 and 300 seconds.",
-      3: "Confirm the trigger order before arming the workflow."
+      3: "Choose at least one posting profile for automatic publishing.",
+      4: "Confirm the trigger order before arming the workflow."
     };
     var flowReadyMessages = {
       0: "Replay ready. Now connect SubScript to that folder.",
       1: "Connection details look good. Now choose delivery.",
-      2: "Delivery choice saved for this setup. Now test it.",
-      3: "You are ready. Test first, then save and start when the preview looks right."
+      2: "Delivery choice saved. Now build the posting profiles.",
+      3: "Profiles ready. Now make a safe test preview.",
+      4: "You are ready. Test first, then save and start when the preview looks right."
     };
     function workflowHotkeyValid(value) {
       return /^(?:(?:ctrl|alt|shift)\+)+[a-z0-9]$/.test(String(value || "").trim().toLowerCase());
@@ -289,6 +294,9 @@
         var seconds = Number((workflowWizard.querySelector('[name="seconds"]') || {}).value);
         return Number.isFinite(seconds) && seconds >= 5 && seconds <= 300;
       }
+      if (index === 3) {
+        return !reviewModeInput || reviewModeInput.value !== "automatic" || profileToggles.some(function (toggle) { return toggle.checked; });
+      }
       return !!(startConfirm && startConfirm.checked);
     }
     function renderWorkflowStep() {
@@ -297,6 +305,19 @@
       });
       if (workflowStepNumber) workflowStepNumber.textContent = String(workflowCurrent + 1);
       if (workflowStepStatus) workflowStepStatus.textContent = workflowStepValid(workflowCurrent) ? flowReadyMessages[workflowCurrent] : flowMessages[workflowCurrent];
+      var automatic = !reviewModeInput || reviewModeInput.value === "automatic";
+      if (profileHelp) profileHelp.textContent = automatic
+        ? "Choose the destinations that should receive each finished clip. Automatic publishing requires at least one profile. Titles, descriptions, tags, and formats are optional."
+        : "Review-first mode can run without posting profiles. Add destinations now if you want the saved workflow ready for later automatic publishing.";
+      profileToggles.forEach(function (toggle) {
+        var card = toggle.closest(".automation-profile");
+        var fields = card && card.querySelector(".profile-fields");
+        if (card) card.classList.toggle("profile-selected", toggle.checked);
+        if (fields) {
+          fields.hidden = !toggle.checked;
+          fields.querySelectorAll("input, select, textarea").forEach(function (control) { control.disabled = !toggle.checked; });
+        }
+      });
       workflowWizard.querySelectorAll("[data-wizard-next]").forEach(function (button) {
         button.disabled = !workflowStepValid(workflowCurrent);
       });
@@ -304,13 +325,14 @@
         button.hidden = workflowCurrent === 0;
       });
       var startButton = workflowWizard.querySelector("[data-start-flow]");
-      if (startButton) startButton.disabled = !workflowStepValid(3);
+      if (startButton) startButton.disabled = !workflowStepValid(4) || !workflowStepValid(3);
       workflowWizard.querySelectorAll("[data-wizard-message]").forEach(function (message) {
         var key = message.getAttribute("data-wizard-message");
         var relevant = (workflowCurrent === 0 && key === "replay-ready") ||
           (workflowCurrent === 1 && key === "connection") ||
           (workflowCurrent === 2 && key === "delivery") ||
-          (workflowCurrent === 3 && key === "start-confirm");
+          (workflowCurrent === 3 && key === "profiles") ||
+          (workflowCurrent === 4 && key === "start-confirm");
         message.hidden = !relevant || workflowStepValid(workflowCurrent);
         if (relevant && !workflowStepValid(workflowCurrent)) message.textContent = flowMessages[workflowCurrent];
       });
@@ -337,7 +359,7 @@
     });
     if (workflowForm) workflowForm.addEventListener("submit", function (event) {
       var submitter = event.submitter;
-      if (submitter && submitter.value === "save_and_start" && !workflowStepValid(3)) {
+      if (submitter && submitter.value === "save_and_start" && (!workflowStepValid(3) || !workflowStepValid(4))) {
         event.preventDefault();
         renderWorkflowStep();
       }

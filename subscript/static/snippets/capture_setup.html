@@ -1,6 +1,6 @@
 <section class="workflow-section" id="capture-setup">
   <details class="advanced">
-    <summary><strong>Set up an automated workflow — guided setup</strong><span class="wizard-summary-status">4 clear steps</span></summary>
+    <summary><strong>Set up an automated workflow — guided setup</strong><span class="wizard-summary-status">5 clear steps</span></summary>
     <div class="workflow-wizard" id="workflow-wizard">
       <div class="wizard-intro">
         <p class="eyebrow">Automated workflow setup</p>
@@ -10,11 +10,13 @@
           <li><strong>Prepare</strong><span>Save one replay from OBS or your recorder.</span></li>
           <li><strong>Connect</strong><span>Tell SubScript where replays go and choose a shortcut.</span></li>
           <li><strong>Decide</strong><span>Choose clip length and review or automatic delivery.</span></li>
+          <li><strong>Profiles</strong><span>Choose where clips go and set each post profile.</span></li>
           <li><strong>Test</strong><span>Make a safe preview, then turn the workflow on.</span></li>
         </ol>
       </div>
-      <div class="wizard-progress" role="status" aria-live="polite"><strong>Step <span id="workflow-step-number">1</span> of 4</strong><span id="workflow-step-status">Prepare one replay before continuing.</span></div>
+      <div class="wizard-progress" role="status" aria-live="polite"><strong>Step <span id="workflow-step-number">1</span> of 5</strong><span id="workflow-step-status">Prepare one replay before continuing.</span></div>
       <form method="post" action="/capture/setup" class="clip-form" id="workflow-setup-form" novalidate>
+        <input type="hidden" name="flow_profile_setup" value="1">
         <section class="control-panel wizard-step" data-wizard-step="0">
           <p class="eyebrow">1 / Prepare</p>
           <h3>Save one replay first</h3>
@@ -44,11 +46,20 @@
           <label>After a clip is ready<select name="review_mode" data-wizard-input="review_mode"><option value="review" {{FLOW_REVIEW_SELECTED}}>Review every clip first (recommended)</option><option value="automatic" {{FLOW_AUTO_SELECTED}}>Publish automatically to enabled destinations</option></select></label>
           <p class="meta">Review first is safest: the workflow makes clips automatically, but you approve each one before publishing. Automatic mode skips that check and only uses destinations you enabled in Publish.</p>
           <p class="wizard-validation" data-wizard-message="delivery">Choose a clip length between 5 and 300 seconds.</p>
-          <div class="wizard-actions"><button type="button" data-wizard-back>← Back</button><button type="button" data-wizard-next>Next: test the workflow →</button></div>
+          <div class="wizard-actions"><button type="button" data-wizard-back>← Back</button><button type="button" data-wizard-next>Next: build posting profiles →</button></div>
         </section>
 
         <section class="control-panel wizard-step" data-wizard-step="3" hidden>
-          <p class="eyebrow">4 / Test</p>
+          <p class="eyebrow">4 / Profiles</p>
+          <h3>Build your posting profiles</h3>
+          <p class="meta" id="workflow-profile-help">Choose the destinations that should receive each finished clip. Automatic publishing requires at least one profile. Titles, descriptions, tags, and formats are optional.</p>
+          <div class="automation-profile-list">{{AUTOMATION_PROFILES}}</div>
+          <p class="wizard-validation" data-wizard-message="profiles">Choose at least one posting profile for automatic publishing.</p>
+          <div class="wizard-actions"><button type="button" data-wizard-back>← Back</button><button type="button" data-wizard-next>Next: test the workflow →</button></div>
+        </section>
+
+        <section class="control-panel wizard-step" data-wizard-step="4" hidden>
+          <p class="eyebrow">5 / Test</p>
           <h3>Make a safe preview, then turn it on</h3>
           <p class="meta">The safe test uses the newest replay in your folder and never publishes. Watch it in Review. If it looks right, return here and choose Save &amp; start automated workflow.</p>
           <label class="wizard-check"><input type="checkbox" data-wizard-check="start-confirm"> I understand the trigger order: save a replay, wait for it to finish, then press the SubScript shortcut.</label>

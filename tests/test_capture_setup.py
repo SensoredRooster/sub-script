@@ -49,9 +49,38 @@ def test_home_explains_automated_flow_wizard(app_env):
     page = app_env.client.get("/").text
     assert "Set up an automated workflow" in page
     assert "Save &amp; start automated workflow" in page
+    assert "Build your posting profiles" in page
+    assert 'name="flow_platform"' in page
     assert "Next: connect SubScript" in page
     assert "I saved a test replay" in page
     assert 'name="review_mode"' in page
+
+
+def test_automatic_flow_requires_a_posting_profile(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    response = app_env.client.post("/capture/setup", data={
+        "folder": str(app_env.tmp), "review_mode": "automatic", "flow_profile_setup": "1",
+    }, follow_redirects=False)
+    assert "Choose%20at%20least%20one%20posting%20profile" in response.headers["location"]
+    assert not app_env.cfg_path.exists()
+
+
+def test_automatic_flow_saves_selected_posting_profile(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    response = app_env.client.post("/capture/setup", data={
+        "folder": str(app_env.tmp), "hotkey": "ctrl+alt+c", "seconds": "20",
+        "review_mode": "automatic", "flow_profile_setup": "1", "flow_platform": "tiktok",
+        "flow_tiktok_mode": "api", "flow_tiktok_format": "vertical",
+        "flow_tiktok_title": "{game} highlight", "flow_tiktok_description": "Watch the finish.",
+        "flow_tiktok_tags": "gaming,clips", "action": "save",
+    }, follow_redirects=False)
+    assert response.status_code == 303
+    saved = yaml.safe_load(app_env.cfg_path.read_text())
+    assert saved["review"]["require_approval"] is False
+    assert saved["platforms"]["tiktok"]["enabled"] is True
+    assert saved["platforms"]["tiktok"]["mode"] == "api"
+    assert saved["platforms"]["tiktok"]["title_template"] == "{game} highlight"
+    assert saved["platforms"]["tiktok"]["tags"] == ["gaming", "clips"]
 
 
 def test_save_and_start_flow_arms_watcher(app_env, monkeypatch):
