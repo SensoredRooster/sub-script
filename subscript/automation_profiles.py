@@ -12,6 +12,7 @@ from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from subscript import capture_setup
+from subscript.auth import is_authenticated, login_redirect
 from subscript.config import save_config
 from subscript.output_formats import FORMATS, selected_format
 
@@ -100,8 +101,8 @@ def sidebar_html(cfg: dict, holder: dict, esc) -> str:
         '<aside class="app-sidebar" aria-label="SubScript menu">'
         '<p class="sidebar-kicker">Workspace</p>'
         '<nav class="sidebar-links">'
-        '<a href="/#source">Create a clip</a><a href="/#style">Branding</a>'
-        '<a href="/#review">Review queue</a><a href="/#publish">Publishing</a>'
+        '<a href="/clip#source">Create a clip</a><a href="/clip#style">Branding</a>'
+        '<a href="/clip#review">Review queue</a><a href="/clip#publish">Publishing</a>'
         '</nav>'
         '<div class="sidebar-heading"><span>Automated profiles</span>'
         '<a href="/automation/new" aria-label="Create automated profile">+</a></div>'
@@ -199,20 +200,108 @@ def _save_profile(cfg: dict, profile: dict) -> None:
     save_config(cfg)
 
 
+def _management_cards(cfg: dict, holder: dict, esc) -> str:
+    profiles = _profiles(cfg)
+    watchers = holder.get("profiles") or {}
+    labels = {item[0]: item[1] for item in capture_setup._AUTOMATION_PROFILES}
+    cards = []
+    for profile in profiles:
+        profile_id = str(profile["id"])
+        watcher = watchers.get(profile_id)
+        running = bool(watcher and watcher.armed)
+        enabled = bool(profile.get("enabled"))
+        state = "Running" if running else ("Ready to start" if enabled else "Paused")
+        state_class = "running" if running else ("ready" if enabled else "paused")
+        destinations = [
+            labels.get(key, key.title())
+            for key, settings in (profile.get("platforms") or {}).items()
+            if isinstance(settings, dict) and settings.get("enabled")
+        ]
+        destination_text = ", ".join(destinations) or "No posting destinations yet"
+        action = "stop" if running else "start"
+        action_label = "Stop watching" if running else "Start watching"
+        cards.append(
+            '<article class="managed-profile-card">'
+            '<header><div><p class="eyebrow">Automated profile</p>'
+            f'<h3>{esc(str(profile.get("name") or "Unnamed profile"))}</h3></div>'
+            f'<span class="profile-state {state_class}">{esc(state)}</span></header>'
+            '<div class="managed-profile-meta">'
+            f'<p><strong>Folder</strong><code>{esc(str(profile.get("folder") or "Not set"))}</code></p>'
+            f'<p><strong>Trigger</strong><span>{esc(str(profile.get("hotkey") or "ctrl+shift+c"))} · {esc(str(profile.get("buffer_seconds") or 30))} seconds</span></p>'
+            f'<p><strong>Destinations</strong><span>{esc(destination_text)}</span></p>'
+            '</div><div class="profile-card-actions">'
+            f'<a class="quiet-button" href="/automation/{esc(profile_id)}/edit">Edit workflow</a>'
+            f'<form method="post" action="/automation/{esc(profile_id)}/{action}">'
+            f'<button class="secondary" type="submit">{esc(action_label)}</button></form>'
+            '</div></article>'
+        )
+    return "".join(cards) or (
+        '<div class="management-empty"><h3>No automated workflows yet.</h3>'
+        '<p>Build your first profile and SubScript will keep its folder, trigger, and destinations separate.</p>'
+        '<a class="primary" href="/automation/new">Build my first workflow</a></div>'
+    )
+
+
 def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
+    @app.get("/automation", response_class=HTMLResponse)
+    def automation_management(request: Request, msg: str | None = None, err: str | None = None):
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        template = snip("automation_management.html")
+        message = f'<p class="banner ok-banner">{escape(msg)}</p>' if msg else ""
+        error = f'<p class="banner bad-banner">{escape(err)}</p>' if err else ""
+        return (template
+                .replace("{{MESSAGE}}", message)
+                .replace("{{ERROR}}", error)
+                .replace("{{PROFILE_COUNT}}", str(len(_profiles(cfg))))
+                .replace("{{PROFILE_CARDS}}", _management_cards(cfg, holder, escape)))
+
     @app.get("/automation/new", response_class=HTMLResponse)
-    def new_profile() -> str:
+    def new_profile(request: Request):
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
         return _render_page(cfg, snip, holder)
 
     @app.get("/automation/{profile_id}/edit", response_class=HTMLResponse)
-    def edit_profile(profile_id: str, msg: str | None = None, err: str | None = None) -> str:
+    def edit_profile(request: Request, profile_id: str, msg: str | None = None, err: str | None = None):
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
         profile = _profile(cfg, profile_id)
         if not profile:
             return _render_page(cfg, snip, holder, error="That automated profile no longer exists.")
         return _render_page(cfg, snip, holder, profile=profile, message=msg or "", error=err or "")
 
+    @app.post("/automation/{profile_id}/start")
+    def start_profile(request: Request, profile_id: str) -> RedirectResponse:
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        profile = _profile(cfg, profile_id)
+        if not profile:
+            return RedirectResponse("/automation?err=" + quote("That automated profile no longer exists."), status_code=303)
+        from subscript.live_ui import ensure_profile_watcher, stop_profile_watcher
+        stop_profile_watcher(holder, profile_id)
+        profile["enabled"] = True
+        _save_profile(cfg, profile)
+        ensure_profile_watcher(holder, cfg, profile).start()
+        return RedirectResponse("/automation?msg=" + quote(f"'{profile.get('name') or 'Profile'}' is watching for new clips."), status_code=303)
+
+    @app.post("/automation/{profile_id}/stop")
+    def stop_profile(request: Request, profile_id: str) -> RedirectResponse:
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        profile = _profile(cfg, profile_id)
+        if not profile:
+            return RedirectResponse("/automation?err=" + quote("That automated profile no longer exists."), status_code=303)
+        from subscript.live_ui import stop_profile_watcher
+        stop_profile_watcher(holder, profile_id)
+        profile["enabled"] = False
+        _save_profile(cfg, profile)
+        return RedirectResponse("/automation?msg=" + quote(f"'{profile.get('name') or 'Profile'}' is paused."), status_code=303)
+
     @app.post("/automation/save")
     async def save_profile(request: Request) -> RedirectResponse:
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
         form = await request.form()
         profile_id = _text(form, "profile_id")
         existing = _profile(cfg, profile_id)
@@ -252,13 +341,15 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
                 else:
                     stop_profile_watcher(holder, profile["id"])
                     message = f"Profile '{profile['name']}' is saved."
-            return RedirectResponse("/?msg=" + quote(message) + "#source", status_code=303)
+            return RedirectResponse("/?msg=" + quote(message), status_code=303)
         except Exception as exc:  # noqa: BLE001 — keep the user in the current stepper
             target = f"/automation/{profile_id}/edit" if existing else "/automation/new"
             return RedirectResponse(target + "?err=" + quote(str(exc)), status_code=303)
 
     @app.post("/automation/delete")
     async def delete_profile(request: Request) -> RedirectResponse:
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
         form = await request.form()
         profile_id = _text(form, "profile_id")
         profile = _profile(cfg, profile_id)
@@ -267,5 +358,5 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
             stop_profile_watcher(holder, profile_id)
             cfg["automation_profiles"] = [item for item in _profiles(cfg) if item["id"] != profile_id]
             save_config(cfg)
-            return RedirectResponse("/?msg=" + quote(f"Profile '{profile.get('name') or 'Unnamed profile'}' was deleted.") + "#source", status_code=303)
-        return RedirectResponse("/?err=" + quote("That automated profile was already removed.") + "#source", status_code=303)
+            return RedirectResponse("/?msg=" + quote(f"Profile '{profile.get('name') or 'Unnamed profile'}' was deleted."), status_code=303)
+        return RedirectResponse("/?err=" + quote("That automated profile was already removed."), status_code=303)

@@ -24,12 +24,12 @@ from subscript.post_metadata import PLATFORMS, generate_posts
 
 
 def _redirect_err(message: str) -> RedirectResponse:
-    return RedirectResponse("/?err=" + quote(message, safe=""), status_code=303)
+    return RedirectResponse("/clip?err=" + quote(message, safe=""), status_code=303)
 
 
 def _redirect_ok(message: str, anchor: str | None = None) -> RedirectResponse:
     suffix = f"#{anchor.lstrip('#')}" if anchor else ""
-    return RedirectResponse("/?msg=" + quote(message, safe="") + suffix, status_code=303)
+    return RedirectResponse("/clip?msg=" + quote(message, safe="") + suffix, status_code=303)
 
 
 def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None:
@@ -51,7 +51,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         item.post_metadata.update(missing)
         queue.update(item)
         message = "Post drafts generated. Expand a platform below to edit. Nothing was published." if missing else "All six drafts already exist. Expand a platform to edit its title, description and tags. Your edits were kept."
-        return RedirectResponse("/?msg=" + quote(message) + "#" + item.id, status_code=303)
+        return RedirectResponse("/clip?msg=" + quote(message) + "#" + item.id, status_code=303)
 
     @app.post("/items/{item_id}/post-copy")
     def save_post_copy(item_id: str, platform: str = Form(...), title: str = Form(...),
@@ -68,7 +68,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             return _redirect_err("Use at most 15 tags and 350 tag characters.")
         item.post_metadata[platform] = {"title": title.strip(), "description": description.strip(), "tags": parsed_tags, "basis": "Edited by you"}
         queue.update(item)
-        return RedirectResponse("/?msg=Post%20draft%20saved.#review", status_code=303)
+        return RedirectResponse("/clip?msg=Post%20draft%20saved.#review", status_code=303)
 
     @app.post("/items/{item_id}/approve")
     def approve(item_id: str) -> RedirectResponse:

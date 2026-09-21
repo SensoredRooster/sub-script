@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import shutil
+import subprocess
 from pathlib import Path
 from urllib.parse import unquote
 
 import yaml
 
 from tests.conftest import needs_ffmpeg
+from subscript.runtime_paths import find_ffprobe
 
 
 def _fake_item(env, name: str = "fake", with_captioned: bool = True, master: Path | None = None):
@@ -31,11 +34,43 @@ def _fake_item(env, name: str = "fake", with_captioned: bool = True, master: Pat
     )
 
 
-def test_home_renders_all_sections(app_env) -> None:
-    r = app_env.client.get("/")
+def _video_dimensions(path: Path) -> dict:
+    ffprobe = find_ffprobe()
+    if not ffprobe:
+        return {}
+    result = subprocess.run(
+        [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "stream=width,height,sample_aspect_ratio,display_aspect_ratio", "-of", "json", str(path)],
+        check=True, capture_output=True, text=True,
+    )
+    return json.loads(result.stdout)["streams"][0]
+
+
+def test_clip_workspace_renders_all_sections(app_env) -> None:
+    r = app_env.client.get("/clip")
     assert r.status_code == 200
     for needle in ("Bring in your footage", "Live hotkey", "Make it yours", "Choose your destinations", "No clips waiting", "/static/app.js"):
         assert needle in r.text, needle
+
+
+def test_entry_screen_is_only_two_clear_choices(app_env) -> None:
+    page = app_env.client.get("/").text
+    assert "What are we creating today?" in page
+    assert 'href="/clip"' in page
+    assert 'href="/automation"' in page
+    assert "publishing-form" not in page
+    assert "drop-zone" not in page
+
+
+def test_local_login_boundary_is_explicit_and_reversible(app_env) -> None:
+    app_env.cfg["auth"] = {"required": True}
+    blocked = app_env.client.get("/", follow_redirects=False)
+    assert blocked.status_code == 303 and blocked.headers["location"].startswith("/login")
+    login = app_env.client.get("/login")
+    assert "Continue in local mode" in login.text
+    signed_in = app_env.client.post("/login/local", data={"next": "/clip"}, follow_redirects=False)
+    assert signed_in.status_code == 303 and signed_in.headers["location"] == "/clip"
+    assert "Bring in your footage" in app_env.client.get("/clip").text
 
 
 def test_automatic_clip_uses_highlight(app_env, monkeypatch) -> None:
@@ -65,7 +100,7 @@ def test_automatic_clip_falls_back_when_no_highlights(app_env, monkeypatch) -> N
 
 
 def test_publishing_panel_renders_platform_inputs(app_env) -> None:
-    text = app_env.client.get("/").text
+    text = app_env.client.get("/clip").text
     for needle in ("YouTube Shorts", "TikTok", "Instagram", "Facebook", "X / Twitter", "Rumble"):
         assert needle in text
     assert 'name="youtube_title"' in text
@@ -145,23 +180,23 @@ def test_publishing_values_are_html_escaped(app_env) -> None:
             "description": "<img src=x onerror=alert(1)>",
         }
     )
-    text = app_env.client.get("/").text
+    text = app_env.client.get("/clip").text
     assert "<script>alert(1)</script>" not in text
     assert "<img src=x" not in text
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in text
 
 
 def test_home_banner_escapes_and_links_youtube(app_env) -> None:
-    r = app_env.client.get("/", params={"msg": "Uploaded <b>x</b> https://youtu.be/abc123"})
+    r = app_env.client.get("/clip", params={"msg": "Uploaded <b>x</b> https://youtu.be/abc123"})
     assert "&lt;b&gt;x&lt;/b&gt;" in r.text
     assert 'href="https://youtu.be/abc123"' in r.text
-    r2 = app_env.client.get("/", params={"err": "bad <thing>"})
+    r2 = app_env.client.get("/clip", params={"err": "bad <thing>"})
     assert "bad-banner" in r2.text and "&lt;thing&gt;" in r2.text
 
 
 def test_home_shows_pending_card_with_captioned_preview(app_env) -> None:
     item = _fake_item(app_env)
-    r = app_env.client.get("/")
+    r = app_env.client.get("/clip")
     assert item.id in r.text
     assert f"/media/{item.id}?variant=captioned" in r.text
     assert "Plain vertical (no captions)" in r.text
@@ -171,7 +206,7 @@ def test_home_shows_pending_card_with_captioned_preview(app_env) -> None:
 
 def test_home_card_without_captioned_uses_plain_vertical(app_env) -> None:
     item = _fake_item(app_env, with_captioned=False)
-    r = app_env.client.get("/")
+    r = app_env.client.get("/clip")
     assert f"/media/{item.id}?variant=vertical" in r.text
     assert "variant=captioned" not in r.text
 
@@ -187,11 +222,11 @@ def test_media_variants_and_404(app_env) -> None:
 def test_reject_then_refuse_second_action(app_env) -> None:
     item = _fake_item(app_env)
     r = app_env.client.post(f"/items/{item.id}/reject", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"].startswith("/?msg=")
+    assert r.status_code == 303 and r.headers["location"].startswith("/clip?msg=")
     assert app_env.queue.get(item.id).status == "rejected"
     r2 = app_env.client.post(f"/items/{item.id}/approve", follow_redirects=False)
     assert r2.status_code == 303 and "already rejected" in unquote(r2.headers["location"])
-    assert app_env.client.get("/").text.count(item.id) == 0
+    assert app_env.client.get("/clip").text.count(item.id) == 0
 
 
 def test_approve_builds_pack_and_manual_platform(app_env) -> None:
@@ -199,7 +234,7 @@ def test_approve_builds_pack_and_manual_platform(app_env) -> None:
     r = app_env.client.post(f"/items/{item.id}/approve", follow_redirects=False)
     assert r.status_code == 303
     loc = unquote(r.headers["location"])
-    assert loc.startswith("/?msg=")
+    assert loc.startswith("/clip?msg=")
     assert "YouTube: skipped (disabled)" in loc and "TikTok: manual" in loc
     approved = app_env.out_dir / "approved" / item.id
     for name in ("horizontal.mp4", "vertical.mp4", "vertical_captioned.mp4", "master.mp4", "PLATFORMS.txt", "manifest.json"):
@@ -215,7 +250,7 @@ def test_approve_reports_platform_errors_as_banner(app_env) -> None:
     r = app_env.client.post(f"/items/{item.id}/approve", follow_redirects=False)
     assert r.status_code == 303
     loc = unquote(r.headers["location"])
-    assert loc.startswith("/?err=") and "not_configured" in loc
+    assert loc.startswith("/clip?err=") and "not_configured" in loc
     # Pack still saved and item still leaves the pending list (fail-soft).
     assert (app_env.out_dir / "approved" / item.id / "PLATFORMS.txt").is_file()
     assert app_env.queue.get(item.id).status == "approved"
@@ -307,7 +342,7 @@ def test_brand_save_persists_to_isolated_config(app_env) -> None:
         },
         follow_redirects=False,
     )
-    assert r.status_code == 303 and r.headers["location"].startswith("/?msg=")
+    assert r.status_code == 303 and r.headers["location"].startswith("/clip?msg=")
     saved = yaml.safe_load(app_env.cfg_path.read_text(encoding="utf-8"))
     assert saved["brand"]["position"] == "top_left" and saved["brand"]["opacity"] == 0.5
     assert saved["captions"] == {"enabled": True, "engine": "whisper"}
@@ -333,7 +368,7 @@ def test_full_clip_flow_then_trim_and_approve(app_env, synth_video: Path) -> Non
         follow_redirects=False,
     )
     assert r.status_code == 303, r.text
-    assert r.headers["location"].startswith("/?msg="), unquote(r.headers["location"])
+    assert r.headers["location"].startswith("/clip?msg="), unquote(r.headers["location"])
     pending = app_env.queue.list(status="pending")
     assert len(pending) == 1
     item = pending[0]
@@ -341,7 +376,16 @@ def test_full_clip_flow_then_trim_and_approve(app_env, synth_video: Path) -> Non
         value = getattr(item, attr)
         assert value and Path(value).is_file(), attr
 
-    home = client.get("/").text
+    ffprobe = find_ffprobe()
+    if ffprobe:
+        horizontal = _video_dimensions(Path(item.horizontal_path))
+        vertical = _video_dimensions(Path(item.vertical_captioned_path))
+        assert (horizontal["width"], horizontal["height"]) == (320, 180)
+        assert (vertical["width"], vertical["height"]) == (270, 480)
+        assert horizontal["sample_aspect_ratio"] == "1:1"
+        assert vertical["sample_aspect_ratio"] == "1:1"
+
+    home = client.get("/clip").text
     assert f"/media/{item.id}?variant=captioned" in home
 
     # Highlights on a real file returns analysed windows (not the fallback).
@@ -350,16 +394,16 @@ def test_full_clip_flow_then_trim_and_approve(app_env, synth_video: Path) -> Non
 
     # Trim from the master, then approve the trimmed result.
     r2 = client.post(f"/items/{item.id}/trim", data={"start": "0.2", "end": "0.8"}, follow_redirects=False)
-    assert r2.status_code == 303 and r2.headers["location"].startswith("/?msg="), unquote(r2.headers["location"])
+    assert r2.status_code == 303 and r2.headers["location"].startswith("/clip?msg="), unquote(r2.headers["location"])
     trimmed = app_env.queue.get(item.id)
     assert trimmed.status == "pending" and trimmed.trim_start == 0.2 and trimmed.trim_end == 0.8
     assert trimmed.video_path == item.video_path  # master preserved
     assert trimmed.edited_path and Path(trimmed.edited_path).is_file()
     assert Path(trimmed.horizontal_path).is_file() and Path(trimmed.vertical_captioned_path).is_file()
-    assert "Trimmed 0.2s" in client.get("/").text
+    assert "Trimmed 0.2s" in client.get("/clip").text
 
     r3 = client.post(f"/items/{item.id}/approve", follow_redirects=False)
-    assert r3.status_code == 303 and r3.headers["location"].startswith("/?msg=")
+    assert r3.status_code == 303 and r3.headers["location"].startswith("/clip?msg=")
     approved = app_env.out_dir / "approved" / item.id
     assert (approved / "master.mp4").stat().st_size == Path(trimmed.edited_path).stat().st_size
     assert (approved / "vertical_captioned.mp4").is_file()
@@ -374,7 +418,7 @@ def test_upload_path_copies_into_uploads_dir(app_env, synth_video: Path) -> None
             files={"file": ("my clip.mp4", fh, "video/mp4")},
             follow_redirects=False,
         )
-    assert r.status_code == 303 and r.headers["location"].startswith("/?msg="), unquote(r.headers["location"])
+    assert r.status_code == 303 and r.headers["location"].startswith("/clip?msg="), unquote(r.headers["location"])
     uploads = list((app_env.out_dir / "uploads").glob("*_my_clip.mp4"))
     assert len(uploads) == 1
     shutil.rmtree(app_env.out_dir / "uploads", ignore_errors=True)
@@ -387,7 +431,7 @@ def test_publishing_mode_persists_and_can_return_to_review(app_env):
         assert response.status_code == 303
         assert app_env.cfg["review"]["require_approval"] is required
         assert yaml.safe_load(app_env.cfg_path.read_text())["review"]["require_approval"] is required
-        page = app_env.client.get("/").text
+        page = app_env.client.get("/clip").text
         assert ("Automatic publishing on" in page) is (not required)
 
 

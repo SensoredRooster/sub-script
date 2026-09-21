@@ -304,7 +304,7 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/?err={quote(str(exc), safe='')}", status_code=303)
         return RedirectResponse(
-            "/?msg="
+            "/clip?msg="
             + quote(
                 "Saved — logo, captions, and music settings apply to new clips.",
                 safe="",

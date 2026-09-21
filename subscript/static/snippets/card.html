@@ -4,11 +4,11 @@
   <div class="dual-preview">
     <div>
       <p class="meta">Horizontal 16:9</p>
-      <video controls src="/media/{{ID}}?variant=horizontal"></video>
+      <video class="horizontal-preview" controls src="/media/{{ID}}?variant=horizontal"></video>
     </div>
     <div>
       <p class="meta">{{VERT_LABEL}}</p>
-      <video controls src="/media/{{ID}}?variant={{VERT_VARIANT}}"></video>
+      <div class="vertical-preview-wrap"><video class="vertical-preview" controls src="/media/{{ID}}?variant={{VERT_VARIANT}}"></video></div>
       {{VERT_EXTRA}}
     </div>
   </div>

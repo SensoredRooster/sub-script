@@ -162,6 +162,6 @@ def register_capture_setup(app, cfg, holder):
                         message = "Flow saved, but the watcher could not start: " + str(exc)
                 else:
                     message = "Automated workflow saved. Start the watcher when you are ready to play."
-            return RedirectResponse("/?msg=" + quote(message) + ("#review" if action == "test" else "#capture-setup"), status_code=303)
+            return RedirectResponse("/clip?msg=" + quote(message) + ("#review" if action == "test" else "#capture-setup"), status_code=303)
         except Exception as exc:
-            return RedirectResponse("/?err=" + quote(str(exc)) + "#capture-setup", status_code=303)
+            return RedirectResponse("/clip?err=" + quote(str(exc)) + "#capture-setup", status_code=303)

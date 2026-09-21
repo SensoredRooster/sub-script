@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from subscript.branding_routes import branding_html, register_branding_routes
+from subscript.auth import SESSION_COOKIE, is_authenticated, login_redirect
 from subscript.automation_profiles import register_automation_routes, sidebar_html
 from subscript.capture_setup import register_capture_setup
 from subscript.config import dry_run_forced, load_config
@@ -98,8 +99,42 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         except Exception as exc:  # noqa: BLE001 — keep the home page available
             print(f"Automated profile {profile.get('name')!r} could not start: {exc}")
 
+    def _entry_message(msg: str | None, err: str | None) -> tuple[str, str]:
+        message = f'<p class="banner ok-banner">{_esc(msg)}</p>' if msg else ""
+        error = f'<p class="banner bad-banner">{_esc(err)}</p>' if err else ""
+        return message, error
+
     @app.get("/", response_class=HTMLResponse)
-    def home(msg: str | None = None, err: str | None = None) -> str:
+    def home(request: Request, msg: str | None = None, err: str | None = None):
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        message, error = _entry_message(msg, err)
+        return (_snip("home.html")
+                .replace("{{MESSAGE}}", message)
+                .replace("{{ERROR}}", error))
+
+    @app.get("/login", response_class=HTMLResponse)
+    def login(next: str = "/") -> str:
+        target = next if next.startswith("/") and not next.startswith("//") else "/"
+        return _snip("login.html").replace("{{NEXT}}", _esc(target))
+
+    @app.post("/login/local")
+    def login_local(next: str = Form("/")) -> RedirectResponse:
+        target = next if next.startswith("/") and not next.startswith("//") else "/"
+        response = RedirectResponse(target, status_code=303)
+        response.set_cookie(SESSION_COOKIE, "local", httponly=True, samesite="lax")
+        return response
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings(request: Request) -> str:
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        return _snip("settings.html")
+
+    @app.get("/clip", response_class=HTMLResponse)
+    def clip_workspace(request: Request, msg: str | None = None, err: str | None = None) -> str:
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
         pending = queue.list(status="pending")
         rows = []
         card_tpl = _snip("card.html")
@@ -218,9 +253,9 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                 source, cfg, dry_run=bool((cfg.get("review") or {}).get("require_approval", True)), start=clip_start, duration=clip_duration
             )
         except Exception as exc:  # noqa: BLE001
-            return RedirectResponse(f"/?err={quote(str(exc), safe='')}", status_code=303)
+            return RedirectResponse(f"/clip?err={quote(str(exc), safe='')}", status_code=303)
         return RedirectResponse(
-            "/?msg="
+            "/clip?msg="
             + quote(
                 ("Your clip is ready. Watch the previews below, then approve it when you like it. "
                  "Nothing is published before approval.")

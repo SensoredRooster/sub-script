@@ -44,7 +44,7 @@ def test_preview_mode_separate_from_connected_badge(tmp_path, monkeypatch):
 
 def test_credentials_are_not_rendered(app_env):
     app_env.cfg["youtube"].update(client_secrets_file="private-client-location.json", token_file="private-token-location.json")
-    page = app_env.client.get("/").text
+    page = app_env.client.get("/clip").text
     for forbidden in ("private-client-location", "private-token-location", "Connection files", "coming later", "coming soon", 'name="youtube_secrets"', 'name="youtube_token"'):
         assert forbidden not in page
     assert "No account connection is needed" in page

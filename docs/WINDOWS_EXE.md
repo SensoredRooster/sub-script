@@ -8,7 +8,7 @@ For-dummies product path: **double-click `SubScript.exe`**, browser opens — no
 2. **Copy `ffmpeg.exe` into that folder** (same place as `SubScript.exe`).  
    See `scripts/FFMPEG_BESIDE_APP.txt`. This is the supported install — do **not** rely on PATH alone.
 3. Double-click **`SubScript.exe`** (or `run-app.bat`, which prefers the exe when `dist\\SubScript\\SubScript.exe` exists).
-4. Browser → **http://127.0.0.1:8787** → drop a VOD → Make clip → Approve / Trim / Reject.
+4. Browser → **http://127.0.0.1:8787** → choose **Create & Publish a Clip** → drop a VOD → Make clip → Approve / Trim / Reject. Choose **Put My Content on Autopilot** for the guided folder-based workflow builder.
 
 ### Builders (Windows PC with Python)
 

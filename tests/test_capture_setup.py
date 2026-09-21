@@ -45,11 +45,52 @@ def test_setup_missing_replay_gives_actionable_error(app_env, monkeypatch):
     assert "No%20replay" in response.headers["location"]
 
 
-def test_home_explains_automated_flow_wizard(app_env):
+def test_home_routes_to_the_two_clear_workflows(app_env):
     page = app_env.client.get("/").text
-    assert "Create an automated profile" in page
-    assert "Automated profiles" in page
-    assert 'href="/automation/new"' in page
+    assert "Create &amp; Publish a Clip" in page
+    assert "Put My Content on Autopilot" in page
+    assert 'href="/clip"' in page
+    assert 'href="/automation"' in page
+
+
+def test_automation_management_lists_profiles(app_env):
+    app_env.cfg["automation_profiles"] = [{
+        "id": "existing", "name": "Main stream", "folder": str(app_env.tmp),
+        "hotkey": "ctrl+alt+c", "buffer_seconds": 20, "enabled": False,
+        "platforms": {"tiktok": {"enabled": True}},
+    }]
+    page = app_env.client.get("/automation").text
+    assert "Main stream" in page
+    assert str(app_env.tmp) in page
+    assert "TikTok" in page
+    assert "Start watching" in page
+
+
+def test_automation_management_can_start_and_stop_a_profile(app_env, monkeypatch):
+    app_env.cfg["automation_profiles"] = [{
+        "id": "existing", "name": "Main stream", "folder": str(app_env.tmp),
+        "hotkey": "ctrl+alt+c", "buffer_seconds": 20, "enabled": False,
+        "platforms": {},
+    }]
+
+    class FakeWatcher:
+        armed = False
+
+        def start(self):
+            self.armed = True
+
+    fake = FakeWatcher()
+    monkeypatch.setattr("subscript.live_ui.ensure_profile_watcher", lambda *args: fake)
+    monkeypatch.setattr("subscript.live_ui.stop_profile_watcher", lambda *args: None)
+
+    started = app_env.client.post("/automation/existing/start", follow_redirects=False)
+    assert started.status_code == 303
+    assert app_env.cfg["automation_profiles"][0]["enabled"] is True
+    assert "watching" in app_env.client.get("/automation").text
+
+    stopped = app_env.client.post("/automation/existing/stop", follow_redirects=False)
+    assert stopped.status_code == 303
+    assert app_env.cfg["automation_profiles"][0]["enabled"] is False
 
 
 def test_automation_profile_is_a_separate_slideshow(app_env):
@@ -71,7 +112,7 @@ def test_automation_profile_saves_by_folder(app_env, monkeypatch):
     assert saved["automation_profiles"][0]["name"] == "Main stream"
     assert saved["automation_profiles"][0]["folder"] == str(app_env.tmp.resolve())
     assert saved["automation_profiles"][0]["enabled"] is False
-    assert "Main stream" in app_env.client.get("/").text
+    assert "Main stream" in app_env.client.get("/automation").text
 
 
 def test_automation_profile_rejects_duplicate_folder(app_env, monkeypatch):

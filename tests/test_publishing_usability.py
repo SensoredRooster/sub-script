@@ -13,7 +13,7 @@ def test_connected_account_has_no_check_button(monkeypatch):
 def test_off_platform_settings_are_hidden(app_env):
     app_env.cfg["youtube"]["enabled"] = False
     app_env.cfg["platforms"] = {"tiktok": {"enabled": False}, "instagram": {"enabled": True}}
-    page = app_env.client.get("/").text
+    page = app_env.client.get("/clip").text
     assert 'class="platform-settings form-grid" hidden' in page
     assert 'data-platform="tiktok"' in page
     assert 'class="platform-settings" hidden' in page

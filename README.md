@@ -18,10 +18,11 @@ The static public site for OAuth developer review lives in [`site/`](site/). It 
    ```
 2. **Double-click `run-app.bat`**.
 3. Your browser opens to **http://127.0.0.1:8787**.
-4. Drop a VOD (or Choose file) -> leave **Auto highlights** checked to get loud-moment chips (or **Last 30 seconds** / custom start + length) -> click a chip or **Make clip**.
+4. Choose **Create & Publish a Clip** for one-off editing, or **Put My Content on Autopilot** to build a saved folder-based workflow.
+5. In the clip workspace, drop a VOD (or Choose file) -> leave **Auto highlights** checked to get loud-moment chips (or **Last 30 seconds** / custom start + length) -> click a chip or **Make clip**.
 5. Preview the clip -> **Approve as-is** / **Trim & approve** / **Reject**.
 
-**Branding (on the same home page):** upload a PNG logo, pick a corner + opacity, and use the **Captions** / **Music bed** toggles (engine + optional MP3). **Save** writes `assets/` + `config.yaml` so every future Make clip picks them up.
+**Branding (in the clip workspace):** upload a PNG logo, pick a corner + opacity, and use the **Captions** / **Music bed** toggles (engine + optional MP3). **Save** writes `assets/` + `config.yaml` so every future Make clip picks them up.
 
 You can also upload multiple short **Intro clips** and **Outro clips** in the same Branding card. SubScript adds one of each to new clips and rotates through the uploaded variants. These are optional; a failed bumper render falls back to the gameplay clip so the main workflow still completes.
 
@@ -147,7 +148,7 @@ One-screen setup for dummies:
 
 ### Automated workflow wizard
 
-For an ongoing stream workflow, click **Start workflow setup** on the home page. The guided setup shows one step at a time, requires a saved replay before continuing, checks the folder/shortcut/clip length inputs, and explains exactly what happens next. **Save & start automated workflow** arms the watcher immediately and remembers that choice so the trigger can start again when the app restarts. Direct posting OAuth is not required for tonight's local upload packs; see the account-connection guide in Publish for the later integration checklist.
+For an ongoing stream workflow, choose **Put My Content on Autopilot**. The management screen keeps saved profiles separate, and **Build a workflow** opens a dedicated five-step slideshow: name + folder, trigger, delivery mode, destinations, then test/save. Each profile owns one VOD folder, so different stream setups cannot be mixed. **Save & start profile** arms that profile immediately and remembers it for the next app launch. Direct posting OAuth is not required for tonight's local upload packs; see the account-connection guide in Publish for the later integration checklist.
 
 If one hotkey fire fails (missing file, ffmpeg hiccup), the app **keeps listening** — check the Live card / console for the error and try again.
 
@@ -175,7 +176,7 @@ The folder opens automatically so you can drag files into each app. Captions use
 
 **Platforms:** enabled entries under `platforms:` (and/or `youtube.enabled`) fan out on Approve — YouTube can live-upload; others build `for_<platform>/` packs. See **Platform checklist**. If `youtube.enabled` / `platforms.youtube.enabled` is `true`, Approve also uploads `vertical_captioned.mp4` (falls back to `vertical.mp4`) as a Short and shows the YouTube link on the success banner. If `youtube.enabled` is `false` (default), Approve only saves the local pack — safe for testing.
 
-The app home page now follows the complete workflow in order: **Source → Clip → Style → Review → Publish**. Publishing destinations have their own panel; use it to enable YouTube, TikTok, Instagram, Facebook, X, or Rumble and edit YouTube titles, descriptions, tags, visibility, and connection-file paths without editing YAML by hand.
+The entry page intentionally shows only two choices: **Create & Publish a Clip** and **Put My Content on Autopilot**. The clip workspace then follows **Source → Clip → Style → Review → Publish**. Publishing destinations have their own panel; use it to enable YouTube, TikTok, Instagram, Facebook, X, or Rumble and edit YouTube titles, descriptions, tags, visibility, and connection-file paths without editing YAML by hand.
 
 Smoke test:
 

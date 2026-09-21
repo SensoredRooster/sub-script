@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SubScript — Sign in</title>
+  <link rel="icon" href="/static/brand-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/review.css?v=7">
+</head>
+<body class="entry-page login-page">
+  <header class="entry-header"><a class="entry-brand" href="/"><img src="/static/brand-mark.svg" alt=""><span>SubScript</span></a></header>
+  <main class="entry-main">
+    <section class="login-card" aria-labelledby="login-title">
+      <p class="eyebrow">Welcome back</p>
+      <h1 id="login-title">Open your creator studio.</h1>
+      <p class="entry-lede">This local installation keeps your projects and settings on this computer.</p>
+      <form method="post" action="/login/local">
+        <input type="hidden" name="next" value="{{NEXT}}">
+        <button class="primary login-button" type="submit">Continue in local mode</button>
+      </form>
+      <p class="meta login-note">Social connections such as TikTok are publishing permissions, not SubScript sign-in. A production account provider can be added later without changing those connections.</p>
+    </section>
+  </main>
+</body>
+</html>

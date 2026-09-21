@@ -57,7 +57,7 @@ def test_review_editor_saves_and_escapes_copy(app_env):
     assert "msg=" in response.headers["location"]
     saved = app_env.queue.get(item.id).post_metadata["youtube"]
     assert saved["tags"] == ["one", "two"]
-    page = app_env.client.get("/").text
+    page = app_env.client.get("/clip").text
     assert "&lt;script&gt;test&lt;/script&gt;" in page
     assert "<script>test</script>" not in page
     app_env.queue.set_status(item.id, "approved")
