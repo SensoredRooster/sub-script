@@ -47,13 +47,56 @@ def test_setup_missing_replay_gives_actionable_error(app_env, monkeypatch):
 
 def test_home_explains_automated_flow_wizard(app_env):
     page = app_env.client.get("/").text
-    assert "Set up an automated workflow" in page
-    assert "Save &amp; start automated workflow" in page
-    assert "Build your posting profiles" in page
-    assert 'name="flow_platform"' in page
-    assert "Next: connect SubScript" in page
-    assert "I saved a test replay" in page
-    assert 'name="review_mode"' in page
+    assert "Create an automated profile" in page
+    assert "Automated profiles" in page
+    assert 'href="/automation/new"' in page
+
+
+def test_automation_profile_is_a_separate_slideshow(app_env):
+    page = app_env.client.get("/automation/new").text
+    assert page.count('data-automation-step=') == 5
+    assert "Name + VOD folder" in page
+    assert "Save &amp; start profile" in page
+    assert "Each profile owns one VOD folder" in page
+
+
+def test_automation_profile_saves_by_folder(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    response = app_env.client.post("/automation/save", data={
+        "profile_name": "Main stream", "folder": str(app_env.tmp), "hotkey": "ctrl+alt+c",
+        "seconds": "20", "review_mode": "review", "action": "save",
+    }, follow_redirects=False)
+    assert response.status_code == 303
+    saved = yaml.safe_load(app_env.cfg_path.read_text())
+    assert saved["automation_profiles"][0]["name"] == "Main stream"
+    assert saved["automation_profiles"][0]["folder"] == str(app_env.tmp.resolve())
+    assert saved["automation_profiles"][0]["enabled"] is False
+    assert "Main stream" in app_env.client.get("/").text
+
+
+def test_automation_profile_rejects_duplicate_folder(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    app_env.cfg["automation_profiles"] = [{"id": "existing", "name": "Existing", "folder": str(app_env.tmp)}]
+    response = app_env.client.post("/automation/save", data={
+        "profile_name": "Second", "folder": str(app_env.tmp), "hotkey": "ctrl+alt+c",
+        "seconds": "20", "review_mode": "review", "action": "save",
+    }, follow_redirects=False)
+    assert "already%20belongs%20to%20another" in response.headers["location"]
+
+
+def test_automation_profile_delete_returns_home(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    app_env.cfg["automation_profiles"] = [{"id": "existing", "name": "Existing", "folder": str(app_env.tmp)}]
+    response = app_env.client.post("/automation/delete", data={"profile_id": "existing"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert app_env.cfg["automation_profiles"] == []
+
+
+def test_automation_profile_edit_shows_delete_control(app_env):
+    app_env.cfg["automation_profiles"] = [{"id": "existing", "name": "Existing", "folder": str(app_env.tmp)}]
+    page = app_env.client.get("/automation/existing/edit").text
+    assert "Edit automated profile" in page
+    assert "Delete this profile" in page
 
 
 def test_automatic_flow_requires_a_posting_profile(app_env, monkeypatch):

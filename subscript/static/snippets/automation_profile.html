@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SubScript — {{PROFILE_TITLE}}</title>
+  <link rel="icon" href="/static/brand-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/review.css?v=6">
+</head>
+<body class="automation-builder-page">
+  <header class="app-header">
+    <div class="brand-lockup"><img class="brand-icon" src="/static/brand-mark.svg" alt=""><div><h1>SubScript</h1><p>Creator studio / Automated profiles</p></div></div>
+    <div class="header-tools"><a class="quiet-button" href="/">Back to studio</a><span class="safety-pill"><i></i> Nothing publishes during setup</span></div>
+  </header>
+  <div class="app-layout"><div class="app-sidebar-wrap">{{SIDEBAR}}</div><main class="automation-page">
+    <a class="back-link" href="/">← Back to studio</a>
+    <section class="automation-hero">
+      <p class="eyebrow">Automated profile builder</p>
+      <h2>{{PROFILE_TITLE}}</h2>
+      <p>{{PROFILE_SUBTITLE}}</p>
+      <p class="meta">Each profile owns one VOD folder. That folder keeps different triggers and posting plans separate.</p>
+    </section>
+    {{MESSAGE}}{{ERROR}}
+    <section class="automation-slideshow" id="automation-slideshow">
+      <ol class="automation-slide-nav" aria-label="Automated profile steps">
+        <li class="is-current"><span>1</span><strong>Identity</strong><small>Name + VOD folder</small></li>
+        <li><span>2</span><strong>Trigger</strong><small>Shortcut + clip length</small></li>
+        <li><span>3</span><strong>Delivery</strong><small>Review or automatic</small></li>
+        <li><span>4</span><strong>Profiles</strong><small>Destinations + copy</small></li>
+        <li><span>5</span><strong>Finish</strong><small>Test + save</small></li>
+      </ol>
+      <div class="automation-progress" role="status" aria-live="polite"><strong>Step <span id="automation-step-number">1</span> of 5</strong><span id="automation-step-status">Start with a name and the folder that belongs to this profile.</span></div>
+      <form method="post" action="/automation/save" id="automation-profile-form" novalidate>
+        <input type="hidden" name="profile_id" value="{{PROFILE_ID}}">
+        <section class="automation-slide" data-automation-step="0">
+          <p class="eyebrow">1 / Identity</p><h3>Name this automation profile</h3>
+          <p class="meta">Use a name you will recognize later, such as “Main stream” or “Ranked clips”.</p>
+          <label>Profile name<input name="profile_name" type="text" maxlength="80" value="{{PROFILE_NAME}}" placeholder="Main stream clips" required></label>
+          <label>VOD folder for this profile<input name="folder" type="text" value="{{FOLDER}}" placeholder="C:\Users\you\Videos\MainStream" required autocomplete="off"></label>
+          <p class="field-hint">This folder is the profile’s identity. Save each recorder’s VODs to a different folder to keep profiles separate.</p>
+          <p class="automation-validation" data-automation-message="identity">Enter a profile name and a real VOD folder before continuing.</p>
+          <div class="automation-actions"><span></span><button type="button" data-automation-next>Next: set the trigger →</button></div>
+        </section>
+
+        <section class="automation-slide" data-automation-step="1" hidden>
+          <p class="eyebrow">2 / Trigger</p><h3>Choose how this profile starts</h3>
+          <p class="meta">Save a replay first. After it finishes writing, press this separate SubScript shortcut.</p>
+          <label>SubScript trigger shortcut<input name="hotkey" type="text" value="{{HOTKEY}}" placeholder="ctrl+shift+c" required autocomplete="off"></label>
+          <label>Clip length (seconds)<input name="seconds" type="number" min="5" max="300" value="{{SECONDS}}" required></label>
+          <p class="field-hint">Do not use the same shortcut as your recorder’s Save Replay key.</p>
+          <p class="automation-validation" data-automation-message="trigger">Use a shortcut such as ctrl+shift+c and a clip length from 5 to 300 seconds.</p>
+          <div class="automation-actions"><button type="button" data-automation-back>← Back</button><button type="button" data-automation-next>Next: choose delivery →</button></div>
+        </section>
+
+        <section class="automation-slide" data-automation-step="2" hidden>
+          <p class="eyebrow">3 / Delivery</p><h3>Choose what happens after each clip</h3>
+          <label>After a clip is ready<select name="review_mode"><option value="review" {{FLOW_REVIEW_SELECTED}}>Review every clip first (recommended)</option><option value="automatic" {{FLOW_AUTO_SELECTED}}>Publish automatically to enabled destinations</option></select></label>
+          <div class="choice-callout"><strong>Review first</strong><span>Safest for a new profile. You approve each clip yourself.</span></div>
+          <div class="choice-callout"><strong>Automatic</strong><span>SubScript posts to the destinations you choose on the next step.</span></div>
+          <div class="automation-actions"><button type="button" data-automation-back>← Back</button><button type="button" data-automation-next>Next: build destinations →</button></div>
+        </section>
+
+        <section class="automation-slide" data-automation-step="3" hidden>
+          <p class="eyebrow">4 / Profiles</p><h3>Build this profile’s posting plan</h3>
+          <p class="meta" id="automation-profile-help">Choose the destinations for this folder. You can create another profile later with a different folder.</p>
+          <div class="automation-profile-list">{{AUTOMATION_PROFILES}}</div>
+          <p class="automation-validation" data-automation-message="profiles">Automatic delivery needs at least one destination.</p>
+          <div class="automation-actions"><button type="button" data-automation-back>← Back</button><button type="button" data-automation-next>Next: test and save →</button></div>
+        </section>
+
+      <section class="automation-slide" data-automation-step="4" hidden>
+          <p class="eyebrow">5 / Finish</p><h3>Test this profile, then save it</h3>
+          <div class="finish-check"><label><input type="checkbox" data-automation-confirm> I understand: save a VOD in this folder, wait for it to finish, then press the SubScript shortcut.</label></div>
+          <p class="meta">The safe test uses the newest VOD in this folder and never publishes. After it looks right, use “Save &amp; start” to return to the studio with this profile running.</p>
+          <p class="automation-validation" data-automation-message="finish">Confirm the trigger order before saving and starting this profile.</p>
+          <div class="actions automation-final-actions"><button name="action" value="test" type="submit">Create safe test preview</button><button name="action" value="save" type="submit">Save profile</button><button name="action" value="save_and_start" type="submit" class="primary" data-automation-start>Save &amp; start profile</button></div>
+          <div class="automation-actions"><button type="button" data-automation-back>← Back</button><span></span></div>
+          {{DELETE_CONTROL}}
+        </section>
+      </form>
+    </section>
+  </main></div>
+  <script src="/static/app.js?v=6"></script>
+</body>
+</html>

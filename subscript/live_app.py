@@ -16,12 +16,13 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 
 from subscript.branding_routes import branding_html, register_branding_routes
-from subscript.capture_setup import setup_html, register_capture_setup
+from subscript.automation_profiles import register_automation_routes, sidebar_html
+from subscript.capture_setup import register_capture_setup
 from subscript.config import dry_run_forced, load_config
 from subscript.highlights import suggest_highlights_or_fallback
 from subscript.hotkey import HotkeyWatcher
 from subscript.live_app_actions import register_item_routes
-from subscript.live_ui import live_card_html, register_live_routes
+from subscript.live_ui import ensure_profile_watcher, live_card_html, register_live_routes
 from subscript.pipeline import run_pipeline
 from subscript.publishing_routes import publishing_html, register_publishing_routes
 from subscript.queue import ReviewQueue
@@ -68,7 +69,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     default_seconds = int(cfg.get("buffer_seconds") or 30)
 
     # Shared live watcher (background thread). Failures never crash the app.
-    watcher_holder: dict[str, HotkeyWatcher | None] = {"w": None}
+    watcher_holder: dict[str, Any] = {"w": None, "profiles": {}}
 
     app = FastAPI(title="sub-script")
     _STATIC.mkdir(parents=True, exist_ok=True)
@@ -76,6 +77,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     register_branding_routes(app, cfg)
     register_live_routes(app, cfg, watcher_holder)
     register_capture_setup(app, cfg, watcher_holder)
+    register_automation_routes(app, cfg, watcher_holder, _snip)
     register_publishing_routes(app, cfg)
 
     # A user who explicitly chose “Save & start automated workflow” should not need
@@ -88,6 +90,13 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             ensure_watcher(watcher_holder, cfg).start()
         except Exception as exc:  # noqa: BLE001 — app still opens so setup can be fixed
             print(f"Automated flow was saved but could not start: {exc}")
+    for profile in cfg.get("automation_profiles") or []:
+        if not isinstance(profile, dict) or not profile.get("id") or not profile.get("enabled"):
+            continue
+        try:
+            ensure_profile_watcher(watcher_holder, cfg, profile).start()
+        except Exception as exc:  # noqa: BLE001 — keep the home page available
+            print(f"Automated profile {profile.get('name')!r} could not start: {exc}")
 
     @app.get("/", response_class=HTMLResponse)
     def home(msg: str | None = None, err: str | None = None) -> str:
@@ -167,8 +176,10 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             f'<p>{review_intro}</p>'
             f'</div></div><div class="review-grid">{review}</div></section>'
         )
-        body = banner + form + setup_html(cfg, _snip) + branding + review_section + publishing
-        page = _snip("page.html").replace("{{BODY}}", body)
+        body = banner + form + branding + review_section + publishing
+        page = (_snip("page.html")
+                .replace("{{SIDEBAR}}", sidebar_html(cfg, watcher_holder, _esc))
+                .replace("{{BODY}}", body))
         if not (cfg.get("review") or {}).get("require_approval", True):
             page = page.replace("Review before publishing", "Automatic publishing on")
             page = page.replace("Review before publishing.", "Enabled destinations publish automatically.")

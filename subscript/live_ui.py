@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +85,47 @@ def ensure_watcher(
         )
         holder["w"] = w
     return w
+
+
+def profile_runtime_cfg(cfg: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
+    """Build the pipeline config for one folder-owned automation profile."""
+    runtime_cfg = deepcopy(cfg)
+    runtime_cfg.update(
+        watch_folder=str(profile.get("folder") or ""),
+        live_source="",
+        hotkey=profile.get("hotkey") or "ctrl+shift+c",
+        buffer_seconds=int(profile.get("buffer_seconds") or 30),
+    )
+    runtime_cfg["platforms"] = deepcopy(profile.get("platforms") or cfg.get("platforms") or {})
+    runtime_cfg.setdefault("review", {})["require_approval"] = profile.get("review_mode", "review") == "review"
+    return runtime_cfg
+
+
+def ensure_profile_watcher(
+    holder: dict[str, Any], cfg: dict[str, Any], profile: dict[str, Any]
+) -> HotkeyWatcher:
+    """Create or refresh the watcher belonging to one saved automation profile."""
+    watchers = holder.setdefault("profiles", {})
+    profile_id = str(profile["id"])
+    existing = watchers.get(profile_id)
+    desired_hotkey = profile.get("hotkey") or "ctrl+shift+c"
+    if existing and existing.hotkey_spec != desired_hotkey:
+        existing.stop()
+        existing = None
+    if existing is None:
+        existing = HotkeyWatcher(
+            desired_hotkey,
+            make_fire_live(profile_runtime_cfg(cfg, profile)),
+            notify=bool(cfg.get("notify", True)),
+        )
+        watchers[profile_id] = existing
+    return existing
+
+
+def stop_profile_watcher(holder: dict[str, Any], profile_id: str) -> None:
+    watcher = (holder.get("profiles") or {}).pop(profile_id, None)
+    if watcher:
+        watcher.stop()
 
 
 def register_live_routes(app, cfg: dict[str, Any], holder: dict) -> None:

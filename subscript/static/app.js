@@ -367,6 +367,101 @@
     renderWorkflowStep();
   }
 
+  // Dedicated automated-profile slideshow. It keeps one profile's folder,
+  // trigger, delivery, and posting plan together, then returns to the studio.
+  var automationForm = document.getElementById("automation-profile-form");
+  if (automationForm) {
+    var automationSlides = Array.prototype.slice.call(automationForm.querySelectorAll("[data-automation-step]"));
+    var automationNav = Array.prototype.slice.call(document.querySelectorAll(".automation-slide-nav li"));
+    var automationNumber = document.getElementById("automation-step-number");
+    var automationStatus = document.getElementById("automation-step-status");
+    var automationCurrent = 0;
+    var automationMode = automationForm.querySelector('[name="review_mode"]');
+    var automationProfiles = Array.prototype.slice.call(automationForm.querySelectorAll("[data-profile-toggle]"));
+    var automationConfirm = automationForm.querySelector("[data-automation-confirm]");
+    var automationMessages = {
+      0: "Enter a profile name and a real VOD folder before continuing.",
+      1: "Use a shortcut such as ctrl+shift+c and a clip length from 5 to 300 seconds.",
+      2: "Choose how this profile should handle each finished clip.",
+      3: "Automatic delivery needs at least one destination.",
+      4: "Confirm the trigger order before saving and starting this profile."
+    };
+    var automationReady = {
+      0: "Identity saved. Now set the trigger.",
+      1: "Trigger saved. Now choose delivery.",
+      2: "Delivery saved. Now build the destinations.",
+      3: "Posting plan ready. Test and save this profile.",
+      4: "Ready. Test first, then save or start this profile."
+    };
+    function automationHotkeyValid(value) {
+      return /^(?:(?:ctrl|alt|shift)\+)+[a-z0-9]$/.test(String(value || "").trim().toLowerCase());
+    }
+    function automationValid(index) {
+      if (index === 0) {
+        var name = automationForm.querySelector('[name="profile_name"]');
+        var folder = automationForm.querySelector('[name="folder"]');
+        return !!(name && name.value.trim() && folder && folder.value.trim());
+      }
+      if (index === 1) {
+        var hotkey = automationForm.querySelector('[name="hotkey"]');
+        var seconds = Number((automationForm.querySelector('[name="seconds"]') || {}).value);
+        return !!(hotkey && automationHotkeyValid(hotkey.value) && Number.isFinite(seconds) && seconds >= 5 && seconds <= 300);
+      }
+      if (index === 3) {
+        return !automationMode || automationMode.value !== "automatic" || automationProfiles.some(function (toggle) { return toggle.checked; });
+      }
+      if (index === 4) return !!(automationConfirm && automationConfirm.checked);
+      return true;
+    }
+    function renderAutomationStep() {
+      automationSlides.forEach(function (slide, index) { slide.hidden = index !== automationCurrent; });
+      automationNav.forEach(function (item, index) { item.classList.toggle("is-current", index === automationCurrent); });
+      if (automationNumber) automationNumber.textContent = String(automationCurrent + 1);
+      if (automationStatus) automationStatus.textContent = automationValid(automationCurrent) ? automationReady[automationCurrent] : automationMessages[automationCurrent];
+      automationProfiles.forEach(function (toggle) {
+        var card = toggle.closest(".automation-profile");
+        var fields = card && card.querySelector(".profile-fields");
+        if (card) card.classList.toggle("profile-selected", toggle.checked);
+        if (fields) fields.querySelectorAll("input, select, textarea").forEach(function (control) { control.disabled = !toggle.checked; });
+      });
+      var help = document.getElementById("automation-profile-help");
+      if (help) help.textContent = automationMode && automationMode.value === "automatic"
+        ? "Choose at least one destination for this folder. Each selected destination keeps its own format and post copy."
+        : "Review-first mode can run without posting destinations. Add them now if you want this profile ready for later automatic delivery.";
+      automationForm.querySelectorAll("[data-automation-next]").forEach(function (button) { button.disabled = !automationValid(automationCurrent); });
+      automationForm.querySelectorAll("[data-automation-back]").forEach(function (button) { button.hidden = automationCurrent === 0; });
+      automationForm.querySelectorAll("[data-automation-message]").forEach(function (message) {
+        var key = message.getAttribute("data-automation-message");
+        var relevant = (automationCurrent === 0 && key === "identity") || (automationCurrent === 1 && key === "trigger") || (automationCurrent === 3 && key === "profiles") || (automationCurrent === 4 && key === "finish");
+        message.classList.toggle("is-visible", relevant && !automationValid(automationCurrent));
+        if (relevant && !automationValid(automationCurrent)) message.textContent = automationMessages[automationCurrent];
+      });
+      var start = automationForm.querySelector("[data-automation-start]");
+      if (start) start.disabled = !automationValid(3) || !automationValid(4);
+    }
+    automationForm.querySelectorAll("[data-automation-next]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (!automationValid(automationCurrent) || automationCurrent >= automationSlides.length - 1) return;
+        automationCurrent += 1; renderAutomationStep();
+        var heading = automationSlides[automationCurrent].querySelector("h3");
+        if (heading) { heading.tabIndex = -1; heading.focus(); }
+      });
+    });
+    automationForm.querySelectorAll("[data-automation-back]").forEach(function (button) {
+      button.addEventListener("click", function () { if (automationCurrent > 0) { automationCurrent -= 1; renderAutomationStep(); } });
+    });
+    automationForm.querySelectorAll("input, select, textarea").forEach(function (input) {
+      input.addEventListener("input", renderAutomationStep); input.addEventListener("change", renderAutomationStep);
+    });
+    automationForm.addEventListener("submit", function (event) {
+      var submitter = event.submitter;
+      if (submitter && submitter.value === "save_and_start" && (!automationValid(3) || !automationValid(4))) {
+        event.preventDefault(); renderAutomationStep();
+      }
+    });
+    renderAutomationStep();
+  }
+
   // Keep the compact workflow bar in sync with the visible stage.
   var workflowLinks = Array.prototype.slice.call(
     document.querySelectorAll(".workflow-nav a")
