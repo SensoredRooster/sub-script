@@ -13,7 +13,7 @@ if errorlevel 1 (
   winget install --id Python.Python.3.11 -e --accept-package-agreements --accept-source-agreements
   echo.
   echo  Close this window, open a new Command Prompt, then run setup.bat again.
-  pause
+  if /I not "%1"=="nopause" pause
   exit /b 1
 )
 
@@ -31,7 +31,7 @@ if not exist ".venv\Scripts\python.exe" (
   python -m venv .venv
   if errorlevel 1 (
     echo  Could not create the virtual environment.
-    pause
+    if /I not "%1"=="nopause" pause
     exit /b 1
   )
 ) else (
@@ -43,7 +43,7 @@ echo  Installing dependencies ...
 ".venv\Scripts\pip.exe" install -r requirements.txt
 if errorlevel 1 (
   echo  pip install failed.
-  pause
+  if /I not "%1"=="nopause" pause
   exit /b 1
 )
 
@@ -55,7 +55,7 @@ if not exist "config.yaml" (
 )
 
 echo.
-echo  Setup finished. Double-click run-app.bat to start SubScript.
+echo  Setup finished.
 echo.
-pause
+if /I not "%1"=="nopause" pause
 exit /b 0
