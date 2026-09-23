@@ -24,7 +24,7 @@ if exist "dist\SubScript\SubScript.exe" (
     if not exist "dist\SubScript\ffmpeg\bin\ffmpeg.exe" (
       if not exist "dist\SubScript\bin\ffmpeg.exe" (
         echo  NOTE: ffmpeg.exe not found beside the app yet.
-        echo  Copy ffmpeg.exe into dist\SubScript\ — see scripts\FFMPEG_BESIDE_APP.txt
+        echo  Copy ffmpeg.exe into dist\SubScript\ - see scripts\FFMPEG_BESIDE_APP.txt
         echo.
       )
     )
@@ -43,7 +43,7 @@ if not exist ".venv\Scripts\python.exe" (
   echo.
   echo  First-time setup: running setup.bat
   echo.
-  call "%~dp0setup.bat"
+  call "%~dp0setup.bat" nopause
   if not exist ".venv\Scripts\python.exe" (
     echo  Setup did not finish. Fix the errors above, then run setup.bat again.
     pause
@@ -60,10 +60,10 @@ if not exist "config.yaml" (
 
 echo.
 echo  Starting sub-script...
- echo  A browser window should open at http://127.0.0.1:8787
- echo  Leave this window open while you use the app.
- echo  Press Ctrl+C here to quit.
- echo.
+echo  A browser window should open at http://127.0.0.1:8787
+echo  Leave this window open while you use the app.
+echo  Press Ctrl+C here to quit.
+echo.
 
 ".venv\Scripts\python.exe" -m subscript --app
 set EXITCODE=%ERRORLEVEL%
