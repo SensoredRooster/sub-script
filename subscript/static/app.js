@@ -462,8 +462,9 @@
     renderWorkflowStep();
   }
 
-  // Dedicated automated-profile slideshow. It keeps one profile's folder,
-  // trigger, delivery, and posting plan together, then returns to the studio.
+  // Dedicated Autopilot workflow builder. The user only needs to understand
+  // one mental model: a new completed video appears in the watched folder,
+  // then SubScript processes it using the saved workflow.
   var automationForm = document.getElementById("automation-profile-form");
   if (automationForm) {
     var automationSlides = Array.prototype.slice.call(automationForm.querySelectorAll("[data-automation-step]"));
@@ -472,25 +473,26 @@
     var automationStatus = document.getElementById("automation-step-status");
     var automationCurrent = 0;
     var automationMode = automationForm.querySelector('[name="review_mode"]');
+    var automationSourceMode = automationForm.querySelector('[name="source_mode"]');
     var automationProfiles = Array.prototype.slice.call(automationForm.querySelectorAll("[data-profile-toggle]"));
     var automationConfirm = automationForm.querySelector("[data-automation-confirm]");
     var automationMessages = {
-      0: "Enter a profile name and a real VOD folder before continuing.",
-      1: "Use a shortcut such as ctrl+shift+c and a clip length from 5 to 300 seconds.",
-      2: "Choose how this profile should handle each finished clip.",
-      3: "Automatic delivery needs at least one destination.",
-      4: "Confirm the trigger order before saving and starting this profile."
+      0: "Enter a workflow name and the folder SubScript should watch.",
+      1: "Choose how much of each incoming video SubScript should use.",
+      2: "Choose the vertical layout you want, or keep the simple center crop.",
+      3: "Choose whether clips should wait for your review or continue automatically.",
+      4: "Automatic publishing needs at least one enabled destination.",
+      5: "Confirm that activating this workflow will watch the folder automatically."
     };
     var automationReady = {
-      0: "Identity saved. Now set the trigger.",
-      1: "Trigger saved. Now choose delivery.",
-      2: "Delivery saved. Now build the destinations.",
-      3: "Posting plan ready. Test and save this profile.",
-      4: "Ready. Test first, then save or start this profile."
+      0: "Folder selected. Now tell SubScript how to use each new video.",
+      1: "Clip behavior set. Now shape the vertical version.",
+      2: "Layout ready. Now choose whether you want to review finished clips.",
+      3: "Review behavior set. Now choose where finished clips can go.",
+      4: "Destinations ready. Run a safe test, then activate the workflow.",
+      5: "Ready. Safe test never publishes; Activate starts watching for new videos."
     };
-    function automationHotkeyValid(value) {
-      return /^(?:(?:ctrl|alt|shift)\+)+[a-z0-9]$/.test(String(value || "").trim().toLowerCase());
-    }
+
     function automationValid(index) {
       if (index === 0) {
         var name = automationForm.querySelector('[name="profile_name"]');
@@ -498,60 +500,88 @@
         return !!(name && name.value.trim() && folder && folder.value.trim());
       }
       if (index === 1) {
-        var hotkey = automationForm.querySelector('[name="hotkey"]');
+        if (!automationSourceMode) return false;
+        if (automationSourceMode.value === "whole_file") return true;
         var seconds = Number((automationForm.querySelector('[name="seconds"]') || {}).value);
-        return !!(hotkey && automationHotkeyValid(hotkey.value) && Number.isFinite(seconds) && seconds >= 5 && seconds <= 300);
+        return Number.isFinite(seconds) && seconds >= 5 && seconds <= 300;
       }
-      if (index === 3) {
+      if (index === 4) {
         return !automationMode || automationMode.value !== "automatic" || automationProfiles.some(function (toggle) { return toggle.checked; });
       }
-      if (index === 4) return !!(automationConfirm && automationConfirm.checked);
+      if (index === 5) return !!(automationConfirm && automationConfirm.checked);
       return true;
     }
+
     function renderAutomationStep() {
       automationSlides.forEach(function (slide, index) { slide.hidden = index !== automationCurrent; });
       automationNav.forEach(function (item, index) { item.classList.toggle("is-current", index === automationCurrent); });
       if (automationNumber) automationNumber.textContent = String(automationCurrent + 1);
       if (automationStatus) automationStatus.textContent = automationValid(automationCurrent) ? automationReady[automationCurrent] : automationMessages[automationCurrent];
+
+      var secondsWrap = automationForm.querySelector("[data-source-seconds]");
+      if (secondsWrap && automationSourceMode) {
+        secondsWrap.hidden = automationSourceMode.value === "whole_file";
+      }
+
       automationProfiles.forEach(function (toggle) {
         var card = toggle.closest(".automation-profile");
         var fields = card && card.querySelector(".profile-fields");
         if (card) card.classList.toggle("profile-selected", toggle.checked);
         if (fields) fields.querySelectorAll("input, select, textarea").forEach(function (control) { control.disabled = !toggle.checked; });
       });
+
       var help = document.getElementById("automation-profile-help");
       if (help) help.textContent = automationMode && automationMode.value === "automatic"
-        ? "Choose at least one destination for this folder. Each selected destination keeps its own format and post copy."
-        : "Review-first mode can run without posting destinations. Add them now if you want this profile ready for later automatic delivery.";
-      automationForm.querySelectorAll("[data-automation-next]").forEach(function (button) { button.disabled = !automationValid(automationCurrent); });
-      automationForm.querySelectorAll("[data-automation-back]").forEach(function (button) { button.hidden = automationCurrent === 0; });
+        ? "Choose at least one destination. Each selected destination keeps its own format and post copy."
+        : "Review-first mode does not require a destination. Add destinations now only if you want this workflow ready for automatic publishing later.";
+
+      automationForm.querySelectorAll("[data-automation-next]").forEach(function (button) {
+        button.disabled = !automationValid(automationCurrent);
+      });
+      automationForm.querySelectorAll("[data-automation-back]").forEach(function (button) {
+        button.hidden = automationCurrent === 0;
+      });
       automationForm.querySelectorAll("[data-automation-message]").forEach(function (message) {
         var key = message.getAttribute("data-automation-message");
-        var relevant = (automationCurrent === 0 && key === "identity") || (automationCurrent === 1 && key === "trigger") || (automationCurrent === 3 && key === "profiles") || (automationCurrent === 4 && key === "finish");
+        var relevant =
+          (automationCurrent === 0 && key === "watch") ||
+          (automationCurrent === 1 && key === "clip") ||
+          (automationCurrent === 4 && key === "profiles") ||
+          (automationCurrent === 5 && key === "finish");
         message.classList.toggle("is-visible", relevant && !automationValid(automationCurrent));
         if (relevant && !automationValid(automationCurrent)) message.textContent = automationMessages[automationCurrent];
       });
-      var start = automationForm.querySelector("[data-automation-start]");
-      if (start) start.disabled = !automationValid(3) || !automationValid(4);
+
+      var startButton = automationForm.querySelector("[data-automation-start]");
+      if (startButton) startButton.disabled = !automationValid(4) || !automationValid(5);
     }
+
     automationForm.querySelectorAll("[data-automation-next]").forEach(function (button) {
       button.addEventListener("click", function () {
         if (!automationValid(automationCurrent) || automationCurrent >= automationSlides.length - 1) return;
-        automationCurrent += 1; renderAutomationStep();
+        automationCurrent += 1;
+        renderAutomationStep();
         var heading = automationSlides[automationCurrent].querySelector("h3");
         if (heading) { heading.tabIndex = -1; heading.focus(); }
       });
     });
     automationForm.querySelectorAll("[data-automation-back]").forEach(function (button) {
-      button.addEventListener("click", function () { if (automationCurrent > 0) { automationCurrent -= 1; renderAutomationStep(); } });
+      button.addEventListener("click", function () {
+        if (automationCurrent > 0) {
+          automationCurrent -= 1;
+          renderAutomationStep();
+        }
+      });
     });
     automationForm.querySelectorAll("input, select, textarea").forEach(function (input) {
-      input.addEventListener("input", renderAutomationStep); input.addEventListener("change", renderAutomationStep);
+      input.addEventListener("input", renderAutomationStep);
+      input.addEventListener("change", renderAutomationStep);
     });
     automationForm.addEventListener("submit", function (event) {
       var submitter = event.submitter;
-      if (submitter && submitter.value === "save_and_start" && (!automationValid(3) || !automationValid(4))) {
-        event.preventDefault(); renderAutomationStep();
+      if (submitter && submitter.value === "save_and_start" && (!automationValid(4) || !automationValid(5))) {
+        event.preventDefault();
+        renderAutomationStep();
       }
     });
     renderAutomationStep();
