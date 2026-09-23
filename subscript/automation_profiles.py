@@ -276,10 +276,12 @@ def _management_cards(cfg: dict, holder: dict, esc) -> str:
             f'<span class="profile-state {state_class}">{esc(state)}</span></header>'
             '<div class="managed-profile-meta">'
             f'<p><strong>Folder</strong><code>{esc(str(profile.get("folder") or "Not set"))}</code></p>'
-            f'<p><strong>Clip rule</strong><span>{esc("Smart Highlight" if profile.get("source_mode", "smart_highlight") == "smart_highlight" else ("Use whole file" if profile.get("source_mode") == "whole_file" else "Keep last " + str(profile.get("buffer_seconds") or 30) + " seconds"))}</span></p>'
+            f'<p><strong>Clip rule</strong><span>{esc("Smart Highlight" if profile.get("source_mode") == "smart_highlight" else ("Use whole file" if profile.get("source_mode") == "whole_file" else "Keep last " + str(profile.get("buffer_seconds") or 30) + " seconds"))}</span></p>'
             f'<p><strong>Destinations</strong><span>{esc(destination_text)}</span></p>'
             '</div><div class="profile-card-actions">'
             f'<a class="quiet-button" href="/automation/{esc(profile_id)}/edit">Edit workflow</a>'
+            f'<a class="quiet-button" href="/automation/{esc(profile_id)}/clone">Duplicate</a>'
+            f'<a class="quiet-button" href="/automation/{esc(profile_id)}/open-folder">Open folder</a>'
             f'<form method="post" action="/automation/{esc(profile_id)}/{action}">'
             f'<button class="secondary" type="submit">{esc(action_label)}</button></form>'
             '</div></article>'
@@ -393,6 +395,42 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
         from fastapi.responses import FileResponse
         mime, _ = mimetypes.guess_type(str(source))
         return FileResponse(source, media_type=mime or "video/mp4")
+
+    @app.get("/automation/{profile_id}/clone", response_class=HTMLResponse)
+    def clone_profile(request: Request, profile_id: str):
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        source = _profile(cfg, profile_id)
+        if not source:
+            return _render_page(cfg, snip, holder, error="That workflow no longer exists.")
+        clone = deepcopy(source)
+        clone.pop("id", None)
+        clone["name"] = (str(source.get("name") or "Workflow") + " copy")[:80]
+        clone["folder"] = ""
+        clone["enabled"] = False
+        return _render_page(
+            cfg, snip, holder, profile=clone,
+            message="Duplicated settings. Choose a different watch folder, then save this as a new workflow.",
+        )
+
+    @app.get("/automation/{profile_id}/open-folder")
+    def open_profile_folder(request: Request, profile_id: str):
+        if not is_authenticated(request, cfg):
+            return login_redirect(request)
+        profile = _profile(cfg, profile_id)
+        if not profile:
+            return RedirectResponse("/automation?err=" + quote("That workflow no longer exists."), status_code=303)
+        path = Path(str(profile.get("folder") or "")).expanduser()
+        if not path.is_dir():
+            return RedirectResponse("/automation?err=" + quote("That workflow folder is unavailable."), status_code=303)
+        try:
+            if os.name == "nt":
+                os.startfile(str(path))  # type: ignore[attr-defined]
+            elif os.name == "posix":
+                subprocess.Popen(["xdg-open", str(path)])
+            return RedirectResponse("/automation?msg=" + quote("Opened workflow folder."), status_code=303)
+        except Exception as exc:
+            return RedirectResponse("/automation?err=" + quote(f"Could not open folder: {exc}"), status_code=303)
 
     @app.get("/automation/{profile_id}/edit", response_class=HTMLResponse)
     def edit_profile(request: Request, profile_id: str, msg: str | None = None, err: str | None = None):
