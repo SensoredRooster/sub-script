@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import Path
+import os
+import urllib.request
 from urllib.parse import quote
 
 from fastapi import Request
@@ -43,11 +45,19 @@ def register_support_routes(app, cfg: dict, holder: dict, snip) -> None:
             return login_redirect(request)
         info = telemetry_info()
         template = snip("support.html")
+        support_cfg = cfg.get("support") if isinstance(cfg.get("support"), dict) else {}
+        upload_url = os.getenv("SUBSCRIPT_SUPPORT_UPLOAD_URL") or str(support_cfg.get("upload_url") or "")
+        upload_control = (
+            '<button type="button" class="secondary" data-upload-support-bundle>Send Diagnostics to Developer</button>'
+            if upload_url.strip()
+            else '<span class="meta">Remote support upload is not configured on this build.</span>'
+        )
         return (
             template
             .replace("{{SESSION_ID}}", escape(str(info.get("session_id") or "")))
             .replace("{{LOG_DIR}}", escape(str(info.get("log_dir") or "")))
             .replace("{{VERSION}}", escape(str(info.get("version") or "")))
+            .replace("{{UPLOAD_CONTROL}}", upload_control)
         )
 
     @app.get("/support/status")
@@ -66,6 +76,36 @@ def register_support_routes(app, cfg: dict, holder: dict, snip) -> None:
             media_type="application/zip",
             filename=bundle.name,
         )
+
+    @app.post("/support/upload")
+    def upload_support_bundle(request: Request):
+        if not is_authenticated(request, cfg):
+            return JSONResponse({"error": "Sign in required."}, status_code=401)
+        support_cfg = cfg.get("support") if isinstance(cfg.get("support"), dict) else {}
+        upload_url = os.getenv("SUBSCRIPT_SUPPORT_UPLOAD_URL") or str(support_cfg.get("upload_url") or "")
+        if not upload_url.strip():
+            return JSONResponse({"error": "Remote support upload is not configured."}, status_code=409)
+        bundle = create_support_bundle(cfg, extra_status=_watcher_status(holder))
+        data = bundle.read_bytes()
+        req = urllib.request.Request(
+            upload_url.strip(),
+            data=data,
+            method="POST",
+            headers={
+                "Content-Type": "application/zip",
+                "X-SubScript-Session": str(telemetry_info().get("session_id") or ""),
+                "X-SubScript-Version": str(telemetry_info().get("version") or ""),
+                "X-SubScript-Filename": bundle.name,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                status = getattr(response, "status", 200)
+                if status < 200 or status >= 300:
+                    raise RuntimeError(f"Support server returned HTTP {status}.")
+            return JSONResponse({"ok": True, "message": "Diagnostics sent to developer.", "filename": bundle.name})
+        except Exception as exc:
+            return JSONResponse({"error": f"Could not send diagnostics: {exc}"}, status_code=502)
 
     @app.post("/support/open-logs")
     def open_logs(request: Request):
