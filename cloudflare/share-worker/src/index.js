@@ -50,7 +50,7 @@ async function verifySession(request, env) {
   const match = cookie.match(/(?:^|;\s*)share_session=([^;]+)/);
   if (!match || !sessionSecret(env)) return null;
   const parts = match[1].split("."); if (parts.length !== 2) return null;
-  const expected = b64url(await hmac(env.SHARE_SESSION_SECRET, parts[0]));
+  const expected = b64url(await hmac(sessionSecret(env), parts[0]));
   if (!constantEqual(expected, parts[1])) return null;
   try {
     const payload = JSON.parse(new TextDecoder().decode(fromB64url(parts[0])));
