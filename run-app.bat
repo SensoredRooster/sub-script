@@ -41,17 +41,14 @@ if exist "dist\SubScript\SubScript.exe" (
 
 if not exist ".venv\Scripts\python.exe" (
   echo.
-  echo  First-time setup needed:
-  echo    1. Install Python 3.11+ from https://python.org
-  echo    2. Install ffmpeg:  winget install ffmpeg
-  echo       ^(for the .exe build, copy ffmpeg.exe beside SubScript.exe — see scripts\FFMPEG_BESIDE_APP.txt^)
-  echo    3. In this folder, run:
-  echo         python -m venv .venv
-  echo         .venv\Scripts\pip install -r requirements.txt
-  echo    4. Double-click run-app.bat again
+  echo  First-time setup: running setup.bat
   echo.
-  pause
-  exit /b 1
+  call "%~dp0setup.bat"
+  if not exist ".venv\Scripts\python.exe" (
+    echo  Setup did not finish. Fix the errors above, then run setup.bat again.
+    pause
+    exit /b 1
+  )
 )
 
 if not exist "config.yaml" (
@@ -62,11 +59,11 @@ if not exist "config.yaml" (
 )
 
 echo.
-echo  Starting sub-script…
-echo  A browser window should open at http://127.0.0.1:8787
-echo  Leave this window open while you use the app.
-echo  Press Ctrl+C here to quit.
-echo.
+echo  Starting sub-script...
+ echo  A browser window should open at http://127.0.0.1:8787
+ echo  Leave this window open while you use the app.
+ echo  Press Ctrl+C here to quit.
+ echo.
 
 ".venv\Scripts\python.exe" -m subscript --app
 set EXITCODE=%ERRORLEVEL%
