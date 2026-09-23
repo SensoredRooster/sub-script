@@ -164,7 +164,7 @@ This page lists saved automated profiles. Each profile displays:
 - profile name;
 - current state: Running, Ready to start, or Paused;
 - the folder it watches;
-- the hotkey and clip length;
+- how each incoming video is used (whole file or last N seconds);
 - selected destinations; and
 - Edit, Start watching, or Stop watching controls.
 
@@ -178,30 +178,26 @@ Editing an existing profile uses /automation/<profile-id>/edit.
 
 The builder is deliberately a slideshow-style workflow. Only the current step is shown, and **Next** stays disabled until that step is valid.
 
-#### Step 1 — Name + VOD folder
+#### Step 1 — Watch folder
 
-Enter:
+Enter a recognizable workflow name and choose the real folder where new videos will appear. The folder must already exist, and two workflows cannot watch the same folder.
 
-- a recognizable profile name, such as Main stream or Ranked clips;
-- the real folder where this profile’s replay files will be saved.
+When the workflow is active, **the new completed video appearing in this folder is the trigger**. No second SubScript hotkey is required. The video may be created by OBS, NVIDIA, Medal, another recorder, or copied into the folder manually. SubScript waits for the file to finish writing before processing it.
 
-The folder must already exist. Two profiles cannot use the same folder.
+#### Step 2 — Clip behavior
 
-#### Step 2 — Trigger
+Choose whether SubScript should:
 
-Choose:
+- use the whole incoming video; or
+- keep only the last 5–300 seconds.
 
-- the SubScript shortcut, such as ctrl+shift+c; and
-- the clip length from 5 to 300 seconds.
+Use the whole-file option when your recorder already creates the exact clip you want. Use the last-seconds option when the folder receives longer replay-buffer files.
 
-Do not use the same shortcut as the recorder’s Save Replay shortcut. The intended order is:
+#### Step 3 — Vertical layout
 
-1. the recorder finishes writing a replay;
-2. you press the SubScript shortcut;
-3. SubScript finds the newest video in that profile’s folder;
-4. SubScript creates the clip and continues through the saved workflow.
+Choose the normal center crop or use the Vertical Layout Composer to arrange gameplay and a baked-in facecam for true 9:16 output. This layout is saved with the workflow and reused on future clips.
 
-#### Step 3 — Delivery mode
+#### Step 4 — Review behavior
 
 Choose one:
 
@@ -210,21 +206,21 @@ Choose one:
 
 Review-first mode is safest for a first test.
 
-#### Step 4 — Destinations
+#### Step 5 — Destinations
 
 Choose the destinations for this profile and optionally set each destination’s format and post copy.
 
 Automatic mode requires at least one selected destination. Review-first mode can be saved without a destination so you can use the profile as a local clip watcher.
 
-#### Step 5 — Test + save
+#### Step 6 — Test + activate
 
 Before saving, confirm the trigger order shown on screen. The available actions are:
 
 - **Create safe test preview** — uses the newest replay in the folder, forces review mode, and publishes nothing;
 - **Save profile** — saves the profile without arming its watcher;
-- **Save & start profile** — saves the profile and starts watching immediately.
+- **Activate workflow** — saves the workflow and immediately begins watching the folder for new completed videos.
 
-After saving, SubScript returns to the start screen with a confirmation. Use **Put My Content on Autopilot** again to see and manage the saved profile.
+After activation, any new supported video that finishes writing in the watched folder is processed automatically. Existing files already present when the watcher starts are not unexpectedly reprocessed.
 
 ## Live streaming setup
 
@@ -235,9 +231,9 @@ After saving, SubScript returns to the start screen with a confirmation. Use **P
 3. Set the replay length to at least the profile’s clip length, normally 30 seconds.
 4. Confirm where OBS saves replay files.
 5. Create an autopilot profile using that folder.
-6. Save a replay, wait until OBS finishes writing it, then press the profile’s SubScript shortcut.
+6. Start the workflow. From then on, saving a replay into that folder is enough.
 
-SubScript watches for a completed video file. It does not read a half-written file while OBS is still saving it.
+SubScript watches for a new completed video file automatically. It waits for the file to stop changing before processing it, so it does not read a half-written replay while OBS is still saving it. Manually copying a finished video into the watched folder works too.
 
 The older global live configuration is still supported for compatibility, but new users should use the profile builder because it keeps multiple stream setups separate.
 
