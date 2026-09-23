@@ -2,11 +2,6 @@ name: Deploy Cloudflare Support Collector
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/deploy-support-worker.yml"
-      - "cloudflare/support-worker/**"
 
 jobs:
   deploy:
@@ -74,3 +69,15 @@ jobs:
       - name: Deploy Worker
         working-directory: cloudflare/support-worker
         run: wrangler deploy
+
+      - name: Verify deployed health endpoint
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error "https://subscript-support.sensoredrooster-com.workers.dev/health" | tee health.json; then
+              grep -q '"ok":true' health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
