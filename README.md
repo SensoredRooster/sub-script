@@ -327,6 +327,60 @@ Without Whisper, the app still renders and the UI clearly indicates that the fal
 
 Upload an MP3 in the Style section or place one at assets/music.mp3. Keep the bed volume low so gameplay remains understandable. Missing music or a failed mix does not stop the main clip workflow.
 
+## Support, telemetry, and tester diagnostics
+
+SubScript includes local-first diagnostics so tester reports can contain useful evidence instead of only screenshots.
+
+While the app is running, SubScript writes rotating JSONL telemetry logs. On Windows the default folder is:
+
+~~~text
+%LOCALAPPDATA%\SubScript\logs
+~~~
+
+The logger records a lightweight heartbeat every second, HTTP route timing/status, watcher activity, pipeline lifecycle events, application/runtime warnings, and uncaught exceptions. Log files rotate automatically so they do not grow forever.
+
+Open **Support** from the home page or **Settings → Support & diagnostics**. From there a tester can:
+
+- open the telemetry folder;
+- download a **Support Bundle** ZIP;
+- open the main GitHub repository;
+- open a prefilled GitHub issue containing the SubScript version and telemetry session ID; and
+- when a private support collector is configured, explicitly choose **Send Diagnostics to Developer**.
+
+A Support Bundle contains:
+
+- current rotating logs;
+- SubScript version and session ID;
+- operating-system/Python/runtime metadata;
+- active watcher status;
+- a redacted configuration snapshot; and
+- direct links back to the repository and issue tracker.
+
+SubScript does **not** intentionally log form bodies, OAuth callback payloads, passwords, cookies, or access tokens. Known secret/token-shaped values are redacted from structured logs and exported config. Diagnostics may still contain local filenames and folder paths because those are often necessary for debugging media/watcher problems, so testers should review a bundle before sharing it if those names are sensitive.
+
+### Optional private diagnostics collector
+
+Remote diagnostics are disabled unless you configure a collector endpoint:
+
+~~~yaml
+support:
+  upload_url: "https://your-support-service.example/upload"
+~~~
+
+or set:
+
+~~~text
+SUBSCRIPT_SUPPORT_UPLOAD_URL=https://your-support-service.example/upload
+~~~
+
+If the collector requires bearer authentication, set it through the environment only:
+
+~~~text
+SUBSCRIPT_SUPPORT_UPLOAD_TOKEN=your_private_token
+~~~
+
+When configured, the Support page displays **Send Diagnostics to Developer**. The tester must click it and confirm before a bundle is uploaded. The endpoint receives the ZIP as `application/zip` with session/version/filename headers.
+
 ## Publishing and OAuth
 
 SubScript keeps local account authentication separate from social publishing permissions. The local /login boundary is only a compatibility boundary for future account authentication; it does not pretend that TikTok, YouTube, or another social provider is the SubScript account system.
