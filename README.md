@@ -360,28 +360,7 @@ SubScript does **not** intentionally log form bodies, OAuth callback payloads, p
 
 
 
-Remote diagnostics are disabled unless you configure a collector endpoint:
 
-~~~yaml
-support:
-  upload_url: "https://your-support-service.example/upload"
-~~~
-
-or set:
-
-~~~text
-SUBSCRIPT_SUPPORT_UPLOAD_URL=https://your-support-service.example/upload
-~~~
-
-If the collector requires bearer authentication, set it through the environment only:
-
-~~~text
-SUBSCRIPT_SUPPORT_UPLOAD_TOKEN=your_private_token
-~~~
-
-When configured, the Support page displays **Send Diagnostics to Developer**. The tester must click it and confirm before a bundle is uploaded. The endpoint receives the ZIP as `application/zip` with session/version/filename headers.
-
-A ready-to-run authenticated collector is included at `tools/support_collector.py`. See [docs/SUPPORT_COLLECTOR.md](docs/SUPPORT_COLLECTOR.md) for deployment, retrieval, and security guidance.
 
 ## Publishing and OAuth
 
