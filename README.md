@@ -381,6 +381,8 @@ SUBSCRIPT_SUPPORT_UPLOAD_TOKEN=your_private_token
 
 When configured, the Support page displays **Send Diagnostics to Developer**. The tester must click it and confirm before a bundle is uploaded. The endpoint receives the ZIP as `application/zip` with session/version/filename headers.
 
+A ready-to-run authenticated collector is included at `tools/support_collector.py`. See [docs/SUPPORT_COLLECTOR.md](docs/SUPPORT_COLLECTOR.md) for deployment, retrieval, and security guidance.
+
 ## Publishing and OAuth
 
 SubScript keeps local account authentication separate from social publishing permissions. The local /login boundary is only a compatibility boundary for future account authentication; it does not pretend that TikTok, YouTube, or another social provider is the SubScript account system.
