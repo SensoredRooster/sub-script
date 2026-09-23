@@ -8,6 +8,7 @@ from typing import Any
 
 from subscript.buffer import newest_video_in, resolve_live_source
 from subscript.hotkey import HotkeyWatcher
+from subscript.folder_watcher import FolderWatcher
 from subscript.pipeline import run_pipeline
 
 
@@ -102,22 +103,40 @@ def profile_runtime_cfg(cfg: dict[str, Any], profile: dict[str, Any]) -> dict[st
     return runtime_cfg
 
 
+def make_profile_file_handler(cfg: dict[str, Any], profile: dict[str, Any]):
+    """Process a completed file that appeared in this profile's watch folder."""
+    runtime_cfg = profile_runtime_cfg(cfg, profile)
+    source_mode = str(profile.get("source_mode") or "last_seconds")
+    seconds = int(profile.get("buffer_seconds") or 30)
+
+    def _process(source: Path) -> None:
+        duration = None if source_mode == "whole_file" else float(seconds)
+        run_pipeline(
+            source,
+            runtime_cfg,
+            dry_run=bool((runtime_cfg.get("review") or {}).get("require_approval", True)),
+            start=None,
+            duration=duration,
+        )
+
+    return _process
+
+
 def ensure_profile_watcher(
     holder: dict[str, Any], cfg: dict[str, Any], profile: dict[str, Any]
-) -> HotkeyWatcher:
-    """Create or refresh the watcher belonging to one saved automation profile."""
+) -> FolderWatcher:
+    """Create or refresh the automatic folder watcher for one profile."""
     watchers = holder.setdefault("profiles", {})
     profile_id = str(profile["id"])
+    desired_folder = Path(str(profile.get("folder") or ""))
     existing = watchers.get(profile_id)
-    desired_hotkey = profile.get("hotkey") or "ctrl+shift+c"
-    if existing and existing.hotkey_spec != desired_hotkey:
+    if existing and getattr(existing, "folder", None) != desired_folder:
         existing.stop()
         existing = None
     if existing is None:
-        existing = HotkeyWatcher(
-            desired_hotkey,
-            make_fire_live(profile_runtime_cfg(cfg, profile)),
-            notify=bool(cfg.get("notify", True)),
+        existing = FolderWatcher(
+            desired_folder,
+            make_profile_file_handler(cfg, profile),
         )
         watchers[profile_id] = existing
     return existing
