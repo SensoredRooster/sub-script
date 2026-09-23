@@ -51,6 +51,18 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
+      - name: Inspect token metadata
+        shell: bash
+        run: |
+          TYPE="unprefixed"
+          case "$CLOUDFLARE_API_TOKEN" in
+            cfat_*) TYPE="account-token" ;;
+            cfut_*) TYPE="user-token" ;;
+            cfk_*) TYPE="global-api-key" ;;
+          esac
+          echo "Cloudflare credential type: $TYPE"
+          echo "Cloudflare credential length: ${#CLOUDFLARE_API_TOKEN}"
+
       - name: Verify Cloudflare authentication
         working-directory: cloudflare/support-worker
         run: wrangler whoami
