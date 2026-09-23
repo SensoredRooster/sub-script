@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 import threading
+import traceback
 import time
 import uuid
 import zipfile
@@ -127,6 +128,32 @@ def configure_telemetry(log_dir: Path | None = None) -> Path:
         error_handler.setLevel(logging.ERROR)
         error_handler.setFormatter(JsonLineFormatter())
         logger.addHandler(error_handler)
+
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+        root.addHandler(handler)
+        root.addHandler(error_handler)
+
+        original_excepthook = sys.excepthook
+        def _sys_excepthook(exc_type, exc_value, exc_tb):
+            logging.getLogger(_LOGGER_NAME).error(
+                "Uncaught exception",
+                exc_info=(exc_type, exc_value, exc_tb),
+                extra={"telemetry": {"event": "uncaught_exception"}},
+            )
+            original_excepthook(exc_type, exc_value, exc_tb)
+        sys.excepthook = _sys_excepthook
+
+        original_thread_hook = getattr(threading, "excepthook", None)
+        if original_thread_hook is not None:
+            def _thread_excepthook(args):
+                logging.getLogger(_LOGGER_NAME).error(
+                    "Uncaught thread exception",
+                    exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+                    extra={"telemetry": {"event": "uncaught_thread_exception", "thread_name": getattr(args.thread, "name", "")}},
+                )
+                original_thread_hook(args)
+            threading.excepthook = _thread_excepthook
 
         logger.info(
             "SubScript telemetry started",
