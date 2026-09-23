@@ -8,5 +8,15 @@
       "binding": "SUPPORT_BUCKET",
       "bucket_name": "subscript-support-logs"
     }
+  ],
+  "ratelimits": [
+    {
+      "name": "UPLOAD_RATE_LIMITER",
+      "namespace_id": "31001",
+      "simple": {
+        "limit": 6,
+        "period": 60
+      }
+    }
   ]
 }
