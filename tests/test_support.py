@@ -32,7 +32,7 @@ def test_support_center_is_visible_and_local_first(app_env):
     assert "Open Logs Folder" in page.text
     assert "Report Issue on GitHub" in page.text
     assert "Nothing is uploaded automatically" in page.text
-    assert "Remote support upload is not configured" in page.text
+    assert "Send Diagnostics to Developer" in page.text
 
 
 def test_support_status_exposes_session_and_watchers(app_env):
@@ -71,12 +71,12 @@ def test_support_bundle_contains_redacted_diagnostics(app_env):
         assert manifest["version"]
 
 
-def test_remote_support_upload_is_disabled_without_collector(app_env, monkeypatch):
+def test_default_support_collector_is_wired(app_env, monkeypatch):
     monkeypatch.delenv("SUBSCRIPT_SUPPORT_UPLOAD_URL", raising=False)
     app_env.cfg.pop("support", None)
-    response = app_env.client.post("/support/upload")
-    assert response.status_code == 409
-    assert "not configured" in response.json()["error"]
+    page = app_env.client.get("/support")
+    assert page.status_code == 200
+    assert "Send Diagnostics to Developer" in page.text
 
 
 def test_support_routes_back_to_repo_and_issue_tracker(app_env):
