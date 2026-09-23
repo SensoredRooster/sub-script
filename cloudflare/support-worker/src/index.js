@@ -7,8 +7,8 @@ function json(data, status = 200) {
   });
 }
 
-function authorized(request, env) {
-  const expected = env.SUPPORT_UPLOAD_TOKEN || "";
+function adminAuthorized(request, env) {
+  const expected = env.SUPPORT_ADMIN_TOKEN || "";
   return expected && request.headers.get("authorization") === `Bearer ${expected}`;
 }
 
@@ -25,11 +25,10 @@ export default {
       return json({ ok: true, service: "subscript-support-collector" });
     }
 
-    if (!authorized(request, env)) {
-      return json({ error: "Unauthorized" }, 401);
-    }
-
     if (request.method === "POST" && url.pathname === "/upload") {
+      const ip = request.headers.get("cf-connecting-ip") || "unknown";
+      const rate = await env.UPLOAD_RATE_LIMITER.limit({ key: ip });
+      if (!rate.success) return json({ error: "Too many uploads. Try again later." }, 429);
       const length = Number(request.headers.get("content-length") || "0");
       if (length > MAX_BYTES) return json({ error: "Bundle too large" }, 413);
 
@@ -57,6 +56,7 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname === "/bundles") {
+      if (!adminAuthorized(request, env)) return json({ error: "Unauthorized" }, 401);
       const listed = await env.SUPPORT_BUCKET.list({ prefix: "bundles/" });
       return json({
         bundles: listed.objects
@@ -72,6 +72,7 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/bundles/")) {
+      if (!adminAuthorized(request, env)) return json({ error: "Unauthorized" }, 401);
       const name = safeName(decodeURIComponent(url.pathname.slice("/bundles/".length)), "");
       if (!name || !name.endsWith(".zip")) return json({ error: "Invalid bundle name" }, 400);
       const obj = await env.SUPPORT_BUCKET.get(`bundles/${name}`);
