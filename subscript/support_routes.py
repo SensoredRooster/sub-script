@@ -107,13 +107,15 @@ def register_support_routes(app, cfg: dict, holder: dict, snip) -> None:
         if not is_authenticated(request, cfg):
             return JSONResponse({"error": "Sign in required."}, status_code=401)
         support_cfg = cfg.get("support") if isinstance(cfg.get("support"), dict) else {}
-        upload_url = os.getenv("SUBSCRIPT_SUPPORT_UPLOAD_URL") or str(support_cfg.get("upload_url") or "")
+        upload_url = os.getenv("SUBSCRIPT_SUPPORT_UPLOAD_URL") or str(support_cfg.get("upload_url") or "") or _DEFAULT_UPLOAD_URL
         if not upload_url.strip():
             return JSONResponse({"error": "Remote support upload is not configured."}, status_code=409)
         bundle = create_support_bundle(cfg, extra_status=_watcher_status(holder))
         data = bundle.read_bytes()
         headers = {
             "Content-Type": "application/zip",
+            "Accept": "application/json",
+            "User-Agent": f"SubScript/{telemetry_info().get('version') or 'dev'} (+https://github.com/SensoredRooster/sub-script)",
             "X-SubScript-Session": str(telemetry_info().get("session_id") or ""),
             "X-SubScript-Version": str(telemetry_info().get("version") or ""),
             "X-SubScript-Filename": bundle.name,
