@@ -691,6 +691,34 @@
   var openSupportLogs = document.querySelector("[data-open-support-logs]");
   var uploadSupportBundle = document.querySelector("[data-upload-support-bundle]");
 
+  var supportHealth = document.querySelector("[data-support-health]");
+  if (supportHealth) {
+    fetch("/support/status")
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        var active = 0;
+        if (data.profile_watchers) {
+          Object.keys(data.profile_watchers).forEach(function (key) {
+            if (data.profile_watchers[key] && data.profile_watchers[key].armed) active += 1;
+          });
+        }
+        var parts = [
+          data.ffmpeg_available ? "FFmpeg ready" : "FFmpeg missing",
+          String(active) + " active workflow watcher" + (active === 1 ? "" : "s"),
+          data.disk && typeof data.disk.free_gb === "number" ? data.disk.free_gb + " GB free" : "disk status unavailable"
+        ];
+        supportHealth.replaceChildren();
+        parts.forEach(function (label) {
+          var chip = document.createElement("span");
+          chip.textContent = label;
+          supportHealth.appendChild(chip);
+        });
+      })
+      .catch(function () {
+        supportHealth.textContent = "Runtime health could not be loaded.";
+      });
+  }
+
   if (openSupportLogs) {
     openSupportLogs.addEventListener("click", function () {
       openSupportLogs.disabled = true;
