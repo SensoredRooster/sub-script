@@ -10,6 +10,7 @@ from subscript.buffer import newest_video_in, resolve_live_source
 from subscript.hotkey import HotkeyWatcher
 from subscript.folder_watcher import FolderWatcher
 from subscript.pipeline import run_pipeline
+from subscript.highlights import suggest_highlights_or_fallback
 
 
 def source_hint(cfg: dict[str, Any]) -> str:
@@ -103,6 +104,31 @@ def profile_runtime_cfg(cfg: dict[str, Any], profile: dict[str, Any]) -> dict[st
     return runtime_cfg
 
 
+def smart_highlight_window(
+    source: Path, runtime_cfg: dict[str, Any], profile: dict[str, Any]
+) -> tuple[float | None, float, str]:
+    """Return a fail-soft highlight window with creator-friendly context."""
+    target = float(profile.get("buffer_seconds") or 20)
+    pre = max(0.0, min(30.0, float(profile.get("smart_pre_roll", 3.0))))
+    post = max(0.0, min(30.0, float(profile.get("smart_post_roll", 2.0))))
+    result = suggest_highlights_or_fallback(
+        source, buffer_seconds=target, top_n=1, cfg=runtime_cfg
+    )
+    suggestion = (result.get("suggestions") or [{}])[0]
+    start = suggestion.get("start")
+    duration = float(suggestion.get("duration") or target)
+    if start is None:
+        # The pipeline's start=None behavior intentionally means "last N seconds".
+        return None, target + pre + post, str(result.get("message") or "Used safe fallback.")
+    start = max(0.0, float(start) - pre)
+    duration = max(1.0, duration + pre + post)
+    score = float(suggestion.get("score") or 0.0)
+    note = f"Smart Highlight selected a {duration:.1f}s window"
+    if score:
+        note += f" (confidence {score:.0%})"
+    return start, duration, note
+
+
 def make_profile_file_handler(cfg: dict[str, Any], profile: dict[str, Any]):
     """Process a completed file that appeared in this profile's watch folder."""
     runtime_cfg = profile_runtime_cfg(cfg, profile)
@@ -110,12 +136,16 @@ def make_profile_file_handler(cfg: dict[str, Any], profile: dict[str, Any]):
     seconds = int(profile.get("buffer_seconds") or 30)
 
     def _process(source: Path) -> None:
-        duration = None if source_mode == "whole_file" else float(seconds)
+        start = None
+        if source_mode == "smart_highlight":
+            start, duration, _note = smart_highlight_window(source, runtime_cfg, profile)
+        else:
+            duration = None if source_mode == "whole_file" else float(seconds)
         run_pipeline(
             source,
             runtime_cfg,
             dry_run=bool((runtime_cfg.get("review") or {}).get("require_approval", True)),
-            start=None,
+            start=start,
             duration=duration,
         )
 
