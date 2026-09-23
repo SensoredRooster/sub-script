@@ -474,6 +474,11 @@
     var automationCurrent = 0;
     var automationMode = automationForm.querySelector('[name="review_mode"]');
     var automationSourceMode = automationForm.querySelector('[name="source_mode"]');
+    var automationFolder = automationForm.querySelector('[name="folder"]');
+    var browseFolderButton = automationForm.querySelector("[data-browse-folder]");
+    var openFolderButton = automationForm.querySelector("[data-open-folder]");
+    var folderStatus = automationForm.querySelector("[data-folder-status]");
+    var folderStatusTimer = null;
     var automationProfiles = Array.prototype.slice.call(automationForm.querySelectorAll("[data-profile-toggle]"));
     var automationConfirm = automationForm.querySelector("[data-automation-confirm]");
     var automationMessages = {
@@ -519,8 +524,21 @@
       if (automationStatus) automationStatus.textContent = automationValid(automationCurrent) ? automationReady[automationCurrent] : automationMessages[automationCurrent];
 
       var secondsWrap = automationForm.querySelector("[data-source-seconds]");
+      var smartControls = automationForm.querySelector("[data-smart-highlight-controls]");
       if (secondsWrap && automationSourceMode) {
-        secondsWrap.hidden = automationSourceMode.value === "whole_file";
+        secondsWrap.hidden = automationSourceMode.value !== "last_seconds";
+      }
+      if (smartControls && automationSourceMode) {
+        smartControls.hidden = automationSourceMode.value === "whole_file";
+        smartControls.classList.toggle("is-smart", automationSourceMode.value === "smart_highlight");
+        smartControls.querySelectorAll('[name="smart_pre_roll"],[name="smart_post_roll"]').forEach(function (control) {
+          control.closest("label").hidden = automationSourceMode.value !== "smart_highlight";
+        });
+        var targetLabel = smartControls.querySelector("label");
+        if (targetLabel) {
+          var textNode = targetLabel.childNodes[0];
+          if (textNode) textNode.nodeValue = automationSourceMode.value === "last_seconds" ? "Seconds to keep " : "Target highlight window ";
+        }
       }
 
       automationProfiles.forEach(function (toggle) {
@@ -535,7 +553,88 @@
         ? "Choose at least one destination. Each selected destination keeps its own format and post copy."
         : "Review-first mode does not require a destination. Add destinations now only if you want this workflow ready for automatic publishing later.";
 
-      automationForm.querySelectorAll("[data-automation-next]").forEach(function (button) {
+      function setFolderStatus(message, ok) {
+      if (!folderStatus) return;
+      folderStatus.textContent = message;
+      folderStatus.classList.toggle("is-ready", !!ok);
+      folderStatus.classList.toggle("is-error", ok === false);
+    }
+
+    function validateFolder() {
+      if (!automationFolder || !automationFolder.value.trim()) {
+        setFolderStatus("Choose a folder to validate it.", null);
+        return;
+      }
+      fetch("/automation/folder-status?folder=" + encodeURIComponent(automationFolder.value.trim()))
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          if (data.ready) {
+            var extra = data.video_count ? " · " + data.video_count + " video" + (data.video_count === 1 ? "" : "s") + " found" : "";
+            setFolderStatus((data.message || "Folder ready") + extra, true);
+            var composerVideo = document.querySelector("[data-composer-video]");
+            if (composerVideo && data.latest) {
+              composerVideo.src = "/automation/source-preview?folder=" + encodeURIComponent(automationFolder.value.trim());
+              composerVideo.load();
+            }
+          } else {
+            setFolderStatus(data.message || "Folder not available.", false);
+          }
+        })
+        .catch(function () { setFolderStatus("Could not validate this folder.", false); });
+    }
+
+    if (automationFolder) {
+      automationFolder.addEventListener("input", function () {
+        clearTimeout(folderStatusTimer);
+        folderStatusTimer = setTimeout(validateFolder, 450);
+      });
+      automationFolder.addEventListener("change", validateFolder);
+      if (automationFolder.value.trim()) validateFolder();
+    }
+
+    if (browseFolderButton) {
+      browseFolderButton.addEventListener("click", function () {
+        browseFolderButton.disabled = true;
+        browseFolderButton.textContent = "Choosing…";
+        fetch("/automation/browse-folder", {method: "POST"})
+          .then(function (response) { return response.json(); })
+          .then(function (data) {
+            if (data.folder && automationFolder) {
+              automationFolder.value = data.folder;
+              setFolderStatus(data.latest ? "Folder ready · newest video: " + data.latest : "Folder ready · no videos here yet", true);
+              automationFolder.dispatchEvent(new Event("input", {bubbles: true}));
+              automationFolder.dispatchEvent(new Event("change", {bubbles: true}));
+            } else if (data.error) {
+              setFolderStatus(data.error, false);
+            }
+          })
+          .catch(function () { setFolderStatus("Folder picker could not be opened.", false); })
+          .finally(function () {
+            browseFolderButton.disabled = false;
+            browseFolderButton.textContent = "Browse…";
+          });
+      });
+    }
+
+    if (openFolderButton) {
+      openFolderButton.addEventListener("click", function () {
+        if (!automationFolder || !automationFolder.value.trim()) {
+          setFolderStatus("Choose a folder first.", false);
+          return;
+        }
+        var body = new URLSearchParams();
+        body.set("folder", automationFolder.value.trim());
+        fetch("/automation/open-folder", {
+          method: "POST",
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: body.toString()
+        }).then(function (response) {
+          if (!response.ok) return response.json().then(function (data) { throw new Error(data.error || "Could not open folder."); });
+        }).catch(function (error) { setFolderStatus(error.message, false); });
+      });
+    }
+
+    automationForm.querySelectorAll("[data-automation-next]").forEach(function (button) {
         button.disabled = !automationValid(automationCurrent);
       });
       automationForm.querySelectorAll("[data-automation-back]").forEach(function (button) {
