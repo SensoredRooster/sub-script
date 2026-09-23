@@ -1,5 +1,9 @@
 # SubScript Support Collector
 
+## Production status
+
+The production desktop app is already wired to the dedicated Cloudflare collector at `https://subscript-support.sensoredrooster-com.workers.dev/upload`, backed by the private `subscript-support-logs` R2 bucket. The Python collector documented below is retained for local development, offline testing, or custom self-hosting; it is not the normal production path.
+
 SubScript can keep diagnostics completely local, or testers can explicitly send a Support Bundle to a collector that you control.
 
 The repository includes an optional collector at:
