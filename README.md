@@ -358,7 +358,7 @@ A Support Bundle contains:
 
 SubScript does **not** intentionally log form bodies, OAuth callback payloads, passwords, cookies, or access tokens. Known secret/token-shaped values are redacted from structured logs and exported config. Diagnostics may still contain local filenames and folder paths because those are often necessary for debugging media/watcher problems, so testers should review a bundle before sharing it if those names are sensitive.
 
-### Optional private diagnostics collector
+
 
 Remote diagnostics are disabled unless you configure a collector endpoint:
 
@@ -652,3 +652,28 @@ The public static site for developer review is in [docs/](docs/). It includes th
 ## License
 
 Private — SensoredRooster.
+
+## Production support and tester sharing
+
+SubScript now ships with two separate Cloudflare-backed services. They are intentionally isolated from each other.
+
+### Support diagnostics
+
+- Worker: `https://subscript-support.sensoredrooster-com.workers.dev`
+- Upload endpoint: `https://subscript-support.sensoredrooster-com.workers.dev/upload`
+- R2 bucket: `subscript-support-logs`
+- App behavior: the Support page can create a local redacted bundle and, only after explicit user confirmation, send it to the developer.
+- Override: `SUBSCRIPT_SUPPORT_UPLOAD_URL` may point a development build at another collector.
+
+The production collector is built in by default. The legacy Python collector under `tools/support_collector.py` is retained only for local development or self-hosting experiments.
+
+### Tester Share
+
+- Portal: `https://subscript-share.sensoredrooster-com.workers.dev`
+- R2 bucket: `subscript-share`
+- In-app access: **Support & diagnostics → Open Tester Share**
+- Folders: `Releases`, `Tester Uploads`, `Screenshots`, `Bug Reports`, `Logs`, `Archived`
+
+Tester accounts can browse/download everything and upload only to tester-facing folders. Admin access can also upload releases, mark a release as **Latest**, delete files, and manage archived content. The share bucket is private; all access goes through the authenticated Worker.
+
+See [docs/CLOUDFLARE_SUPPORT.md](docs/CLOUDFLARE_SUPPORT.md), [docs/SUPPORT_COLLECTOR.md](docs/SUPPORT_COLLECTOR.md), and [docs/TESTER_SHARE.md](docs/TESTER_SHARE.md) for deployment, privacy, and maintenance details.
