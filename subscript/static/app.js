@@ -686,6 +686,49 @@
     renderAutomationStep();
   }
 
+  // Tester support center
+  var supportStatus = document.querySelector("[data-support-status]");
+  var openSupportLogs = document.querySelector("[data-open-support-logs]");
+  var uploadSupportBundle = document.querySelector("[data-upload-support-bundle]");
+
+  if (openSupportLogs) {
+    openSupportLogs.addEventListener("click", function () {
+      openSupportLogs.disabled = true;
+      fetch("/support/open-logs", {method:"POST"})
+        .then(function (response) { return response.json().then(function (data) { return {ok:response.ok,data:data}; }); })
+        .then(function (result) {
+          if (!result.ok) throw new Error(result.data.error || "Could not open logs folder.");
+          if (supportStatus) supportStatus.textContent = "Opened local telemetry folder.";
+        })
+        .catch(function (error) {
+          if (supportStatus) supportStatus.textContent = error.message;
+        })
+        .finally(function () { openSupportLogs.disabled = false; });
+    });
+  }
+
+  if (uploadSupportBundle) {
+    uploadSupportBundle.addEventListener("click", function () {
+      var confirmed = window.confirm("Send a freshly generated diagnostic bundle to the SubScript support endpoint? The bundle is redacted, but may still contain local filenames and folder paths.");
+      if (!confirmed) return;
+      uploadSupportBundle.disabled = true;
+      uploadSupportBundle.textContent = "Sending diagnostics…";
+      fetch("/support/upload", {method:"POST"})
+        .then(function (response) { return response.json().then(function (data) { return {ok:response.ok,data:data}; }); })
+        .then(function (result) {
+          if (!result.ok) throw new Error(result.data.error || "Diagnostics upload failed.");
+          if (supportStatus) supportStatus.textContent = result.data.message || "Diagnostics sent to developer.";
+        })
+        .catch(function (error) {
+          if (supportStatus) supportStatus.textContent = error.message;
+        })
+        .finally(function () {
+          uploadSupportBundle.disabled = false;
+          uploadSupportBundle.textContent = "Send Diagnostics to Developer";
+        });
+    });
+  }
+
   // Keep the compact workflow bar in sync with the visible stage.
   var workflowLinks = Array.prototype.slice.call(
     document.querySelectorAll(".workflow-nav a")
