@@ -57,7 +57,9 @@ class ReviewQueue:
         items = [QueueItem.from_dict(i) for i in self._read().get("items", [])]
         if status:
             items = [i for i in items if i.status == status]
-        return sorted(items, key=lambda i: i.created_at, reverse=True)
+        indexed = list(enumerate(items))
+        indexed.sort(key=lambda pair: (pair[1].created_at, pair[0]), reverse=True)
+        return [item for _index, item in indexed]
 
     def get(self, item_id: str) -> QueueItem | None:
         for item in self.list():
