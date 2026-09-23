@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SubScript — Support</title>
+  <link rel="icon" href="/static/brand-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/review.css?v=10">
+</head>
+<body class="entry-page settings-page">
+  <header class="entry-header">
+    <a class="entry-brand" href="/"><img src="/static/brand-mark.svg" alt=""><span>SubScript</span></a>
+    <div class="header-tools"><a class="entry-account" href="/">Home</a><a class="entry-account" href="/support/repository" target="_blank" rel="noopener">GitHub repo</a></div>
+  </header>
+
+  <main class="settings-main">
+    <section class="settings-card support-card">
+      <p class="eyebrow">Support & diagnostics</p>
+      <h1>Give support something useful.</h1>
+      <p class="entry-lede">SubScript keeps rotating diagnostic logs locally while it runs. Create a redacted support bundle when something breaks, then attach it to a tester report.</p>
+
+      <div class="support-facts">
+        <p><strong>Version</strong><span>{{VERSION}}</span></p>
+        <p><strong>Session ID</strong><code>{{SESSION_ID}}</code></p>
+        <p><strong>Log folder</strong><code>{{LOG_DIR}}</code></p>
+      </div>
+
+      <div class="support-actions">
+        <form method="post" action="/support/bundle"><button class="primary" type="submit">Download Support Bundle</button></form>
+        <button type="button" class="secondary" data-open-support-logs>Open Logs Folder</button>
+        <a class="quiet-button" href="/support/report" target="_blank" rel="noopener">Report Issue on GitHub</a>
+        <a class="quiet-button" href="/support/repository" target="_blank" rel="noopener">Open Main Repository</a>
+      </div>
+
+      <div class="choice-callout">
+        <strong>What gets collected?</strong>
+        <span>Runtime heartbeats, request timing, watcher/pipeline events, exceptions, app version, and a redacted configuration snapshot. Form bodies, OAuth payloads, passwords, and access tokens are not intentionally logged.</span>
+      </div>
+
+      <div class="choice-callout">
+        <strong>Before sharing</strong>
+        <span>Logs may still contain filenames and local folder paths that help diagnose video-processing problems. Review the ZIP first if those names are sensitive.</span>
+      </div>
+
+      <p class="meta" data-support-status>Telemetry is local-first. Nothing is uploaded automatically.</p>
+    </section>
+  </main>
+
+  <script src="/static/app.js?v=10"></script>
+</body>
+</html>
