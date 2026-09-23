@@ -300,21 +300,30 @@ If the existing SubScript instance is running correctly, continue using it.
 
 ## Something broke after an update
 
-From the SubScript folder, run:
+Open **SubScript → Support** first.
 
-```powershell
-git status
-```
+Use **Download Support Bundle** and attach that ZIP to your tester report. The bundle includes the app session ID, rotating telemetry logs, runtime details, watcher status, and a redacted configuration snapshot.
 
-Then copy the output along with any error message you see and send it to the SubScript developer.
+Then use **Report Issue on GitHub** from the same Support screen. The issue template includes your SubScript version and session ID automatically.
 
 Please also include:
 
 - what you were doing when the issue occurred
 - which screen you were on
 - the source video format/resolution if the issue involved video
-- any error visible in PowerShell
 - a screenshot when useful
+
+You can also click **Open Logs Folder** to inspect the raw JSONL telemetry locally.
+
+The Support Bundle redacts known tokens/secrets, but filenames and local folder paths can still appear because they are useful for debugging. Review the ZIP before sharing if those names are sensitive.
+
+If SubScript will not start at all, run:
+
+```powershell
+git status
+```
+
+and send the output together with the PowerShell error.
 
 Do not post OAuth tokens, passwords, secrets, or private account credentials in bug reports.
 
