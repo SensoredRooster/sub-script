@@ -3,6 +3,8 @@ const SESSION_SECONDS = 12 * 60 * 60;
 const FOLDERS = ["Releases","Tester Uploads","Screenshots","Bug Reports","Logs","Archived"];
 const TESTER_UPLOAD_FOLDERS = new Set(["Tester Uploads", "Screenshots", "Bug Reports", "Logs"]);
 const META_LATEST = "__portal/latest.json";
+const ADMIN_PASSWORD_HASH = "cf30ec5e75d4ce509c309c9657be2344d54e511797fcf2008a9031afa1199a5b";
+const TESTER_PASSWORD_HASH = "e545f13b6509f26ba39ce3afdde6d4ee676e288b22d7b81df2438108a11d7081";
 const encoder = new TextEncoder();
 
 function baseHeaders(extra = {}) {
@@ -31,32 +33,29 @@ function fromB64url(value) {
   const binary = atob(padded);
   return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
-async function hmac(secret, value) {
-  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(value)));
+async function sha256Hex(value) {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
+  return Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("");
 }
 function constantEqual(a, b) {
   if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
   let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0;
 }
-function sessionSecret(env) { return env.SHARE_SESSION_SECRET || env.SHARE_ADMIN_PASSWORD || ""; }
-async function signSession(env, role) {
-  const payload = b64url(encoder.encode(JSON.stringify({ role, exp: Math.floor(Date.now()/1000)+SESSION_SECONDS, project: "subscript" })));
-  const sig = b64url(await hmac(sessionSecret(env), payload));
-  return payload + "." + sig;
+function makeSession(role, password) {
+  return role + "." + b64url(encoder.encode(password));
 }
-async function verifySession(request, env) {
+async function verifySession(request) {
   const cookie = request.headers.get("cookie") || "";
   const match = cookie.match(/(?:^|;\s*)share_session=([^;]+)/);
-  if (!match || !sessionSecret(env)) return null;
-  const parts = match[1].split("."); if (parts.length !== 2) return null;
-  const expected = b64url(await hmac(sessionSecret(env), parts[0]));
-  if (!constantEqual(expected, parts[1])) return null;
+  if (!match) return null;
+  const parts = match[1].split(".");
+  if (parts.length !== 2 || !["admin","tester"].includes(parts[0])) return null;
   try {
-    const payload = JSON.parse(new TextDecoder().decode(fromB64url(parts[0])));
-    if (payload.project !== "subscript" || payload.exp < Math.floor(Date.now()/1000)) return null;
-    if (!["admin","tester"].includes(payload.role)) return null;
-    return payload;
+    const password = new TextDecoder().decode(fromB64url(parts[1]));
+    const actual = await sha256Hex(password);
+    const expected = parts[0] === "admin" ? ADMIN_PASSWORD_HASH : TESTER_PASSWORD_HASH;
+    if (!constantEqual(actual, expected)) return null;
+    return { role: parts[0] };
   } catch { return null; }
 }
 function normalizeKey(raw) {
@@ -98,15 +97,15 @@ export default { async fetch(request, env) {
   if (request.method === "GET" && url.pathname === "/login") return html(LOGIN);
   if (request.method === "POST" && url.pathname === "/login") {
     const rate = await env.AUTH_RATE_LIMITER.limit({key:ip}); if (!rate.success) return json({error:"Too many sign-in attempts."},429);
-    if (!env.SHARE_ADMIN_PASSWORD || !env.SHARE_TESTER_PASSWORD) return json({error:"Portal authentication is not configured."},503);
     let body; try { body=await request.json(); } catch { return json({error:"Invalid request."},400); }
-    const role=body?.role==="admin"?"admin":"tester"; const expected=role==="admin"?env.SHARE_ADMIN_PASSWORD:env.SHARE_TESTER_PASSWORD;
-    if (!constantEqual(String(body?.password||""),expected)) return json({error:"Invalid password."},401);
-    const token=await signSession(env,role);
+    const role=body?.role==="admin"?"admin":"tester"; const password=String(body?.password||"");
+    const actualHash=await sha256Hex(password); const expectedHash=role==="admin"?ADMIN_PASSWORD_HASH:TESTER_PASSWORD_HASH;
+    if (!constantEqual(actualHash,expectedHash)) return json({error:"Invalid password."},401);
+    const token=makeSession(role,password);
     return json({ok:true,role},200,{"set-cookie":`share_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_SECONDS}`});
   }
   if (request.method === "POST" && url.pathname === "/logout") return new Response(null,{status:204,headers:baseHeaders({"set-cookie":"share_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0"})});
-  const session=await verifySession(request,env);
+  const session=await verifySession(request);
   if (!session) { if (url.pathname.startsWith("/api/")||url.pathname.startsWith("/file/")) return json({error:"Unauthorized"},401); return Response.redirect(url.origin+"/login",302); }
   if (request.method==="GET"&&url.pathname==="/") return html(PORTAL);
   if (request.method==="GET"&&url.pathname==="/api/me") return json({role:session.role});
