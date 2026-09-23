@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SubScript — {{PROFILE_TITLE}}</title>
   <link rel="icon" href="/static/brand-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/review.css?v=8">
+  <link rel="stylesheet" href="/static/review.css?v=9">
 </head>
 <body class="automation-builder-page">
   <header class="app-header">
@@ -58,8 +58,13 @@
           </label>
 
           <label>Folder to watch
-            <input name="folder" type="text" value="{{FOLDER}}" placeholder="C:\Users\you\Videos\Replays" required autocomplete="off">
+            <div class="folder-picker-row">
+              <input name="folder" type="text" value="{{FOLDER}}" placeholder="C:\Users\you\Videos\Replays" required autocomplete="off">
+              <button type="button" class="secondary" data-browse-folder>Browse…</button>
+              <button type="button" class="quiet-button" data-open-folder>Open</button>
+            </div>
           </label>
+          <p class="folder-status" data-folder-status aria-live="polite">Choose a folder to validate it.</p>
 
           <div class="choice-callout automation-explainer">
             <strong>No extra trigger required</strong>
@@ -77,17 +82,29 @@
 
           <label>Incoming video behavior
             <select name="source_mode" data-source-mode>
+              <option value="smart_highlight" {{SOURCE_SMART_SELECTED}}>Smart Highlight — trim to the strongest moment</option>
               <option value="whole_file" {{SOURCE_WHOLE_SELECTED}}>Use the whole incoming video</option>
               <option value="last_seconds" {{SOURCE_LAST_SELECTED}}>Keep only the last part of the incoming video</option>
             </select>
           </label>
 
+          <div class="choice-callout recommended-callout"><strong>Smart Highlight</strong><span>Recommended. SubScript analyzes the new video, finds the strongest moment, trims away the fluff, and keeps a little context around it.</span></div>
           <div class="choice-callout"><strong>Use the whole video</strong><span>Best when your recorder already saves the exact clip you want.</span></div>
-          <div class="choice-callout"><strong>Keep only the last part</strong><span>Best when the recorder saves a longer replay buffer and you only want the final moment.</span></div>
+          <div class="choice-callout"><strong>Keep only the last part</strong><span>Best when the recorder saves a longer replay buffer and the important moment is always near the end.</span></div>
 
-          <label data-source-seconds>Keep the last
-            <div class="inline-unit-control"><input name="seconds" type="number" min="5" max="300" value="{{SECONDS}}" required><span>seconds</span></div>
-          </label>
+          <div class="smart-highlight-controls" data-smart-highlight-controls>
+            <label>Target highlight window
+              <div class="inline-unit-control"><input name="seconds" type="number" min="5" max="300" value="{{SECONDS}}" required><span>seconds</span></div>
+            </label>
+            <label>Keep context before
+              <div class="inline-unit-control"><input name="smart_pre_roll" type="number" min="0" max="30" step="0.5" value="{{SMART_PRE_ROLL}}"><span>seconds</span></div>
+            </label>
+            <label>Keep context after
+              <div class="inline-unit-control"><input name="smart_post_roll" type="number" min="0" max="30" step="0.5" value="{{SMART_POST_ROLL}}"><span>seconds</span></div>
+            </label>
+          </div>
+
+          <p class="field-hint" data-source-seconds>For “Keep only the last part,” the Target highlight window value above becomes the number of seconds kept from the end.</p>
 
           <p class="automation-validation" data-automation-message="clip">Choose a valid clip behavior. Replay length must be between 5 and 300 seconds.</p>
           <div class="automation-actions"><button type="button" data-automation-back>← Back</button><button type="button" data-automation-next>Next: design the output →</button></div>
@@ -157,6 +174,6 @@
     </section>
   </main></div>
 
-  <script src="/static/app.js?v=8"></script>
+  <script src="/static/app.js?v=9"></script>
 </body>
 </html>
