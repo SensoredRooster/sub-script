@@ -5,6 +5,8 @@ from __future__ import annotations
 import mimetypes
 import re
 import shutil
+import logging
+import time
 import uuid
 import webbrowser
 from pathlib import Path
@@ -29,6 +31,8 @@ from subscript.publishing_routes import publishing_html, register_publishing_rou
 from subscript.queue import ReviewQueue
 from subscript.post_metadata import editor_html
 from subscript.runtime_paths import find_ffmpeg
+from subscript.support_routes import register_support_routes
+from subscript.telemetry import configure_telemetry, log_event, start_heartbeat, stop_heartbeat
 from subscript.layout import layout_from_form
 
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
@@ -64,6 +68,7 @@ def _parse_time_field(value: str | None) -> float | None:
 
 def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     cfg = cfg or load_config()
+    configure_telemetry()
     out_dir = Path(cfg.get("output", {}).get("dir") or "out")
     uploads_dir = out_dir / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
@@ -74,6 +79,34 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     watcher_holder: dict[str, Any] = {"w": None, "profiles": {}}
 
     app = FastAPI(title="sub-script")
+
+    @app.middleware("http")
+    async def telemetry_request_middleware(request: Request, call_next):
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+            log_event(
+                "http_request",
+                f"{request.method} {request.url.path}",
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_ms=round((time.perf_counter() - started) * 1000, 2),
+                client="local" if request.client and request.client.host in {"127.0.0.1", "::1", "localhost"} else "remote",
+            )
+            return response
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger("subscript").exception(
+                "Unhandled request error",
+                extra={"telemetry": {
+                    "event": "http_exception",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                }},
+            )
+            raise
+
     _STATIC.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
     register_branding_routes(app, cfg)
@@ -81,6 +114,21 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     register_capture_setup(app, cfg, watcher_holder)
     register_automation_routes(app, cfg, watcher_holder, _snip)
     register_publishing_routes(app, cfg)
+    register_support_routes(app, cfg, watcher_holder, _snip)
+
+    def _telemetry_status() -> dict[str, Any]:
+        profiles = watcher_holder.get("profiles") or {}
+        return {
+            "global_watcher_armed": bool(watcher_holder.get("w") and getattr(watcher_holder["w"], "armed", False)),
+            "active_profile_watchers": sum(1 for watcher in profiles.values() if getattr(watcher, "armed", False)),
+            "configured_profiles": len(cfg.get("automation_profiles") or []),
+        }
+
+    start_heartbeat(_telemetry_status, interval=1.0)
+
+    @app.on_event("shutdown")
+    def _shutdown_telemetry() -> None:
+        stop_heartbeat()
 
     # A user who explicitly chose “Save & start automated workflow” should not need
     # to re-arm the global trigger after restarting the app.
