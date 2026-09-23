@@ -1,0 +1,93 @@
+name: Deploy Tester Share Portal
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: "9c5f81e73d237bab60bdb0bc2085cd56"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Validate required share secrets
+        shell: bash
+        env:
+          SHARE_ADMIN_PASSWORD: ${{ secrets.SHARE_ADMIN_PASSWORD }}
+          SHARE_TESTER_PASSWORD: ${{ secrets.SHARE_TESTER_PASSWORD }}
+        run: |
+          if [ -z "$SHARE_ADMIN_PASSWORD" ]; then
+            echo "Missing repository secret SHARE_ADMIN_PASSWORD"
+            exit 1
+          fi
+          if [ -z "$SHARE_TESTER_PASSWORD" ]; then
+            echo "Missing repository secret SHARE_TESTER_PASSWORD"
+            exit 1
+          fi
+          if [ "$SHARE_ADMIN_PASSWORD" = "$SHARE_TESTER_PASSWORD" ]; then
+            echo "Admin and tester passwords must be different."
+            exit 1
+          fi
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@latest
+
+      - name: Normalize Cloudflare API token
+        shell: bash
+        env:
+          RAW_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_KEY || vars.CLOUDFLARE_API_KEY || secrets.CF_API_TOKEN || vars.CF_API_TOKEN }}
+        run: |
+          RAW="$(printf '%s' "$RAW_CLOUDFLARE_TOKEN" | tr -d '\r\n')"
+          RAW="$(printf '%s' "$RAW" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          TOKEN="$(printf '%s' "$RAW" | grep -oE 'cfat_[A-Za-z0-9_-]+' | head -n 1 || true)"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="$RAW"
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "Cloudflare API token is empty."
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Verify Cloudflare authentication
+        working-directory: cloudflare/share-worker
+        run: wrangler whoami
+
+      - name: Ensure tester-share R2 bucket exists
+        working-directory: cloudflare/share-worker
+        run: wrangler r2 bucket create subscript-share || true
+
+      - name: Configure admin password
+        working-directory: cloudflare/share-worker
+        env:
+          SHARE_ADMIN_PASSWORD: ${{ secrets.SHARE_ADMIN_PASSWORD }}
+        run: printf "%s" "$SHARE_ADMIN_PASSWORD" | wrangler secret put SHARE_ADMIN_PASSWORD
+
+      - name: Configure tester password
+        working-directory: cloudflare/share-worker
+        env:
+          SHARE_TESTER_PASSWORD: ${{ secrets.SHARE_TESTER_PASSWORD }}
+        run: printf "%s" "$SHARE_TESTER_PASSWORD" | wrangler secret put SHARE_TESTER_PASSWORD
+
+      - name: Deploy tester share
+        working-directory: cloudflare/share-worker
+        run: wrangler deploy
+
+      - name: Verify deployed health endpoint
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error "https://subscript-share.sensoredrooster-com.workers.dev/health" | tee health.json; then
+              grep -q '"ok":true' health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
