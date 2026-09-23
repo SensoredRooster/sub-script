@@ -39,15 +39,16 @@ function constantEqual(a, b) {
   if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
   let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0;
 }
+function sessionSecret(env) { return env.SHARE_SESSION_SECRET || env.SHARE_ADMIN_PASSWORD || ""; }
 async function signSession(env, role) {
   const payload = b64url(encoder.encode(JSON.stringify({ role, exp: Math.floor(Date.now()/1000)+SESSION_SECONDS, project: "subscript" })));
-  const sig = b64url(await hmac(env.SHARE_SESSION_SECRET, payload));
+  const sig = b64url(await hmac(sessionSecret(env), payload));
   return payload + "." + sig;
 }
 async function verifySession(request, env) {
   const cookie = request.headers.get("cookie") || "";
   const match = cookie.match(/(?:^|;\s*)share_session=([^;]+)/);
-  if (!match || !env.SHARE_SESSION_SECRET) return null;
+  if (!match || !sessionSecret(env)) return null;
   const parts = match[1].split("."); if (parts.length !== 2) return null;
   const expected = b64url(await hmac(env.SHARE_SESSION_SECRET, parts[0]));
   if (!constantEqual(expected, parts[1])) return null;
@@ -97,7 +98,7 @@ export default { async fetch(request, env) {
   if (request.method === "GET" && url.pathname === "/login") return html(LOGIN);
   if (request.method === "POST" && url.pathname === "/login") {
     const rate = await env.AUTH_RATE_LIMITER.limit({key:ip}); if (!rate.success) return json({error:"Too many sign-in attempts."},429);
-    if (!env.SHARE_ADMIN_PASSWORD || !env.SHARE_TESTER_PASSWORD || !env.SHARE_SESSION_SECRET) return json({error:"Portal authentication is not configured."},503);
+    if (!env.SHARE_ADMIN_PASSWORD || !env.SHARE_TESTER_PASSWORD) return json({error:"Portal authentication is not configured."},503);
     let body; try { body=await request.json(); } catch { return json({error:"Invalid request."},400); }
     const role=body?.role==="admin"?"admin":"tester"; const expected=role==="admin"?env.SHARE_ADMIN_PASSWORD:env.SHARE_TESTER_PASSWORD;
     if (!constantEqual(String(body?.password||""),expected)) return json({error:"Invalid password."},401);
