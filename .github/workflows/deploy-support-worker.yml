@@ -30,7 +30,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SUPPORT_ADMIN_TOKEN: ${{ secrets.SUBSCRIPT_SUPPORT_ADMIN_TOKEN }}
-        run: printf "%s" "$SUPPORT_ADMIN_TOKEN" | wrangler secret put SUPPORT_ADMIN_TOKEN
+        run: |
+          if [ -n "$SUPPORT_ADMIN_TOKEN" ]; then
+            printf "%s" "$SUPPORT_ADMIN_TOKEN" | wrangler secret put SUPPORT_ADMIN_TOKEN
+          else
+            echo "Admin retrieval secret not configured; uploads will still work and bundles remain accessible from the R2 dashboard."
+          fi
       - name: Deploy Worker
         working-directory: cloudflare/support-worker
         env:
