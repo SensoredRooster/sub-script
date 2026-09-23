@@ -18,12 +18,13 @@ notify: true
 # ---------------------------------------------------------------------------
 # Telemetry is local-first. SubScript writes rotating JSONL logs while running.
 # Windows default: %LOCALAPPDATA%\SubScript\logs
-# Nothing is uploaded unless the tester explicitly clicks "Send Diagnostics"
-# AND a support collector URL is configured here or through
-# SUBSCRIPT_SUPPORT_UPLOAD_URL.
+# Nothing is uploaded unless the tester explicitly clicks "Send Diagnostics".
+# Production builds already use the dedicated Cloudflare collector:
+# https://subscript-support.sensoredrooster-com.workers.dev/upload
+# Set upload_url only to override that endpoint for development/self-hosting.
 support:
   upload_url: ""
-# Optional collector authentication belongs in the environment, not this file:
+# Optional authentication applies only to a custom development collector:
 # SUBSCRIPT_SUPPORT_UPLOAD_TOKEN=your_private_support_token
 
 stream:
