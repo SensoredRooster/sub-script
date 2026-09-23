@@ -27,7 +27,7 @@ def test_redaction_masks_known_secret_fields_and_bearer_tokens():
 def test_support_center_is_visible_and_local_first(app_env):
     page = app_env.client.get("/support")
     assert page.status_code == 200
-    assert "Support &amp; diagnostics" in page.text
+    assert "Support & diagnostics" in page.text
     assert "Download Support Bundle" in page.text
     assert "Open Logs Folder" in page.text
     assert "Report Issue on GitHub" in page.text
