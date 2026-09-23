@@ -13,16 +13,34 @@ jobs:
           node-version: "22"
       - name: Install Wrangler
         run: npm install --global wrangler@latest
+
+      - name: Normalize Cloudflare token
+        shell: bash
+        env:
+          RAW_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_KEY || vars.CLOUDFLARE_API_KEY || secrets.CF_API_TOKEN || vars.CF_API_TOKEN }}
+        run: |
+          TOKEN="$(printf '%s' "$RAW_CLOUDFLARE_TOKEN" | tr -d '\r\n')"
+          TOKEN="$(printf '%s' "$TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          TOKEN="${TOKEN#Bearer }"
+          TOKEN="${TOKEN#bearer }"
+          TOKEN="${TOKEN#\"}"
+          TOKEN="${TOKEN%\"}"
+          TOKEN="${TOKEN#\'}"
+          TOKEN="${TOKEN%\'}"
+          if [ -z "$TOKEN" ]; then
+            echo "Cloudflare API token is empty after normalization."
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"
       - name: Ensure R2 bucket exists
         working-directory: cloudflare/support-worker
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_KEY || vars.CLOUDFLARE_API_KEY || secrets.CF_API_TOKEN || vars.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 9c5f81e73d237bab60bdb0bc2085cd56
         run: wrangler r2 bucket create subscript-support-logs || true
       - name: Set upload secret
         working-directory: cloudflare/support-worker
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_KEY || vars.CLOUDFLARE_API_KEY || secrets.CF_API_TOKEN || vars.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 9c5f81e73d237bab60bdb0bc2085cd56
           SUPPORT_ADMIN_TOKEN: ${{ secrets.SUBSCRIPT_SUPPORT_ADMIN_TOKEN }}
         run: |
@@ -34,6 +52,5 @@ jobs:
       - name: Deploy Worker
         working-directory: cloudflare/support-worker
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_KEY || vars.CLOUDFLARE_API_KEY || secrets.CF_API_TOKEN || vars.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 9c5f81e73d237bab60bdb0bc2085cd56
         run: wrangler deploy
