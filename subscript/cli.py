@@ -9,6 +9,7 @@ from subscript.buffer import resolve_live_source
 from subscript.config import load_config
 from subscript.hotkey import listen, notify_fired
 from subscript.pipeline import run_pipeline
+from subscript.telemetry import configure_telemetry, log_event, start_heartbeat
 
 
 def parse_time(value: str) -> float:
@@ -87,6 +88,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.watch:
+        configure_telemetry()
         hotkey = cfg.get("hotkey") or "ctrl+shift+c"
         seconds = int(cfg.get("buffer_seconds") or 30)
         auto_enqueue = bool(cfg.get("auto_enqueue", True))
@@ -103,6 +105,11 @@ def main(argv: list[str] | None = None) -> None:
             f"Watching hotkey {hotkey!r} → last {seconds}s → "
             f"{'enqueue review' if auto_enqueue else 'process only'}"
         )
+        start_heartbeat(
+            lambda: {"mode": "cli_watch", "hotkey": hotkey, "buffer_seconds": seconds},
+            interval=1.0,
+        )
+        log_event("cli_watch_started", "Legacy CLI hotkey watcher started", hotkey=hotkey, buffer_seconds=seconds)
 
         def fire() -> None:
             print("Hotkey fired — running pipeline…", flush=True)
@@ -145,6 +152,8 @@ def main(argv: list[str] | None = None) -> None:
     if not args.source.exists():
         raise SystemExit(_missing_source_message(args.source))
 
+    configure_telemetry()
+    start_heartbeat(lambda: {"mode": "cli_clip"}, interval=1.0)
     try:
         run_pipeline(
             args.source,
