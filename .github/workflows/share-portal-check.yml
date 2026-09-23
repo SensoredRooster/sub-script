@@ -1,0 +1,24 @@
+name: Tester Share Portal Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cloudflare/share-worker/**"
+      - ".github/workflows/share-portal-check.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "cloudflare/share-worker/**"
+      - ".github/workflows/share-portal-check.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Syntax check Worker
+        run: node --check cloudflare/share-worker/src/index.js
