@@ -10,7 +10,6 @@ import re
 import shutil
 import sys
 import threading
-import traceback
 import time
 import uuid
 import zipfile
@@ -27,6 +26,7 @@ _SECRET_KEY_RE = re.compile(
 )
 _BEARER_RE = re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+\-/]+=*")
 _LONG_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9])")
+_QUERY_SECRET_RE = re.compile(r"(?i)([?&](?:code|token|access_token|refresh_token|client_secret|state|password)=)[^&\\s]+")
 
 _LOGGER_NAME = "subscript"
 _state_lock = threading.Lock()
@@ -46,6 +46,7 @@ def utc_now() -> str:
 def redact_text(value: Any) -> str:
     text = str(value)
     text = _BEARER_RE.sub("Bearer [REDACTED]", text)
+    text = _QUERY_SECRET_RE.sub(lambda match: match.group(1) + "[REDACTED]", text)
     text = _LONG_TOKEN_RE.sub("[REDACTED]", text)
     return text
 
