@@ -79,9 +79,9 @@ def _render_page(cfg: dict, snip, holder: dict, *, profile: dict | None = None, 
             .replace("{{PROFILE_SUBTITLE}}", subtitle)
             .replace("{{FOLDER}}", escape(str((profile or {}).get("folder") or ""), quote=True))
             .replace("{{HOTKEY}}", escape(str((profile or {}).get("hotkey") or cfg.get("hotkey") or "ctrl+shift+c"), quote=True))
-            .replace("{{SOURCE_SMART_SELECTED}}", "selected" if (profile or {}).get("source_mode", "smart_highlight") == "smart_highlight" else "")
+            .replace("{{SOURCE_SMART_SELECTED}}", "selected" if ((profile or {}).get("source_mode") == "smart_highlight" or (profile is None and not (profile or {}).get("source_mode"))) else "")
             .replace("{{SOURCE_WHOLE_SELECTED}}", "selected" if (profile or {}).get("source_mode") == "whole_file" else "")
-            .replace("{{SOURCE_LAST_SELECTED}}", "selected" if (profile or {}).get("source_mode") == "last_seconds" else "")
+            .replace("{{SOURCE_LAST_SELECTED}}", "selected" if ((profile is not None and not (profile or {}).get("source_mode")) or (profile or {}).get("source_mode") == "last_seconds") else "")
             .replace("{{SMART_PRE_ROLL}}", str(float((profile or {}).get("smart_pre_roll", 3.0))))
             .replace("{{SMART_POST_ROLL}}", str(float((profile or {}).get("smart_post_roll", 2.0))))
             .replace("{{SECONDS}}", str(int((profile or {}).get("buffer_seconds") or cfg.get("buffer_seconds") or 30)))
@@ -169,7 +169,8 @@ def _build_profile(cfg: dict, form, existing: dict | None, action: str) -> dict:
         raise ValueError("Clip length must be a whole number between 5 and 300 seconds.") from exc
     if not 5 <= seconds <= 300:
         raise ValueError("Choose a clip length between 5 and 300 seconds.")
-    source_mode = _text(form, "source_mode", str((existing or {}).get("source_mode") or "smart_highlight"))
+    source_default = str((existing or {}).get("source_mode") or ("last_seconds" if existing else "smart_highlight"))
+    source_mode = _text(form, "source_mode", source_default)
     if source_mode not in {"smart_highlight", "whole_file", "last_seconds"}:
         raise ValueError("Choose Smart Highlight, whole incoming video, or last seconds.")
     try:
