@@ -7,11 +7,13 @@ from html import escape
 import mimetypes
 import re
 from pathlib import Path
+import os
+import subprocess
 from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from subscript import capture_setup
 from subscript.auth import is_authenticated, login_redirect
@@ -77,8 +79,11 @@ def _render_page(cfg: dict, snip, holder: dict, *, profile: dict | None = None, 
             .replace("{{PROFILE_SUBTITLE}}", subtitle)
             .replace("{{FOLDER}}", escape(str((profile or {}).get("folder") or ""), quote=True))
             .replace("{{HOTKEY}}", escape(str((profile or {}).get("hotkey") or cfg.get("hotkey") or "ctrl+shift+c"), quote=True))
+            .replace("{{SOURCE_SMART_SELECTED}}", "selected" if (profile or {}).get("source_mode", "smart_highlight") == "smart_highlight" else "")
             .replace("{{SOURCE_WHOLE_SELECTED}}", "selected" if (profile or {}).get("source_mode") == "whole_file" else "")
-            .replace("{{SOURCE_LAST_SELECTED}}", "selected" if (profile or {}).get("source_mode", "last_seconds") != "whole_file" else "")
+            .replace("{{SOURCE_LAST_SELECTED}}", "selected" if (profile or {}).get("source_mode") == "last_seconds" else "")
+            .replace("{{SMART_PRE_ROLL}}", str(float((profile or {}).get("smart_pre_roll", 3.0))))
+            .replace("{{SMART_POST_ROLL}}", str(float((profile or {}).get("smart_post_roll", 2.0))))
             .replace("{{SECONDS}}", str(int((profile or {}).get("buffer_seconds") or cfg.get("buffer_seconds") or 30)))
             .replace("{{FLOW_REVIEW_SELECTED}}", "selected" if (profile or {}).get("review_mode", "review") == "review" else "")
             .replace("{{FLOW_AUTO_SELECTED}}", "selected" if (profile or {}).get("review_mode") == "automatic" else "")
@@ -164,9 +169,16 @@ def _build_profile(cfg: dict, form, existing: dict | None, action: str) -> dict:
         raise ValueError("Clip length must be a whole number between 5 and 300 seconds.") from exc
     if not 5 <= seconds <= 300:
         raise ValueError("Choose a clip length between 5 and 300 seconds.")
-    source_mode = _text(form, "source_mode", str((existing or {}).get("source_mode") or "last_seconds"))
-    if source_mode not in {"whole_file", "last_seconds"}:
-        raise ValueError("Choose whether to use the whole incoming video or only its last seconds.")
+    source_mode = _text(form, "source_mode", str((existing or {}).get("source_mode") or "smart_highlight"))
+    if source_mode not in {"smart_highlight", "whole_file", "last_seconds"}:
+        raise ValueError("Choose Smart Highlight, whole incoming video, or last seconds.")
+    try:
+        smart_pre_roll = float(_text(form, "smart_pre_roll", str((existing or {}).get("smart_pre_roll", 3.0))))
+        smart_post_roll = float(_text(form, "smart_post_roll", str((existing or {}).get("smart_post_roll", 2.0))))
+    except ValueError as exc:
+        raise ValueError("Smart Highlight context values must be numbers.") from exc
+    if not 0 <= smart_pre_roll <= 30 or not 0 <= smart_post_roll <= 30:
+        raise ValueError("Smart Highlight context must be between 0 and 30 seconds.")
     review_mode = _text(form, "review_mode", "review")
     if review_mode not in {"review", "automatic"}:
         raise ValueError("Choose Review first or Publish automatically.")
@@ -210,6 +222,8 @@ def _build_profile(cfg: dict, form, existing: dict | None, action: str) -> dict:
         "hotkey": hotkey,
         "buffer_seconds": seconds,
         "source_mode": source_mode,
+        "smart_pre_roll": smart_pre_roll,
+        "smart_post_roll": smart_post_roll,
         "review_mode": review_mode,
         "platforms": current_platforms,
         "vertical_layout": layout_from_form(form),
@@ -261,7 +275,7 @@ def _management_cards(cfg: dict, holder: dict, esc) -> str:
             f'<span class="profile-state {state_class}">{esc(state)}</span></header>'
             '<div class="managed-profile-meta">'
             f'<p><strong>Folder</strong><code>{esc(str(profile.get("folder") or "Not set"))}</code></p>'
-            f'<p><strong>Incoming video</strong><span>{esc("Use whole file" if profile.get("source_mode") == "whole_file" else "Keep last " + str(profile.get("buffer_seconds") or 30) + " seconds")}</span></p>'
+            f'<p><strong>Clip rule</strong><span>{esc("Smart Highlight" if profile.get("source_mode", "smart_highlight") == "smart_highlight" else ("Use whole file" if profile.get("source_mode") == "whole_file" else "Keep last " + str(profile.get("buffer_seconds") or 30) + " seconds"))}</span></p>'
             f'<p><strong>Destinations</strong><span>{esc(destination_text)}</span></p>'
             '</div><div class="profile-card-actions">'
             f'<a class="quiet-button" href="/automation/{esc(profile_id)}/edit">Edit workflow</a>'
@@ -295,6 +309,78 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
         if not is_authenticated(request, cfg):
             return login_redirect(request)
         return _render_page(cfg, snip, holder)
+
+    @app.post("/automation/browse-folder")
+    def browse_folder(request: Request):
+        if not is_authenticated(request, cfg):
+            return JSONResponse({"error": "Sign in required."}, status_code=401)
+        chosen = ""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            chosen = filedialog.askdirectory(title="Choose the folder SubScript should watch")
+            root.destroy()
+        except Exception:
+            if os.name == "nt":
+                try:
+                    script = (
+                        "$s=New-Object -ComObject Shell.Application;"
+                        "$f=$s.BrowseForFolder(0,'Choose the folder SubScript should watch',0,0);"
+                        "if($f){$f.Self.Path}"
+                    )
+                    result = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command", script],
+                        capture_output=True, text=True, timeout=120, check=False,
+                    )
+                    chosen = result.stdout.strip()
+                except Exception:
+                    chosen = ""
+        if not chosen:
+            return JSONResponse({"cancelled": True, "folder": ""})
+        path = Path(chosen).expanduser()
+        if not path.is_dir():
+            return JSONResponse({"error": "That folder is not available."}, status_code=400)
+        latest = capture_setup.newest_video_in(path)
+        count = sum(1 for p in path.iterdir() if p.is_file() and p.suffix.lower() in {".mp4",".mov",".mkv",".webm",".avi",".m4v",".flv",".ts"})
+        return JSONResponse({"folder": str(path.resolve()), "video_count": count, "latest": latest.name if latest else ""})
+
+    @app.get("/automation/folder-status")
+    def folder_status(request: Request, folder: str = ""):
+        if not is_authenticated(request, cfg):
+            return JSONResponse({"error": "Sign in required."}, status_code=401)
+        path = Path(folder.strip().strip('"')).expanduser()
+        if not folder.strip() or not path.is_dir():
+            return JSONResponse({"ready": False, "message": "Choose an existing folder."})
+        latest = capture_setup.newest_video_in(path)
+        count = sum(1 for p in path.iterdir() if p.is_file() and p.suffix.lower() in {".mp4",".mov",".mkv",".webm",".avi",".m4v",".flv",".ts"})
+        return JSONResponse({
+            "ready": True,
+            "folder": str(path.resolve()),
+            "video_count": count,
+            "latest": latest.name if latest else "",
+            "message": ("Folder ready · newest video: " + latest.name) if latest else "Folder ready · no videos here yet",
+        })
+
+    @app.post("/automation/open-folder")
+    async def open_folder(request: Request):
+        if not is_authenticated(request, cfg):
+            return JSONResponse({"error": "Sign in required."}, status_code=401)
+        form = await request.form()
+        folder = _text(form, "folder")
+        path = Path(folder.strip().strip('"')).expanduser()
+        if not path.is_dir():
+            return JSONResponse({"error": "Folder not found."}, status_code=404)
+        try:
+            if os.name == "nt":
+                os.startfile(str(path))  # type: ignore[attr-defined]
+            elif os.name == "posix":
+                subprocess.Popen(["xdg-open", str(path)])
+            return JSONResponse({"ok": True})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
 
     @app.get("/automation/source-preview")
     def source_preview(request: Request, folder: str = ""):
@@ -364,8 +450,13 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
                 test_cfg["platforms"] = deepcopy(profile["platforms"])
                 test_cfg["vertical_layout"] = deepcopy(profile.get("vertical_layout") or {})
                 test_cfg.setdefault("review", {})["require_approval"] = True
-                test_duration = None if profile.get("source_mode") == "whole_file" else profile["buffer_seconds"]
-                capture_setup.run_pipeline(source, test_cfg, dry_run=True, duration=test_duration)
+                if profile.get("source_mode", "smart_highlight") == "smart_highlight":
+                    from subscript.live_ui import smart_highlight_window
+                    start, test_duration, _note = smart_highlight_window(source, test_cfg, profile)
+                    capture_setup.run_pipeline(source, test_cfg, dry_run=True, start=start, duration=test_duration)
+                else:
+                    test_duration = None if profile.get("source_mode") == "whole_file" else profile["buffer_seconds"]
+                    capture_setup.run_pipeline(source, test_cfg, dry_run=True, duration=test_duration)
                 profile["enabled"] = False
                 _save_profile(cfg, profile)
                 return RedirectResponse(f"/automation/{profile['id']}/edit?msg=" + quote("Safe preview created. Nothing was published."), status_code=303)
