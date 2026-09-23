@@ -56,15 +56,16 @@ def _selected_platforms(form) -> set[str]:
 
 def _render_page(cfg: dict, snip, holder: dict, *, profile: dict | None = None, message: str = "", error: str = "") -> str:
     editor_cfg = _profile_cfg(cfg, profile)
-    title = "Edit automated profile" if profile else "Create an automated profile"
+    editing = bool(profile and profile.get("id"))
+    title = "Edit automated profile" if editing else "Create an automated profile"
     subtitle = (
-        "Update this profile without changing your other folders."
-        if profile
+        "Update this workflow without changing your other folders."
+        if editing
         else "Choose one folder, decide how new videos should be processed, and turn the workflow on."
     )
     template = snip("automation_profile.html")
     delete_control = ""
-    if profile:
+    if editing:
         delete_control = (
             '<form method="post" action="/automation/delete" class="profile-delete-form" '
             'onsubmit="return confirm(\'Delete this automated profile? Its saved settings will be removed.\');">'
