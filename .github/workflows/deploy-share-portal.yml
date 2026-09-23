@@ -16,25 +16,6 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Validate required share secrets
-        shell: bash
-        env:
-          SHARE_ADMIN_PASSWORD: ${{ secrets.SHARE_ADMIN_PASSWORD }}
-          SHARE_TESTER_PASSWORD: ${{ secrets.SHARE_TESTER_PASSWORD }}
-        run: |
-          if [ -z "$SHARE_ADMIN_PASSWORD" ]; then
-            echo "Missing repository secret SHARE_ADMIN_PASSWORD"
-            exit 1
-          fi
-          if [ -z "$SHARE_TESTER_PASSWORD" ]; then
-            echo "Missing repository secret SHARE_TESTER_PASSWORD"
-            exit 1
-          fi
-          if [ "$SHARE_ADMIN_PASSWORD" = "$SHARE_TESTER_PASSWORD" ]; then
-            echo "Admin and tester passwords must be different."
-            exit 1
-          fi
-
       - name: Install Wrangler
         run: npm install --global wrangler@latest
 
@@ -63,18 +44,6 @@ jobs:
       - name: Ensure tester-share R2 bucket exists
         working-directory: cloudflare/share-worker
         run: wrangler r2 bucket create subscript-share || true
-
-      - name: Configure admin password
-        working-directory: cloudflare/share-worker
-        env:
-          SHARE_ADMIN_PASSWORD: ${{ secrets.SHARE_ADMIN_PASSWORD }}
-        run: printf "%s" "$SHARE_ADMIN_PASSWORD" | wrangler secret put SHARE_ADMIN_PASSWORD
-
-      - name: Configure tester password
-        working-directory: cloudflare/share-worker
-        env:
-          SHARE_TESTER_PASSWORD: ${{ secrets.SHARE_TESTER_PASSWORD }}
-        run: printf "%s" "$SHARE_TESTER_PASSWORD" | wrangler secret put SHARE_TESTER_PASSWORD
 
       - name: Deploy tester share
         working-directory: cloudflare/share-worker
