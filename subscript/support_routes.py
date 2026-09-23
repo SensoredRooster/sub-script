@@ -22,6 +22,7 @@ from subscript.telemetry import (
 
 _REPO = "https://github.com/SensoredRooster/sub-script"
 _ISSUES = _REPO + "/issues/new"
+_DEFAULT_UPLOAD_URL = "https://subscript-support.sensoredrooster-com.workers.dev/upload"
 
 
 def _watcher_status(holder: dict) -> dict:
@@ -70,7 +71,7 @@ def register_support_routes(app, cfg: dict, holder: dict, snip) -> None:
         info = telemetry_info()
         template = snip("support.html")
         support_cfg = cfg.get("support") if isinstance(cfg.get("support"), dict) else {}
-        upload_url = os.getenv("SUBSCRIPT_SUPPORT_UPLOAD_URL") or str(support_cfg.get("upload_url") or "")
+        upload_url = os.getenv("SUBSCRIPT_SUPPORT_UPLOAD_URL") or str(support_cfg.get("upload_url") or "") or _DEFAULT_UPLOAD_URL
         upload_control = (
             '<button type="button" class="secondary" data-upload-support-bundle>Send Diagnostics to Developer</button>'
             if upload_url.strip()
