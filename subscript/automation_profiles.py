@@ -58,7 +58,7 @@ def _render_page(cfg: dict, snip, holder: dict, *, profile: dict | None = None, 
     subtitle = (
         "Update this profile without changing your other folders."
         if profile
-        else "Build one trigger, one folder, and one posting plan at a time."
+        else "Choose one folder, decide how new videos should be processed, and turn the workflow on."
     )
     template = snip("automation_profile.html")
     delete_control = ""
@@ -77,6 +77,8 @@ def _render_page(cfg: dict, snip, holder: dict, *, profile: dict | None = None, 
             .replace("{{PROFILE_SUBTITLE}}", subtitle)
             .replace("{{FOLDER}}", escape(str((profile or {}).get("folder") or ""), quote=True))
             .replace("{{HOTKEY}}", escape(str((profile or {}).get("hotkey") or cfg.get("hotkey") or "ctrl+shift+c"), quote=True))
+            .replace("{{SOURCE_WHOLE_SELECTED}}", "selected" if (profile or {}).get("source_mode") == "whole_file" else "")
+            .replace("{{SOURCE_LAST_SELECTED}}", "selected" if (profile or {}).get("source_mode", "last_seconds") != "whole_file" else "")
             .replace("{{SECONDS}}", str(int((profile or {}).get("buffer_seconds") or cfg.get("buffer_seconds") or 30)))
             .replace("{{FLOW_REVIEW_SELECTED}}", "selected" if (profile or {}).get("review_mode", "review") == "review" else "")
             .replace("{{FLOW_AUTO_SELECTED}}", "selected" if (profile or {}).get("review_mode") == "automatic" else "")
@@ -153,13 +155,18 @@ def _validate_hotkey(hotkey: str) -> str:
 
 def _build_profile(cfg: dict, form, existing: dict | None, action: str) -> dict:
     folder = _validate_folder(_text(form, "folder"))
-    hotkey = _validate_hotkey(_text(form, "hotkey", "ctrl+shift+c"))
+    # Keep the legacy hotkey value for backward compatibility, but folder-owned
+    # Autopilot profiles are triggered automatically by new completed files.
+    hotkey = _text(form, "hotkey", str((existing or {}).get("hotkey") or cfg.get("hotkey") or "ctrl+shift+c")) or "ctrl+shift+c"
     try:
         seconds = int(_text(form, "seconds", "30"))
     except ValueError as exc:
         raise ValueError("Clip length must be a whole number between 5 and 300 seconds.") from exc
     if not 5 <= seconds <= 300:
         raise ValueError("Choose a clip length between 5 and 300 seconds.")
+    source_mode = _text(form, "source_mode", str((existing or {}).get("source_mode") or "last_seconds"))
+    if source_mode not in {"whole_file", "last_seconds"}:
+        raise ValueError("Choose whether to use the whole incoming video or only its last seconds.")
     review_mode = _text(form, "review_mode", "review")
     if review_mode not in {"review", "automatic"}:
         raise ValueError("Choose Review first or Publish automatically.")
@@ -202,6 +209,7 @@ def _build_profile(cfg: dict, form, existing: dict | None, action: str) -> dict:
         "folder": str(folder),
         "hotkey": hotkey,
         "buffer_seconds": seconds,
+        "source_mode": source_mode,
         "review_mode": review_mode,
         "platforms": current_platforms,
         "vertical_layout": layout_from_form(form),
@@ -253,7 +261,7 @@ def _management_cards(cfg: dict, holder: dict, esc) -> str:
             f'<span class="profile-state {state_class}">{esc(state)}</span></header>'
             '<div class="managed-profile-meta">'
             f'<p><strong>Folder</strong><code>{esc(str(profile.get("folder") or "Not set"))}</code></p>'
-            f'<p><strong>Trigger</strong><span>{esc(str(profile.get("hotkey") or "ctrl+shift+c"))} · {esc(str(profile.get("buffer_seconds") or 30))} seconds</span></p>'
+            f'<p><strong>Incoming video</strong><span>{esc("Use whole file" if profile.get("source_mode") == "whole_file" else "Keep last " + str(profile.get("buffer_seconds") or 30) + " seconds")}</span></p>'
             f'<p><strong>Destinations</strong><span>{esc(destination_text)}</span></p>'
             '</div><div class="profile-card-actions">'
             f'<a class="quiet-button" href="/automation/{esc(profile_id)}/edit">Edit workflow</a>'
@@ -263,7 +271,7 @@ def _management_cards(cfg: dict, holder: dict, esc) -> str:
         )
     return "".join(cards) or (
         '<div class="management-empty"><h3>No automated workflows yet.</h3>'
-        '<p>Build your first profile and SubScript will keep its folder, trigger, and destinations separate.</p>'
+        '<p>Build your first workflow and SubScript will watch its folder automatically for new completed videos.</p>'
         '<a class="primary" href="/automation/new">Build my first workflow</a></div>'
     )
 
@@ -350,13 +358,14 @@ def register_automation_routes(app, cfg: dict, holder: dict, snip) -> None:
             if action == "test":
                 source = capture_setup.newest_video_in(Path(profile["folder"]))
                 if source is None:
-                    raise ValueError("No replay found in this profile folder. Save a VOD there, then test again.")
+                    raise ValueError("No video found in this watched folder. Add a finished video there, then run the safe test again.")
                 test_cfg = deepcopy(cfg)
                 test_cfg.update(watch_folder=profile["folder"], live_source="", hotkey=profile["hotkey"], buffer_seconds=profile["buffer_seconds"])
                 test_cfg["platforms"] = deepcopy(profile["platforms"])
                 test_cfg["vertical_layout"] = deepcopy(profile.get("vertical_layout") or {})
                 test_cfg.setdefault("review", {})["require_approval"] = True
-                capture_setup.run_pipeline(source, test_cfg, dry_run=True, duration=profile["buffer_seconds"])
+                test_duration = None if profile.get("source_mode") == "whole_file" else profile["buffer_seconds"]
+                capture_setup.run_pipeline(source, test_cfg, dry_run=True, duration=test_duration)
                 profile["enabled"] = False
                 _save_profile(cfg, profile)
                 return RedirectResponse(f"/automation/{profile['id']}/edit?msg=" + quote("Safe preview created. Nothing was published."), status_code=303)
