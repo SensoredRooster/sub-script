@@ -11,7 +11,7 @@ Private tester file sharing is provided by a dedicated Cloudflare Worker backed 
 
 **Tester**
 - Browse and download files.
-- Upload to `Tester Uploads`, `Screenshots`, `Bug Reports`, and `Logs`.
+- Upload to `Tester Uploads`, `VODs`, `Screenshots`, `Bug Reports`, and `Logs`.
 - Cannot upload releases, archive files, delete files, or change the Latest build.
 
 **Admin**

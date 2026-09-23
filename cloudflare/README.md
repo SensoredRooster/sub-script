@@ -32,6 +32,7 @@ Portal folders:
 
 - `Releases`
 - `Tester Uploads`
+- `VODs`
 - `Screenshots`
 - `Bug Reports`
 - `Logs`
