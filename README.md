@@ -180,18 +180,32 @@ The builder is deliberately a slideshow-style workflow. Only the current step is
 
 #### Step 1 — Watch folder
 
-Enter a recognizable workflow name and choose the real folder where new videos will appear. The folder must already exist, and two workflows cannot watch the same folder.
+Enter a recognizable workflow name and choose the real folder where new videos will appear. Use **Browse…** to open the native folder picker; typing a Windows path is still supported for power users. SubScript validates the folder immediately, shows how many supported videos it contains, and identifies the newest video when one is available.
 
-When the workflow is active, **the new completed video appearing in this folder is the trigger**. No second SubScript hotkey is required. The video may be created by OBS, NVIDIA, Medal, another recorder, or copied into the folder manually. SubScript waits for the file to finish writing before processing it.
+The folder must already exist, and two workflows cannot watch the same folder.
+
+When the workflow is active, **the new completed video appearing in this folder is the trigger**. No second SubScript hotkey is required. The video may be created by OBS, NVIDIA, Medal, another recorder, or copied into the folder manually. SubScript waits for the file to stop changing before processing it.
+
+The workflow card also provides **Open folder**, and an existing workflow can be **Duplicated** to reuse its layout, publishing choices, and clip rules with a different watch folder.
 
 #### Step 2 — Clip behavior
 
-Choose whether SubScript should:
+New workflows default to **Smart Highlight**. SubScript analyzes each incoming video, chooses the strongest moment, trims away unnecessary lead-in/tail footage, and keeps a configurable amount of context before and after the detected highlight.
 
-- use the whole incoming video; or
-- keep only the last 5–300 seconds.
+Available modes are:
 
-Use the whole-file option when your recorder already creates the exact clip you want. Use the last-seconds option when the folder receives longer replay-buffer files.
+- **Smart Highlight** — recommended; automatically select the strongest moment;
+- **Use the whole incoming video** — for recorder-created clips that are already cut exactly how you want;
+- **Keep only the last N seconds** — for longer replay-buffer files where the important moment is reliably near the end.
+
+Smart Highlight includes:
+
+- target highlight window length;
+- seconds of context to preserve before the detected moment;
+- seconds of context to preserve after the detected moment; and
+- fail-soft fallback to a last-N-seconds window if automatic analysis cannot produce a usable suggestion.
+
+Older saved workflows keep their previous last-seconds behavior unless you explicitly switch them to Smart Highlight.
 
 #### Step 3 — Vertical layout
 
@@ -214,13 +228,13 @@ Automatic mode requires at least one selected destination. Review-first mode can
 
 #### Step 6 — Test + activate
 
-Before saving, confirm the trigger order shown on screen. The available actions are:
+Before saving, confirm the watched-folder behavior shown on screen. The available actions are:
 
 - **Create safe test preview** — uses the newest replay in the folder, forces review mode, and publishes nothing;
 - **Save profile** — saves the profile without arming its watcher;
 - **Activate workflow** — saves the workflow and immediately begins watching the folder for new completed videos.
 
-After activation, any new supported video that finishes writing in the watched folder is processed automatically. Existing files already present when the watcher starts are not unexpectedly reprocessed.
+After activation, any new supported video that finishes writing in the watched folder is processed automatically. Existing files already present when the watcher starts are not unexpectedly reprocessed. If several videos arrive close together, the watcher processes them sequentially rather than starting overlapping jobs.
 
 ## Live streaming setup
 
