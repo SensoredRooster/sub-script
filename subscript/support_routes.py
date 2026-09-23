@@ -6,12 +6,14 @@ from html import escape
 from pathlib import Path
 import os
 import urllib.request
+import shutil
 from urllib.parse import quote
 
 from fastapi import Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from subscript.auth import is_authenticated, login_redirect
+from subscript.runtime_paths import find_ffmpeg
 from subscript.telemetry import (
     create_support_bundle,
     open_in_file_browser,
@@ -35,6 +37,28 @@ def _watcher_status(holder: dict) -> dict:
             }
             for key, watcher in profiles.items()
         },
+    }
+
+
+def _health_status(cfg: dict, holder: dict) -> dict:
+    out_dir = Path((cfg.get("output") or {}).get("dir") or "out")
+    probe_path = out_dir if out_dir.exists() else Path.cwd()
+    try:
+        usage = shutil.disk_usage(probe_path)
+        disk = {
+            "free_bytes": usage.free,
+            "total_bytes": usage.total,
+            "free_gb": round(usage.free / (1024 ** 3), 2),
+        }
+    except OSError:
+        disk = {}
+    return {
+        **_watcher_status(holder),
+        "ffmpeg_available": bool(find_ffmpeg()),
+        "output_dir": str(out_dir),
+        "output_dir_exists": out_dir.exists(),
+        "disk": disk,
+        "configured_profiles": len(cfg.get("automation_profiles") or []),
     }
 
 
@@ -64,13 +88,13 @@ def register_support_routes(app, cfg: dict, holder: dict, snip) -> None:
     def support_status(request: Request):
         if not is_authenticated(request, cfg):
             return JSONResponse({"error": "Sign in required."}, status_code=401)
-        return JSONResponse({**telemetry_info(), **_watcher_status(holder)})
+        return JSONResponse({**telemetry_info(), **_health_status(cfg, holder)})
 
     @app.post("/support/bundle")
     def support_bundle(request: Request):
         if not is_authenticated(request, cfg):
             return login_redirect(request)
-        bundle = create_support_bundle(cfg, extra_status=_watcher_status(holder))
+        bundle = create_support_bundle(cfg, extra_status=_health_status(cfg, holder))
         return FileResponse(
             bundle,
             media_type="application/zip",
