@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "subscript-share",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-23",
+  "account_id": "9c5f81e73d237bab60bdb0bc2085cd56",
+  "r2_buckets": [
+    {
+      "binding": "SHARE_BUCKET",
+      "bucket_name": "subscript-share"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "41001",
+      "simple": { "limit": 12, "period": 60 }
+    },
+    {
+      "name": "UPLOAD_RATE_LIMITER",
+      "namespace_id": "42001",
+      "simple": { "limit": 20, "period": 60 }
+    }
+  ]
+}
