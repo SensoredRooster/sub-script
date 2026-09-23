@@ -100,6 +100,10 @@ def test_automation_profile_is_a_separate_slideshow(app_env):
     assert "Activate workflow" in page
     assert "No extra trigger required" in page
     assert "watches for new videos automatically" in page
+    assert "Browse…" in page
+    assert "Smart Highlight" in page
+    assert 'name="smart_pre_roll"' in page
+    assert 'name="smart_post_roll"' in page
 
 
 def test_automation_profile_saves_by_folder(app_env, monkeypatch):
@@ -210,3 +214,80 @@ def test_save_and_start_flow_arms_watcher(app_env, monkeypatch):
     assert fake.started is True
     assert app_env.cfg["review"]["require_approval"] is False
     assert app_env.cfg["auto_start_watcher"] is True
+
+
+def test_new_automation_profile_defaults_to_smart_highlight(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    response = app_env.client.post("/automation/save", data={
+        "profile_name": "Smart clips",
+        "folder": str(app_env.tmp),
+        "seconds": "18",
+        "smart_pre_roll": "3.5",
+        "smart_post_roll": "2",
+        "review_mode": "review",
+        "action": "save",
+    }, follow_redirects=False)
+    assert response.status_code == 303
+    saved = yaml.safe_load(app_env.cfg_path.read_text())
+    profile = saved["automation_profiles"][0]
+    assert profile["source_mode"] == "smart_highlight"
+    assert profile["buffer_seconds"] == 18
+    assert profile["smart_pre_roll"] == 3.5
+    assert profile["smart_post_roll"] == 2.0
+
+
+def test_existing_profile_without_source_mode_keeps_legacy_last_seconds(app_env, monkeypatch):
+    monkeypatch.setattr("subscript.capture_setup.find_ffmpeg", lambda: "ffmpeg")
+    app_env.cfg["automation_profiles"] = [{
+        "id": "legacy",
+        "name": "Legacy",
+        "folder": str(app_env.tmp),
+        "buffer_seconds": 25,
+        "review_mode": "review",
+        "platforms": {},
+    }]
+    response = app_env.client.post("/automation/save", data={
+        "profile_id": "legacy",
+        "profile_name": "Legacy",
+        "folder": str(app_env.tmp),
+        "seconds": "25",
+        "review_mode": "review",
+        "action": "save",
+    }, follow_redirects=False)
+    assert response.status_code == 303
+    saved = yaml.safe_load(app_env.cfg_path.read_text())
+    assert saved["automation_profiles"][0]["source_mode"] == "last_seconds"
+
+
+def test_folder_status_reports_latest_video(app_env):
+    (app_env.tmp / "older.mp4").write_bytes(b"old")
+    newest = app_env.tmp / "newest.mp4"
+    newest.write_bytes(b"new")
+    import os
+    os.utime(newest, None)
+    response = app_env.client.get("/automation/folder-status", params={"folder": str(app_env.tmp)})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ready"] is True
+    assert payload["video_count"] == 2
+    assert payload["latest"] == "newest.mp4"
+
+
+def test_duplicate_workflow_reuses_settings_but_requires_new_folder(app_env):
+    app_env.cfg["automation_profiles"] = [{
+        "id": "source",
+        "name": "Ranked",
+        "folder": str(app_env.tmp),
+        "source_mode": "smart_highlight",
+        "smart_pre_roll": 4,
+        "smart_post_roll": 2,
+        "buffer_seconds": 18,
+        "review_mode": "review",
+        "platforms": {"tiktok": {"enabled": True}},
+    }]
+    page = app_env.client.get("/automation/source/clone").text
+    assert "Create an automated profile" in page
+    assert "Ranked copy" in page
+    assert 'value="" placeholder="C:\\Users\\you\\Videos\\Replays"' in page
+    assert "Duplicated settings" in page
+    assert "Delete this profile" not in page
