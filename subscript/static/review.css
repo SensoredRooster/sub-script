@@ -197,3 +197,12 @@ main{padding:1.35rem 0 4rem;gap:1rem}
 .smart-highlight-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;padding:1rem;border:1px solid var(--border);border-radius:14px;background:var(--surface-3)}
 .smart-highlight-controls.is-smart{border-color:rgba(124,92,255,.45)}
 @media(max-width:760px){.folder-picker-row{grid-template-columns:1fr 1fr}.folder-picker-row input{grid-column:1/-1}.smart-highlight-controls{grid-template-columns:1fr}}
+
+/* Support & telemetry */
+.support-card{max-width:900px}
+.support-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin:1rem 0}
+.support-facts p{margin:0;padding:.9rem;border:1px solid var(--border);border-radius:12px;background:var(--surface-3);display:grid;gap:.35rem}
+.support-facts span,.support-facts code{color:var(--muted);font-size:.78rem;word-break:break-word}
+.support-actions{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;margin:1rem 0}
+.support-actions form{margin:0}
+@media(max-width:760px){.support-facts{grid-template-columns:1fr}.support-actions>*{width:100%}.support-actions form button{width:100%}}
