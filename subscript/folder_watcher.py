@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 
 from subscript.buffer import _VIDEO_SUFFIXES
+from subscript.telemetry import log_event
 
 log = logging.getLogger("subscript.folder_watcher")
 
@@ -113,6 +114,7 @@ class FolderWatcher:
             self._armed = True
             self.last_error = None
             self.last_ok = f"Watching for new videos in {self.folder}"
+            log_event("watcher_started", "Folder watcher started", folder=str(self.folder))
             while not self._stop.wait(self.poll_seconds):
                 if not self.folder.is_dir():
                     self.last_error = f"Watch folder is unavailable: {self.folder}"
@@ -125,13 +127,16 @@ class FolderWatcher:
                         continue
                     try:
                         self.last_ok = f"New clip detected: {path.name}"
+                        log_event("watcher_file_detected", "New completed video detected", file_name=path.name, folder=str(self.folder))
                         self._on_file(path)
                         self.fire_count += 1
                         self.last_error = None
                         self.last_ok = f"Processed {path.name}"
+                        log_event("watcher_file_processed", "Watched video processed", file_name=path.name, folder=str(self.folder))
                         self._seen.add(signature)
                     except Exception as exc:  # noqa: BLE001
                         self.last_error = f"{path.name}: {exc}"
+                        log_event("watcher_file_failed", "Watched video processing failed", level=logging.ERROR, file_name=path.name, error=str(exc))
                         log.exception("Automatic folder processing failed")
                         # Mark this exact file version as seen so a permanent
                         # render error does not create an infinite retry loop.
@@ -166,6 +171,7 @@ class FolderWatcher:
         if thread and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=max(1.0, self.poll_seconds * 2))
         self._armed = False
+        log_event("watcher_stopped", "Folder watcher stopped", folder=str(self.folder))
 
     def status(self) -> dict:
         return {
