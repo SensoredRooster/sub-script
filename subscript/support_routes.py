@@ -87,16 +87,20 @@ def register_support_routes(app, cfg: dict, holder: dict, snip) -> None:
             return JSONResponse({"error": "Remote support upload is not configured."}, status_code=409)
         bundle = create_support_bundle(cfg, extra_status=_watcher_status(holder))
         data = bundle.read_bytes()
+        headers = {
+            "Content-Type": "application/zip",
+            "X-SubScript-Session": str(telemetry_info().get("session_id") or ""),
+            "X-SubScript-Version": str(telemetry_info().get("version") or ""),
+            "X-SubScript-Filename": bundle.name,
+        }
+        upload_token = os.getenv("SUBSCRIPT_SUPPORT_UPLOAD_TOKEN", "").strip()
+        if upload_token:
+            headers["Authorization"] = "Bearer " + upload_token
         req = urllib.request.Request(
             upload_url.strip(),
             data=data,
             method="POST",
-            headers={
-                "Content-Type": "application/zip",
-                "X-SubScript-Session": str(telemetry_info().get("session_id") or ""),
-                "X-SubScript-Version": str(telemetry_info().get("version") or ""),
-                "X-SubScript-Filename": bundle.name,
-            },
+            headers=headers,
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as response:
