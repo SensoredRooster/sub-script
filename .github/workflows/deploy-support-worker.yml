@@ -29,8 +29,8 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          SUPPORT_UPLOAD_TOKEN: ${{ secrets.SUBSCRIPT_SUPPORT_UPLOAD_TOKEN }}
-        run: printf "%s" "$SUPPORT_UPLOAD_TOKEN" | wrangler secret put SUPPORT_UPLOAD_TOKEN
+          SUPPORT_ADMIN_TOKEN: ${{ secrets.SUBSCRIPT_SUPPORT_ADMIN_TOKEN }}
+        run: printf "%s" "$SUPPORT_ADMIN_TOKEN" | wrangler secret put SUPPORT_ADMIN_TOKEN
       - name: Deploy Worker
         working-directory: cloudflare/support-worker
         env:
