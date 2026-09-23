@@ -16,6 +16,7 @@ from subscript.queue import ReviewQueue
 from subscript.post_metadata import generate_posts
 from subscript.reframe import make_social_pair
 from subscript.layout import normalize_layout, probe_media
+from subscript.telemetry import log_event
 
 
 def run_pipeline(
@@ -37,6 +38,15 @@ def run_pipeline(
     branded = out_dir / f"clip-branded-{stamp}.mp4"
 
     src = BufferSource(path=source, buffer_seconds=seconds).resolve()
+    log_event(
+        "pipeline_start",
+        "Clip pipeline started",
+        source_name=src.name,
+        start=start,
+        duration=duration,
+        dry_run=dry_run,
+        require_approval=bool((cfg.get("review") or {}).get("require_approval", True)),
+    )
     metadata = probe_media(src)
     if metadata and (int(metadata.get("width") or 0) < 2 or int(metadata.get("height") or 0) < 2):
         raise ValueError("The selected recording has no readable video stream. Wait for the recorder to finish writing, then choose it again.")
@@ -113,11 +123,13 @@ def run_pipeline(
         if captioned:
             print(f"  captioned:  {captioned}")
         print(f"Open the app: run-app.bat  ->  http://{host}:{port}")
+        log_event("pipeline_review_ready", "Clip queued for review", item_id=item.id, source_name=src.name)
         return branded
 
     if dry_run:
         from subscript.upload import dry_run_upload
         dry_run_upload(captioned or vertical, cfg.get("youtube") or {}, out_dir)
+        log_event("pipeline_dry_run_complete", "Dry-run pipeline completed", source_name=src.name)
         return branded
 
     # Persist a review item first so interrupted or failed delivery retains the clip.
@@ -151,6 +163,8 @@ def run_pipeline(
     # Do not expose an already-uploaded clip to a one-click retry of every destination.
     queue.set_status(item.id, "uploaded" if uploaded else "pending" if failed else "approved")
     if failed:
+        log_event("pipeline_publish_failed", "Automatic publishing needs attention", level=40, item_id=item.id)
         raise RuntimeError("Automatic publishing needs attention. Export pack saved. " + format_platform_banner(results))
     print(format_platform_banner(results))
+    log_event("pipeline_complete", "Automatic pipeline completed", item_id=item.id, uploaded=uploaded, source_name=src.name)
     return branded
