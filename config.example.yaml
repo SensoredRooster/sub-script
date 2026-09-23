@@ -12,6 +12,20 @@ auto_start_watcher: false
 # Windows toast when possible; otherwise console beep / print.
 notify: true
 
+
+# ---------------------------------------------------------------------------
+# Support / telemetry
+# ---------------------------------------------------------------------------
+# Telemetry is local-first. SubScript writes rotating JSONL logs while running.
+# Windows default: %LOCALAPPDATA%\SubScript\logs
+# Nothing is uploaded unless the tester explicitly clicks "Send Diagnostics"
+# AND a support collector URL is configured here or through
+# SUBSCRIPT_SUPPORT_UPLOAD_URL.
+support:
+  upload_url: ""
+# Optional collector authentication belongs in the environment, not this file:
+# SUBSCRIPT_SUPPORT_UPLOAD_TOKEN=your_private_support_token
+
 stream:
   resolution: "1920x1080"
   player_name: "YourActivisionId"
