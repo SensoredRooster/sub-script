@@ -1,5 +1,14 @@
 # Cloudflare Support Collector Deployment
 
+## Current production deployment
+
+- Worker: `https://subscript-support.sensoredrooster-com.workers.dev`
+- Upload endpoint: `https://subscript-support.sensoredrooster-com.workers.dev/upload`
+- Health endpoint: `https://subscript-support.sensoredrooster-com.workers.dev/health`
+- Private R2 bucket: `subscript-support-logs`
+
+The Worker is live. This document remains the deployment/maintenance reference for future redeploys.
+
 This repository contains a dedicated Cloudflare Worker for tester diagnostics.
 
 The collector is isolated to this product. Do not point another application at this Worker or its storage bucket.
