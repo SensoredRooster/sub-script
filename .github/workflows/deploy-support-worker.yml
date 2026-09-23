@@ -1,0 +1,39 @@
+name: Deploy Cloudflare Support Collector
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "cloudflare/support-worker/**"
+      - ".github/workflows/deploy-support-worker.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Install Wrangler
+        run: npm install --global wrangler@latest
+      - name: Ensure R2 bucket exists
+        working-directory: cloudflare/support-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler r2 bucket create subscript-support-logs || true
+      - name: Set upload secret
+        working-directory: cloudflare/support-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SUPPORT_UPLOAD_TOKEN: ${{ secrets.SUBSCRIPT_SUPPORT_UPLOAD_TOKEN }}
+        run: printf "%s" "$SUPPORT_UPLOAD_TOKEN" | wrangler secret put SUPPORT_UPLOAD_TOKEN
+      - name: Deploy Worker
+        working-directory: cloudflare/support-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler deploy
