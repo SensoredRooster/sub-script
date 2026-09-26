@@ -2,6 +2,11 @@ name: Deploy Cloudflare Support Collector
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "cloudflare/support-worker/**"
+      - ".github/workflows/deploy-support-worker.yml"
 
 jobs:
   deploy:
