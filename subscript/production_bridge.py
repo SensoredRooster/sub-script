@@ -25,6 +25,14 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
+def _safe_id(value: str) -> str:
+    raw = str(value or "").strip()
+    safe = "".join(ch for ch in raw if ch.isalnum() or ch in "-_")
+    if not safe or safe != raw:
+        raise ValueError("job_id may contain only letters, numbers, '-' and '_'.")
+    return safe
+
+
 def validate_production_job(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Production job must be a JSON object.")
@@ -33,7 +41,7 @@ def validate_production_job(payload: dict[str, Any]) -> dict[str, Any]:
     if str(payload.get("version") or "") != CONTRACT_VERSION:
         raise ValueError(f"version must be {CONTRACT_VERSION!r}.")
 
-    job_id = str(payload.get("job_id") or uuid.uuid4())
+    job_id = _safe_id(str(payload.get("job_id") or uuid.uuid4()))
     source = payload.get("source") or {}
     source_path = str(source.get("path") or "").strip()
     if not source_path:
@@ -84,7 +92,7 @@ class BridgeRun:
 
     @classmethod
     def create(cls, out_dir: Path, job: dict[str, Any]) -> "BridgeRun":
-        root = out_dir / "bridge-runs" / str(job["job_id"])
+        root = out_dir / "bridge-runs" / _safe_id(str(job["job_id"]))
         root.mkdir(parents=True, exist_ok=True)
         run = cls(root, job)
         if not run.state_path.exists():
@@ -111,7 +119,7 @@ class BridgeRun:
 
     @classmethod
     def open(cls, out_dir: Path, run_id: str) -> "BridgeRun":
-        root = out_dir / "bridge-runs" / run_id
+        root = out_dir / "bridge-runs" / _safe_id(run_id)
         state_path = root / "run.json"
         if not state_path.is_file():
             raise FileNotFoundError(f"Unknown bridge run: {run_id}")
