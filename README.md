@@ -251,6 +251,31 @@ SubScript watches for a new completed video file automatically. It waits for the
 
 The older global live configuration is still supported for compatibility, but new users should use the profile builder because it keeps multiple stream setups separate.
 
+## Universal AI Studio production bridge
+
+SubScript can accept local production jobs from Universal AI Studio without
+changing the normal beginner workflow. The bridge is local-only and listens on
+the same FastAPI app at port 8787.
+
+Endpoints:
+
+~~~text
+POST /api/production-jobs
+GET  /api/production-jobs/<run-id>
+~~~
+
+The request uses the versioned `open-production-job` contract in:
+
+~~~text
+contracts/open-production-job.schema.json
+~~~
+
+A bridge job can provide a local source path, optional start/duration, or request
+Smart Highlight. SubScript validates the source, uses the existing real render
+pipeline, keeps review-first behavior by default, and exposes compatible
+stage/artifact state so Universal AI Studio can mirror progress into its
+Production Board.
+
 ## What happens to a video
 
 The rendering pipeline is:
