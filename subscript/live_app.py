@@ -30,6 +30,7 @@ from subscript.pipeline import run_pipeline
 from subscript.publishing_routes import publishing_html, register_publishing_routes
 from subscript.queue import ReviewQueue
 from subscript.post_metadata import editor_html
+from subscript.production_bridge import BridgeRun, submit_bridge_job
 from subscript.runtime_paths import find_ffmpeg
 from subscript.support_routes import register_support_routes
 from subscript.telemetry import configure_telemetry, log_event, start_heartbeat, stop_heartbeat
@@ -335,6 +336,36 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             ) + ("#review" if (cfg.get("review") or {}).get("require_approval", True) else ""),
             status_code=303,
         )
+
+    @app.post("/api/production-jobs")
+    async def production_job(request: Request) -> JSONResponse:
+        """Accept a local open-production-job handoff from Universal AI Studio."""
+        if request.client and request.client.host not in {"127.0.0.1", "::1", "localhost", "testclient"}:
+            raise HTTPException(403, "Production bridge accepts local requests only.")
+        try:
+            payload = await request.json()
+            state = submit_bridge_job(payload, cfg, out_dir)
+            return JSONResponse({
+                "ok": True,
+                "run_id": state["run_id"],
+                "status": state["status"],
+                "status_url": f"/api/production-jobs/{state['run_id']}",
+                "review_url": "/clip#review",
+            }, status_code=202)
+        except FileNotFoundError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get("/api/production-jobs/{run_id}")
+    def production_job_status(request: Request, run_id: str) -> JSONResponse:
+        """Return bridge state in the shared Production Board shape."""
+        if request.client and request.client.host not in {"127.0.0.1", "::1", "localhost", "testclient"}:
+            raise HTTPException(403, "Production bridge accepts local requests only.")
+        try:
+            return JSONResponse(BridgeRun.open(out_dir, run_id).snapshot())
+        except FileNotFoundError as exc:
+            raise HTTPException(404, str(exc)) from exc
 
     @app.post("/highlights")
     async def highlights(
