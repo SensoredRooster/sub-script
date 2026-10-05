@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sensoredrooster.local/open-production-job.schema.json",
+  "title": "Open Production Job",
+  "type": "object",
+  "required": ["contract", "version", "job_id", "origin", "intent", "source", "edit", "delivery"],
+  "properties": {
+    "contract": {"const": "open-production-job"},
+    "version": {"const": "1.0"},
+    "job_id": {"type": "string", "minLength": 1},
+    "origin": {"type": "string", "minLength": 1},
+    "intent": {"enum": ["clip", "highlight", "edit", "repurpose"]},
+    "source": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "default": "video"}
+      },
+      "additionalProperties": true
+    },
+    "edit": {
+      "type": "object",
+      "properties": {
+        "start_seconds": {"type": ["number", "null"], "minimum": 0},
+        "duration_seconds": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "auto_highlight": {"type": "boolean", "default": false}
+      },
+      "additionalProperties": true
+    },
+    "delivery": {
+      "type": "object",
+      "properties": {
+        "review_required": {"type": "boolean", "default": true},
+        "formats": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": ["16:9", "9:16"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": true
+}
