@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from subscript.pipeline import run_pipeline
+from subscript.highlights import suggest_highlights_or_fallback
 from subscript.telemetry import log_event
 
 
@@ -191,12 +192,34 @@ def execute_bridge_job(job: dict[str, Any], cfg: dict[str, Any], out_dir: Path) 
         pipeline_cfg = deepcopy(cfg)
         pipeline_cfg.setdefault("review", {})["require_approval"] = bool(job["delivery"]["review_required"])
         edit = job["edit"]
+        start = edit.get("start_seconds")
+        duration = edit.get("duration_seconds")
+
+        if edit.get("auto_highlight"):
+            highlight = suggest_highlights_or_fallback(
+                source.resolve(),
+                buffer_seconds=float(duration or cfg.get("buffer_seconds") or 30),
+                top_n=1,
+                cfg=cfg,
+            )
+            suggestions = highlight.get("suggestions") or []
+            best = suggestions[0] if suggestions else {}
+            if best.get("start") is not None:
+                start = float(best["start"])
+            if best.get("duration") is not None:
+                duration = float(best["duration"])
+            run.artifact("highlight_selection", {
+                "analysis": highlight,
+                "selected_start_seconds": start,
+                "selected_duration_seconds": duration,
+            })
+
         result = run_pipeline(
             source.resolve(),
             pipeline_cfg,
             dry_run=bool(job["delivery"]["review_required"]),
-            start=edit.get("start_seconds"),
-            duration=edit.get("duration_seconds"),
+            start=start,
+            duration=duration,
         )
         run.artifact("master_output", {"path": str(result)})
         run.stage("render", "complete", output=str(result))
