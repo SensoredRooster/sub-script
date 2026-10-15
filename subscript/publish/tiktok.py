@@ -22,6 +22,7 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
+from subscript.secure_store import read_token_text, token_exists, write_token_text
 from subscript.config import ROOT, load_dotenv
 from subscript.publish.base import NotConfiguredError, PublishMeta, PublishResult
 from subscript.publish.manual import manual_handoff
@@ -87,9 +88,9 @@ def connection_status(cfg: dict[str, Any]) -> dict[str, Any]:
     key_ready = bool(client_key(cfg) and client_secret(cfg))
     token = token_path(cfg)
     data: dict[str, Any] = {}
-    if token.is_file():
+    if token_exists(token):
         try:
-            raw = json.loads(token.read_text(encoding="utf-8"))
+            raw = json.loads(read_token_text(token) or "{}")
             if isinstance(raw, dict):
                 data = raw
         except (OSError, ValueError):
@@ -198,8 +199,7 @@ def _request_json(method: str, url: str, *, form: dict[str, str] | None = None, 
 
 def _save_token(data: dict[str, Any], cfg: dict[str, Any]) -> None:
     path = token_path(cfg)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    write_token_text(path, json.dumps(data, indent=2))
 
 
 def finish_authorization(cfg: dict[str, Any], *, code: str, state: str) -> None:
@@ -225,10 +225,10 @@ def finish_authorization(cfg: dict[str, Any], *, code: str, state: str) -> None:
 
 def _load_token(cfg: dict[str, Any]) -> dict[str, Any]:
     path = token_path(cfg)
-    if not path.is_file():
+    if not token_exists(path):
         raise NotConfiguredError("Connect TikTok before publishing. Click Connect TikTok in the TikTok destination card.")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(read_token_text(path) or "")
     except (OSError, ValueError) as exc:
         raise NotConfiguredError("The saved TikTok connection is unreadable. Disconnect and connect TikTok again.") from exc
     if not isinstance(data, dict) or not data.get("access_token"):

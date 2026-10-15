@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from subscript.config import ROOT
+from subscript.secure_store import read_token_text, token_exists, write_token_text
 from subscript.config import load_dotenv as _load_dotenv
 
 YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
@@ -95,9 +96,9 @@ def get_youtube_credentials(youtube_cfg: dict[str, Any], *, timeout_seconds: int
         )
 
     creds: Credentials | None = None
-    if token.is_file():
+    if token_exists(token):
         try:
-            creds = Credentials.from_authorized_user_file(str(token), [YOUTUBE_UPLOAD_SCOPE])
+            creds = Credentials.from_authorized_user_info(json.loads(read_token_text(token) or "{}"), [YOUTUBE_UPLOAD_SCOPE])
         except Exception:  # noqa: BLE001
             creds = None
 
@@ -113,8 +114,7 @@ def get_youtube_credentials(youtube_cfg: dict[str, Any], *, timeout_seconds: int
         )
         # Opens the system browser once; saves token for next Approves.
         creds = flow.run_local_server(port=0, prompt="consent", timeout_seconds=timeout_seconds)
-        token.parent.mkdir(parents=True, exist_ok=True)
-        token.write_text(creds.to_json(), encoding="utf-8")
+        write_token_text(token, creds.to_json())
 
     return creds
 

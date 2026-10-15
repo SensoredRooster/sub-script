@@ -34,11 +34,11 @@ R2 uses object keys rather than real directories; the portal presents these pref
 
 ## Security
 
-The repository contains only SHA-256 hashes of the high-entropy portal passwords, never their plaintext values. Login credentials are transported only over HTTPS and stored in a Secure, HttpOnly, SameSite=Strict cookie for the browser session.
+The repository contains no passwords or password hashes. The Worker reads three secrets: `ADMIN_PASSWORD_HASH` and `TESTER_PASSWORD_HASH` (SHA-256 hex of each password) and `SESSION_SECRET` (random, at least 32 characters). After login the browser receives a Secure, HttpOnly, SameSite=Strict cookie containing only the role, an expiry (12 hours), and an HMAC-SHA256 signature; the password is never stored in the cookie. Changing a password hash or `SESSION_SECRET` immediately invalidates existing sessions. If any secret is missing the portal fails closed (HTTP 503).
 
 Login attempts and uploads are rate limited. Files are limited to 75 MB per upload. The Worker sets no-store and common browser security headers.
 
-To rotate a password, generate a new high-entropy password, replace only its SHA-256 hash in `cloudflare/share-worker/src/index.js`, redeploy the Worker, and distribute the new password through a private channel.
+To rotate a password, generate a new high-entropy password, update its hash with `wrangler secret put ADMIN_PASSWORD_HASH` (or `TESTER_PASSWORD_HASH`) from `cloudflare/share-worker`, and distribute the new password through a private channel. Secrets take effect without a code change.
 
 ## Deployment
 

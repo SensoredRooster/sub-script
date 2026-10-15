@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from html import escape
 from typing import Any
@@ -14,6 +15,7 @@ from subscript.post_metadata import generate_posts, PLATFORMS
 from subscript.output_formats import FORMATS, selected_format
 
 from subscript.config import dry_run_forced, save_config
+from subscript.secure_store import read_token_text, token_exists
 from subscript.upload import client_secrets_path, token_path, get_youtube_credentials
 from subscript.publish.tiktok import (
     TikTokAPIError,
@@ -27,12 +29,12 @@ from subscript.publish.base import NotConfiguredError
 def youtube_connection_status(cfg):
     youtube = cfg.get("youtube") or {}
     configured = client_secrets_path(youtube).is_file()
-    exists = token_path(youtube).is_file()
+    exists = token_exists(token_path(youtube))
     usable = False
     try:
         from google.oauth2.credentials import Credentials
         from subscript.upload import YOUTUBE_UPLOAD_SCOPE
-        creds = Credentials.from_authorized_user_file(str(token_path(youtube)), [YOUTUBE_UPLOAD_SCOPE])
+        creds = Credentials.from_authorized_user_info(json.loads(read_token_text(token_path(youtube)) or "{}"), [YOUTUBE_UPLOAD_SCOPE])
         usable = bool(creds.valid or creds.refresh_token)
     except Exception:
         pass

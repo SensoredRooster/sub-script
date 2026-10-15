@@ -32,6 +32,13 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Lint (ruff, advisory)
+        shell: powershell
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check subscript tests --output-format=github --exit-zero
+
       - name: Compile Python
         shell: powershell
         run: python -m compileall -q subscript
