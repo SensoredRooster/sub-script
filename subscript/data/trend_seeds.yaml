@@ -1,0 +1,61 @@
+# Offline hashtag/keyword seeds for post drafts. Edit freely; no network is used.
+# Each game lists aliases (matched case-insensitively against post_copy.game),
+# hashtags (no '#'), and search keywords used as YouTube tags.
+default:
+  hashtags: [Gaming, Gameplay, GamingClips, Clips, GamerLife, Highlights, Twitch, Streamer, FYP, Viral]
+  keywords: [gaming, gameplay, gaming clips, highlights, funny moments, best moments, streamer clips]
+games:
+  warzone:
+    aliases: [warzone, call of duty warzone, cod warzone, wz]
+    hashtags: [Warzone, CallOfDuty, COD, WarzoneClips, CODWarzone, Resurgence, WarzoneWins, CODClips]
+    keywords: [warzone, call of duty, warzone highlights, warzone clips, resurgence, warzone win]
+  call_of_duty:
+    aliases: [call of duty, cod, black ops, modern warfare, bo6, bo7, mw3]
+    hashtags: [CallOfDuty, COD, BlackOps, CODClips, Multiplayer, CODMoments]
+    keywords: [call of duty, cod, black ops, cod multiplayer, cod highlights]
+  fortnite:
+    aliases: [fortnite, fn]
+    hashtags: [Fortnite, FortniteClips, FortniteBR, Victory, FortniteMoments, Epic]
+    keywords: [fortnite, fortnite clips, fortnite highlights, fortnite victory royale]
+  apex:
+    aliases: [apex, apex legends]
+    hashtags: [ApexLegends, Apex, ApexClips, ApexPredators, ApexHighlights]
+    keywords: [apex legends, apex clips, apex highlights]
+  valorant:
+    aliases: [valorant, val]
+    hashtags: [Valorant, ValorantClips, VCT, ValorantAce, ValorantHighlights]
+    keywords: [valorant, valorant clips, valorant ace, valorant highlights]
+  counter_strike:
+    aliases: [counter-strike, counter strike, cs2, csgo, cs]
+    hashtags: [CS2, CounterStrike, CS2Clips, CSGO, Ace]
+    keywords: [cs2, counter strike 2, cs2 clips, cs2 highlights]
+  minecraft:
+    aliases: [minecraft, mc]
+    hashtags: [Minecraft, MinecraftClips, MinecraftMemes, MinecraftBuilds]
+    keywords: [minecraft, minecraft clips, minecraft funny moments]
+  league:
+    aliases: [league of legends, league, lol]
+    hashtags: [LeagueOfLegends, LoL, LeagueClips, Pentakill]
+    keywords: [league of legends, lol clips, league highlights]
+  overwatch:
+    aliases: [overwatch, overwatch 2, ow2]
+    hashtags: [Overwatch2, Overwatch, OWClips, PlayOfTheGame]
+    keywords: [overwatch 2, overwatch clips, play of the game]
+  rocket_league:
+    aliases: [rocket league, rl]
+    hashtags: [RocketLeague, RocketLeagueClips, RLClips, Goal]
+    keywords: [rocket league, rocket league clips, rocket league goals]
+  gta:
+    aliases: [gta, gta v, gta 5, gta online, gta 6, grand theft auto]
+    hashtags: [GTA, GTAOnline, GTAV, GTAClips, GTARP]
+    keywords: [gta online, gta clips, gta funny moments]
+  marvel_rivals:
+    aliases: [marvel rivals, rivals]
+    hashtags: [MarvelRivals, MarvelRivalsClips, Rivals]
+    keywords: [marvel rivals, marvel rivals clips, marvel rivals highlights]
+# Short emoji set offered as optional chips (never inserted automatically).
+emojis:
+  hype: ["🔥", "⚡", "🏆", "💪", "🚀"]
+  funny: ["😂", "💀", "🤣", "😭"]
+  clutch: ["🎯", "😱", "👀", "🤯"]
+  gaming: ["🎮", "🕹️", "🎧"]
