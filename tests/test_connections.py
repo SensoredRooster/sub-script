@@ -15,14 +15,14 @@ def test_connection_badge_states(tmp_path, monkeypatch, exists, valid, refresh, 
     client.touch()
     token = tmp_path / "token.json"
     if exists:
-        token.touch()
+        token.write_text("{}", encoding="utf-8")
     monkeypatch.setattr("subscript.publishing_routes.client_secrets_path", lambda cfg: client)
     monkeypatch.setattr("subscript.publishing_routes.token_path", lambda cfg: token)
     def load(*args, **kwargs):
         if not exists:
             raise FileNotFoundError()
         return SimpleNamespace(valid=valid, refresh_token=refresh)
-    monkeypatch.setattr("google.oauth2.credentials.Credentials.from_authorized_user_file", load)
+    monkeypatch.setattr("google.oauth2.credentials.Credentials.from_authorized_user_info", load)
     monkeypatch.setattr("subscript.publishing_routes.dry_run_forced", lambda: False)
     html = youtube_connection_html({"youtube": {"enabled": False}})
     assert f" {label}</span>" in html
@@ -35,7 +35,7 @@ def test_preview_mode_separate_from_connected_badge(tmp_path, monkeypatch):
     client = tmp_path / "client.json"
     client.touch()
     monkeypatch.setattr("subscript.publishing_routes.client_secrets_path", lambda cfg: client)
-    monkeypatch.setattr("google.oauth2.credentials.Credentials.from_authorized_user_file", lambda *a, **kw: SimpleNamespace(valid=True, refresh_token=True))
+    monkeypatch.setattr("google.oauth2.credentials.Credentials.from_authorized_user_info", lambda *a, **kw: SimpleNamespace(valid=True, refresh_token=True))
     monkeypatch.setattr("subscript.publishing_routes.dry_run_forced", lambda: True)
     html = youtube_connection_html({"youtube": {"enabled": True}})
     assert " Connected</span>" in html
