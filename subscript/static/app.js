@@ -857,3 +857,22 @@
   refresh();
   setInterval(refresh, 4000);
 })();
+
+// Post-copy suggestion chips: insert a hashtag/emoji into the caption at the cursor.
+document.addEventListener("click", (event) => {
+  const chip = event.target.closest && event.target.closest("button.chip[data-insert]");
+  if (!chip) return;
+  const form = chip.closest("form");
+  const box = form && form.querySelector('textarea[name="description"]');
+  if (!box) return;
+  const text = chip.dataset.insert;
+  const start = box.selectionStart ?? box.value.length;
+  const end = box.selectionEnd ?? box.value.length;
+  const before = box.value.slice(0, start);
+  const pad = before && !/\s$/.test(before) ? " " : "";
+  const next = before + pad + text + box.value.slice(end);
+  if (box.maxLength > 0 && next.length > box.maxLength) { chip.title = "Caption limit reached"; return; }
+  box.value = next;
+  box.focus();
+  chip.disabled = true;
+});

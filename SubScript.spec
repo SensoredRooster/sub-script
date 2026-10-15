@@ -9,6 +9,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = [
     ("subscript/static", "subscript/static"),
+    ("subscript/data", "subscript/data"),
     ("config.example.yaml", "."),
     ("scripts/FFMPEG_BESIDE_APP.txt", "."),
 ]

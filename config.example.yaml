@@ -139,3 +139,13 @@ platforms:
   rumble:
     enabled: false
     mode: manual
+
+# Trend-aware hashtag suggestions for post drafts (off by default).
+# Offline per-game seeds always work. With enabled: true and YOUTUBE_API_KEY in .env,
+# SubScript asks the official YouTube Data API for this week's most-viewed Gaming videos
+# for your game (about 101 quota units, cached 24h). Suggestions never post anything;
+# you still review and approve every draft. TikTok and Google Trends are never scraped.
+trends:
+  enabled: false
+  sources: [seeds, youtube]
+  region: US
