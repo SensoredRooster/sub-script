@@ -6,50 +6,62 @@ default:
   keywords: [gaming, gameplay, gaming clips, highlights, funny moments, best moments, streamer clips]
 games:
   warzone:
+    name: Warzone
     aliases: [warzone, call of duty warzone, cod warzone, wz]
     hashtags: [Warzone, CallOfDuty, COD, WarzoneClips, CODWarzone, Resurgence, WarzoneWins, CODClips]
     keywords: [warzone, call of duty, warzone highlights, warzone clips, resurgence, warzone win]
   call_of_duty:
+    name: Call of Duty
     aliases: [call of duty, cod, black ops, modern warfare, bo6, bo7, mw3]
     hashtags: [CallOfDuty, COD, BlackOps, CODClips, Multiplayer, CODMoments]
     keywords: [call of duty, cod, black ops, cod multiplayer, cod highlights]
   fortnite:
+    name: Fortnite
     aliases: [fortnite, fn]
     hashtags: [Fortnite, FortniteClips, FortniteBR, Victory, FortniteMoments, Epic]
     keywords: [fortnite, fortnite clips, fortnite highlights, fortnite victory royale]
   apex:
+    name: Apex Legends
     aliases: [apex, apex legends]
     hashtags: [ApexLegends, Apex, ApexClips, ApexPredators, ApexHighlights]
     keywords: [apex legends, apex clips, apex highlights]
   valorant:
+    name: Valorant
     aliases: [valorant, val]
     hashtags: [Valorant, ValorantClips, VCT, ValorantAce, ValorantHighlights]
     keywords: [valorant, valorant clips, valorant ace, valorant highlights]
   counter_strike:
+    name: Counter-Strike 2
     aliases: [counter-strike, counter strike, cs2, csgo, cs]
     hashtags: [CS2, CounterStrike, CS2Clips, CSGO, Ace]
     keywords: [cs2, counter strike 2, cs2 clips, cs2 highlights]
   minecraft:
+    name: Minecraft
     aliases: [minecraft, mc]
     hashtags: [Minecraft, MinecraftClips, MinecraftMemes, MinecraftBuilds]
     keywords: [minecraft, minecraft clips, minecraft funny moments]
   league:
+    name: League of Legends
     aliases: [league of legends, league, lol]
     hashtags: [LeagueOfLegends, LoL, LeagueClips, Pentakill]
     keywords: [league of legends, lol clips, league highlights]
   overwatch:
+    name: Overwatch 2
     aliases: [overwatch, overwatch 2, ow2]
     hashtags: [Overwatch2, Overwatch, OWClips, PlayOfTheGame]
     keywords: [overwatch 2, overwatch clips, play of the game]
   rocket_league:
+    name: Rocket League
     aliases: [rocket league, rl]
     hashtags: [RocketLeague, RocketLeagueClips, RLClips, Goal]
     keywords: [rocket league, rocket league clips, rocket league goals]
   gta:
+    name: GTA Online
     aliases: [gta, gta v, gta 5, gta online, gta 6, grand theft auto]
     hashtags: [GTA, GTAOnline, GTAV, GTAClips, GTARP]
     keywords: [gta online, gta clips, gta funny moments]
   marvel_rivals:
+    name: Marvel Rivals
     aliases: [marvel rivals, rivals]
     hashtags: [MarvelRivals, MarvelRivalsClips, Rivals]
     keywords: [marvel rivals, marvel rivals clips, marvel rivals highlights]

@@ -128,12 +128,14 @@ def fetch_youtube_trends(game: str, api_key: str, region: str = "US") -> dict[st
                 per_video.setdefault(tag.lower(), tag)
         for low, tag in per_video.items():
             hashtag_counts[low] += 1
-            display.setdefault(low, tag)
+            # Prefer a mixed-case spelling (e.g. CallOfDuty) over all-lowercase.
+            if low not in display or (display[low] == low and tag != low):
+                display[low] = tag
         for kw in {str(k).strip().lower() for k in snip.get("tags") or []}:
             if 2 <= len(kw) <= 40 and not any(b in kw for b in BLOCKLIST):
                 keyword_counts[kw] += 1
     # Require at least two videos to share a term, so one-off spam doesn't leak in.
-    hashtags = [display[t] for t, n in hashtag_counts.most_common(30) if n >= 2 and t not in {"shorts", "short"}]
+    hashtags = [display_hashtag(t, display[t]) for t, n in hashtag_counts.most_common(30) if n >= 2 and t not in {"shorts", "short"}]
     keywords = [k for k, n in keyword_counts.most_common(30) if n >= 2]
     return {"hashtags": hashtags[:15], "keywords": keywords[:15]}
 
@@ -167,6 +169,131 @@ def _write_cache(path: Path, data: dict[str, Any]) -> None:
 def _age_label(seconds: float) -> str:
     hours = int(seconds // 3600)
     return "just now" if hours < 1 else f"{hours}h ago"
+
+
+# ---- Display casing -------------------------------------------------------
+_COMMON_WORDS = set("""
+a an and the of on in to for with my your our best top new pro epic funny moments moment clip clips gaming game games
+gameplay highlight highlights win wins winner victory royale kill kills clutch ace solo duo trio squad squads ranked
+island rebirth resurgence call duty black ops modern warfare battle royale br live stream streamer streaming shorts
+short tips tricks update season legends legend league rocket overwatch apex fortnite warzone minecraft valorant
+counter strike online life gamer gamers fun crazy insane fail fails edit edits montage play plays sniper snipe
+loadout meta build builds noob tryhard creator content twitch kick youtube viral trending
+""".split())
+
+
+@lru_cache(maxsize=1)
+def _known_casings() -> dict[str, str]:
+    seeds = load_seeds()
+    known: dict[str, str] = {}
+    entries = [seeds.get("default") or {}, *((seeds.get("games") or {}).values())]
+    for entry in entries:
+        for tag in (entry or {}).get("hashtags") or []:
+            cleaned = clean_hashtag(tag)
+            if cleaned:
+                known.setdefault(cleaned.lower(), cleaned)
+    return known
+
+
+@lru_cache(maxsize=1)
+def _dictionary() -> frozenset[str]:
+    seeds = load_seeds()
+    words = set(_COMMON_WORDS)
+    entries = [seeds.get("default") or {}, *((seeds.get("games") or {}).values())]
+    for entry in entries:
+        for phrase in [*((entry or {}).get("keywords") or []), str((entry or {}).get("name") or ""), *((entry or {}).get("aliases") or [])]:
+            words.update(w for w in re.split(r"[^a-z0-9]+", str(phrase).lower()) if len(w) >= 2)
+        for tag in (entry or {}).get("hashtags") or []:
+            words.update(w.lower() for w in re.findall(r"[A-Z][a-z]+|[a-z]+", str(tag)) if len(w) >= 2)
+    return frozenset(words)
+
+
+def _segment(word: str) -> list[str] | None:
+    """Split a lowercase run into dictionary words (fewest pieces), or None."""
+    vocab = _dictionary()
+    n = len(word)
+    best: list[list[str] | None] = [None] * (n + 1)
+    best[0] = []
+    for end in range(1, n + 1):
+        for start in range(max(0, end - 20), end):
+            piece = word[start:end]
+            if best[start] is not None and piece in vocab:
+                cand = best[start] + [piece]
+                if best[end] is None or len(cand) < len(best[end]):
+                    best[end] = cand
+    return best[n]
+
+
+def display_hashtag(tag: str, original: str | None = None) -> str:
+    """CamelCase a hashtag for readability without inventing or mangling words.
+
+    Order: seed casing -> original mixed casing -> dictionary split -> unchanged.
+    Short or unknown tags (e.g. fyp, mw3) are left exactly as they are.
+    """
+    clean = clean_hashtag(tag)
+    if not clean:
+        return ""
+    known = _known_casings().get(clean.lower())
+    if known:
+        return known
+    for candidate in (original, clean):
+        if candidate and candidate != candidate.lower() and candidate != candidate.upper():
+            return clean_hashtag(candidate) or clean
+    if not clean.isalpha() or len(clean) < 6:
+        return clean
+    pieces = _segment(clean.lower())
+    if not pieces or len(pieces) < 2:
+        return clean
+    return "".join(p[:1].upper() + p[1:] for p in pieces)
+
+
+# ---- Game detection ---------------------------------------------------------
+def game_names() -> list[str]:
+    return [str(e.get("name")) for e in (load_seeds().get("games") or {}).values() if isinstance(e, dict) and e.get("name")]
+
+
+def detect_game(texts) -> str | None:
+    """Return a game name when file/folder/scene text clearly names exactly one seeded game.
+
+    Only aliases of 4+ characters (or multi-word) are used, matched on word boundaries,
+    so short codes like "cs" or "val" never trigger a guess.
+    """
+    blob = " ".join(re.sub(r"[_\-.\\/]+", " ", str(t or "")).lower() for t in texts or [])
+    if not blob.strip():
+        return None
+    matches: list[tuple[str, str]] = []
+    for entry in (load_seeds().get("games") or {}).values():
+        if not isinstance(entry, dict) or not entry.get("name"):
+            continue
+        for alias in entry.get("aliases") or []:
+            alias = str(alias).lower().replace("-", " ")
+            if (len(alias) >= 4 or " " in alias) and re.search(r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])", blob):
+                matches.append((str(entry["name"]), alias))
+    # Drop matches whose alias is part of a longer matched alias ("league" inside "rocket league").
+    kept = {name for name, alias in matches
+            if not any(alias != other and alias in other and name != other_name for other_name, other in matches)}
+    if kept == {"Warzone", "Call of Duty"}:
+        return "Warzone"
+    return kept.pop() if len(kept) == 1 else None
+
+
+def trend_status(cfg: dict[str, Any] | None) -> dict[str, Any]:
+    """Safe, secret-free status for the UI."""
+    cfg = cfg or {}
+    settings = cfg.get("trends") or {}
+    try:
+        from subscript.config import load_dotenv
+
+        load_dotenv()
+    except Exception:  # noqa: BLE001
+        pass
+    has_key = bool(str(os.getenv("YOUTUBE_API_KEY") or "").strip())
+    enabled = bool(settings.get("enabled", False))
+    cache = _read_cache(_cache_path(cfg))
+    stamps = [float(v.get("fetched_at", 0)) for v in cache.values() if isinstance(v, dict)]
+    last = max(stamps) if stamps else None
+    return {"enabled": enabled, "has_key": has_key, "region": str(settings.get("region") or "US").upper()[:2],
+            "last_updated": last, "age": _age_label(time.time() - last) if last else None}
 
 
 def get_suggestions(cfg: dict[str, Any] | None, game: str) -> Suggestions:
@@ -204,7 +331,7 @@ def get_suggestions(cfg: dict[str, Any] | None, game: str) -> Suggestions:
             if not entry:
                 seeds.basis += f" (YouTube trends unavailable: {type(exc).__name__})"
                 return seeds
-    trend_tags = [clean_hashtag(t) for t in entry.get("hashtags") or []]
+    trend_tags = [display_hashtag(t) for t in entry.get("hashtags") or []]
     if not any(trend_tags) and not entry.get("keywords"):
         seeds.basis += " (no YouTube trends found)"
         return seeds

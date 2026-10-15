@@ -44,13 +44,19 @@ def _fit_tags(tags, limit: int, char_limit: int) -> list[str]:
     return out
 
 
-def generate_posts(cfg, srt: Path | None = None):
-    from subscript.trends import clean_hashtag, get_suggestions
+def generate_posts(cfg, srt: Path | None = None, hints=None):
+    from subscript.trends import clean_hashtag, detect_game, get_suggestions
 
     settings = cfg.get("post_copy") or {}
     if settings.get("enabled", True) is False:
         return {}
-    game = str(settings.get("game") or "Gameplay").strip()[:60]
+    game = str(settings.get("game") or "").strip()[:60]
+    detected_note = ""
+    if not game:
+        detected = detect_game(hints or [])
+        if detected:
+            game, detected_note = detected, f" · Game detected from file name: {detected}"
+    game = game or "Gameplay"
     creator = str(settings.get("creator") or "").strip()[:60]
     tone = settings.get("tone", "casual")
     speech = transcript_text(srt)
@@ -109,7 +115,7 @@ def generate_posts(cfg, srt: Path | None = None):
         basis = "Saved platform defaults" if title_template or override.get("description") or override.get("tags") else ("Transcript excerpt + creator settings" if speech else "Creator settings only; no transcript available")
         used = {t.lower() for t in tags} | {t.lower() for t in hashes(key)}
         result[key] = {"title": title[:limits["title"]], "description": description[:limits["description"]],
-                       "tags": tags, "basis": f"{basis} · {trend.basis}",
+                       "tags": tags, "basis": f"{basis} · {trend.basis}{detected_note}",
                        "suggestions": {"hashtags": [t for t in trend.hashtags if t.lower() not in used][:10], "emojis": trend.emojis[:12]}}
     return result
 
@@ -139,15 +145,34 @@ def _chips_html(draft) -> str:
     return "".join(parts)
 
 
-def editor_html(item):
+def _game_prompt(item, cfg) -> str:
+    """Nudge the user to set a game when none is configured (better hashtags)."""
+    if cfg is None or str((cfg.get("post_copy") or {}).get("game") or "").strip():
+        return ""
+    from subscript.trends import detect_game
+
+    detected = detect_game([getattr(item, "source_path", ""), getattr(item, "video_path", "")])
+    if detected:
+        value = escape(detected, quote=True)
+        return ('<form method="post" action="/post-copy/game" class="game-prompt">'
+                f'<p class="meta">Looks like <strong>{escape(detected)}</strong> from the file name. Set it as your game for better hashtags?</p>'
+                f'<input type="hidden" name="game" value="{value}"><input type="hidden" name="item_id" value="{escape(item.id, quote=True)}">'
+                f'<button type="submit" class="quiet-button">Use {escape(detected)}</button>'
+                ' <a href="/clip#post-writing">Choose another game</a></form>')
+    return ('<p class="meta game-prompt">Tip: set your game in <a href="/clip#post-writing">Publishing &rarr; Post writing</a> '
+            'to get game-specific hashtags and titles.</p>')
+
+
+def editor_html(item, cfg=None):
     from subscript.trends import TIKTOK_CREATIVE_CENTER_URL
 
     item_id = escape(item.id, quote=True)
     generate = (f'<form method="post" action="/items/{item_id}/generate-post-copy">'
                 '<button type="submit">Generate post drafts for this clip</button>'
                 '<p class="meta">Creates missing drafts for YouTube, TikTok, Instagram, Facebook, X and Rumble. Keeps existing drafts and your edits. Does not publish.</p></form>')
+    prompt = _game_prompt(item, cfg)
     if not item.post_metadata:
-        return generate
+        return prompt + generate
     refresh = (f'<form method="post" action="/items/{item_id}/refresh-post-copy">'
                '<button type="submit" class="quiet-button">Refresh suggestions</button>'
                '<p class="meta">Rebuilds generated drafts with the latest hashtag suggestions. Drafts marked &ldquo;Edited by you&rdquo; are never changed.</p></form>')
@@ -169,4 +194,4 @@ def editor_html(item):
                     + _chips_html(draft) + extra +
                     f'<label>Tags (comma separated, up to {limits["tags"]})<input name="tags" type="text" value="{esc(", ".join(draft["tags"]))}"></label>'
                     '<button type="submit">Save this draft</button></form></details>')
-    return generate + refresh + '<details class="advanced" open><summary>Titles, captions &amp; tags by platform</summary><p class="meta">Local templates use available transcript text, your creator settings, and hashtag suggestions. Nothing is posted until you approve. Trimming regenerates drafts you have not edited.</p>' + "".join(rows) + '</details>'
+    return prompt + generate + refresh + '<details class="advanced" open><summary>Titles, captions &amp; tags by platform</summary><p class="meta">Local templates use available transcript text, your creator settings, and hashtag suggestions. Nothing is posted until you approve. Trimming regenerates drafts you have not edited.</p>' + "".join(rows) + '</details>'
