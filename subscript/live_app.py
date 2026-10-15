@@ -29,6 +29,7 @@ from subscript.live_ui import ensure_profile_watcher, live_card_html, register_l
 from subscript.pipeline import run_pipeline
 from subscript.publishing_routes import publishing_html, register_publishing_routes
 from subscript.queue import ReviewQueue
+from subscript.request_guard import install_request_guard
 from subscript.post_metadata import editor_html
 from subscript.production_bridge import BridgeRun, submit_bridge_job
 from subscript.runtime_paths import find_ffmpeg
@@ -80,6 +81,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     watcher_holder: dict[str, Any] = {"w": None, "profiles": {}}
 
     app = FastAPI(title="sub-script")
+    install_request_guard(app)
 
     @app.middleware("http")
     async def telemetry_request_middleware(request: Request, call_next):
