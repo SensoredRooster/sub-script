@@ -101,7 +101,7 @@ def run_pipeline(
     horizontal = maybe_caption_horizontal(horizontal, out_dir, stamp, cfg)
 
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
-    posts = generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt")
+    posts = generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt", hints=[str(source)])
     if require_approval:
         queue = ReviewQueue(out_dir / "review-queue.json")
         item = queue.enqueue(

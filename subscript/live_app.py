@@ -215,7 +215,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             rows.append(
                 card_tpl.replace("{{ID}}", _esc(item.id))
                 .replace("{{TITLE}}", _esc(item.title))
-                .replace("{{POST_COPY}}", editor_html(item))
+                .replace("{{POST_COPY}}", editor_html(item, cfg))
                 .replace("{{CREATED}}", _esc(item.created_at))
                 .replace("{{VERT_VARIANT}}", vert_variant)
                 .replace("{{VERT_LABEL}}", vert_label)

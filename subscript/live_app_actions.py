@@ -46,7 +46,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         master = Path(item.edited_path or item.video_path)
         prefix = "clip-trimmed-" if item.edited_path else "clip-branded-"
         srt = master.with_name("clip-captions-" + master.stem.removeprefix(prefix) + ".srt")
-        generated = generate_posts(settings, srt)
+        generated = generate_posts(settings, srt, hints=[item.source_path, item.video_path])
         missing = {key: value for key, value in generated.items() if key not in item.post_metadata}
         item.post_metadata.update(missing)
         queue.update(item)
@@ -67,7 +67,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         master = Path(item.edited_path or item.video_path)
         prefix = "clip-trimmed-" if item.edited_path else "clip-branded-"
         srt = master.with_name("clip-captions-" + master.stem.removeprefix(prefix) + ".srt")
-        item.post_metadata = merge_drafts(item.post_metadata, generate_posts(settings, srt))
+        item.post_metadata = merge_drafts(item.post_metadata, generate_posts(settings, srt, hints=[item.source_path, item.video_path]))
         queue.update(item)
         kept = sum(1 for d in item.post_metadata.values() if isinstance(d, dict) and d.get("basis") == EDITED_BASIS)
         message = "Suggestions refreshed. Nothing was published." + (f" {kept} draft(s) you edited were kept as-is." if kept else "")
@@ -218,7 +218,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             vertical_path=str(vertical),
             vertical_captioned_path=str(captioned) if captioned else None,
             vertical_layout=item.vertical_layout or cfg.get("vertical_layout") or {},
-            post_metadata=merge_drafts(item.post_metadata, generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt")),
+            post_metadata=merge_drafts(item.post_metadata, generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt", hints=[item.source_path, item.video_path])),
         )
         return _redirect_ok(
             "Trimmed - new horizontal + vertical (+ captioned) previews ready. "
