@@ -7,7 +7,8 @@ def test_connected_account_has_no_check_button(monkeypatch):
         "state": "connected", "label": "Connected", "detail": "Saved", "delivery": "Uploads off", "configured": True})
     html = youtube_connection_html({})
     assert "Connected" in html
-    assert "<button" not in html
+    # No connect/check button once connected; only the optional Disconnect action.
+    assert "youtube-connect-form" not in html
 
 
 def test_off_platform_settings_are_hidden(app_env):

@@ -15,12 +15,14 @@ from subscript.post_metadata import generate_posts, PLATFORMS
 from subscript.output_formats import FORMATS, selected_format
 
 from subscript.config import dry_run_forced, save_config
-from subscript.secure_store import read_token_text, token_exists
+from subscript.secure_store import delete_token, read_token_text, token_exists
+from subscript.trends import trend_status
 from subscript.upload import client_secrets_path, token_path, get_youtube_credentials
 from subscript.publish.tiktok import (
     TikTokAPIError,
     begin_authorization,
     connection_status as tiktok_connection_status,
+    token_path as tiktok_token_path,
     finish_authorization,
 )
 from subscript.publish.base import NotConfiguredError
@@ -51,10 +53,30 @@ def youtube_connection_status(cfg):
     return {"state": state, "label": status, "detail": detail, "delivery": delivery, "configured": configured}
 
 
+_DISCONNECT_BUTTON = (' <button type="submit" form="{form}" class="quiet-button" '
+                      'onclick="return confirm(\'Disconnect {name}? This deletes the saved sign-in from this computer.\')">Disconnect</button>')
+
+
+def trend_status_html(cfg) -> str:
+    st = trend_status(cfg)
+    if not st["enabled"]:
+        text = ("Trend suggestions: <strong>off</strong>. Hashtags come from built-in game lists. "
+                "To add this week&rsquo;s YouTube trends, set <code>trends.enabled: true</code> in config.yaml and add <code>YOUTUBE_API_KEY</code> to .env.")
+    elif not st["has_key"]:
+        text = ("Trend suggestions: <strong>on</strong>, but <code>YOUTUBE_API_KEY</code> is missing from .env, so built-in game lists are used. "
+                "Create a key in Google Cloud (YouTube Data API v3) and restart SubScript.")
+    else:
+        when = f"last updated {st['age']}" if st["age"] else "not fetched yet (updates when drafts are generated)"
+        text = f"Trend suggestions: <strong>on</strong> &middot; YouTube {escape(st['region'])} &middot; {when}. Refreshed at most once a day per game."
+    return f'<p class="meta trend-status" role="status">{text}</p>'
+
+
 def youtube_connection_html(cfg):
     status = youtube_connection_status(cfg)
     label = "Reconnect YouTube" if status["state"] == "attention" else "Connect YouTube"
     button = "" if status["state"] == "connected" else f'<button type="submit" form="youtube-connect-form" {"" if status["configured"] else "disabled"}>{label}</button>'
+    if status["state"] != "disconnected" and token_exists(token_path(cfg.get("youtube") or {})):
+        button += _DISCONNECT_BUTTON.format(form="youtube-disconnect-form", name="YouTube")
     return (f'<div class="connection-panel connection-{status["state"]}" aria-label="YouTube connection">'
             '<div class="connection-summary">'
             f'<span class="connection-badge"><span aria-hidden="true">●</span> {status["label"]}</span>'
@@ -76,6 +98,8 @@ def tiktok_connection_html(cfg):
         if not status["configured"] else ""
     )
     button = f'<button type="submit" form="tiktok-connect-form" {disabled}>{label}</button>'
+    if status.get("connected"):
+        button += _DISCONNECT_BUTTON.format(form="tiktok-disconnect-form", name="TikTok")
     return (
         f'<div class="connection-panel connection-{status["state"]}" aria-label="TikTok connection">'
         '<div class="connection-summary">'
@@ -176,6 +200,7 @@ def publishing_html(cfg: dict[str, Any], snip: Callable[[str], str]) -> str:
         snip("publishing.html")
         .replace("{{YT_CONNECTION}}", youtube_connection_html(cfg))
         .replace("{{COPY_ENABLED}}", _checked((cfg.get("post_copy") or {}).get("enabled", True)))
+        .replace("{{TREND_STATUS}}", trend_status_html(cfg))
         .replace("{{COPY_GAME}}", escape(str((cfg.get("post_copy") or {}).get("game") or ""), quote=True))
         .replace("{{COPY_CREATOR}}", escape(str((cfg.get("post_copy") or {}).get("creator") or ""), quote=True))
         .replace("{{TONE_CASUAL}}", _selected((cfg.get("post_copy") or {}).get("tone", "casual"), "casual"))
@@ -234,6 +259,31 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         except Exception:
             return RedirectResponse("/clip?err=" + quote("YouTube connection was not completed. Try again and finish Google sign-in. If connection setup is missing, contact the app administrator.") + "#publish", status_code=303)
         return RedirectResponse("/clip?msg=" + quote("YouTube account connected. Choose your upload settings in the YouTube tile.") + "#publish", status_code=303)
+
+    @app.post("/connections/youtube/disconnect")
+    def disconnect_youtube():
+        delete_token(token_path(cfg.get("youtube") or {}))
+        return RedirectResponse("/clip?msg=" + quote("YouTube disconnected. The saved sign-in was deleted from this computer. You can also remove access at myaccount.google.com/permissions.") + "#publish", status_code=303)
+
+    @app.post("/connections/tiktok/disconnect")
+    def disconnect_tiktok():
+        delete_token(tiktok_token_path(dict((cfg.get("platforms") or {}).get("tiktok") or {})))
+        return RedirectResponse("/clip?msg=" + quote("TikTok disconnected. The saved sign-in was deleted from this computer. You can also remove SubScript in TikTok > Settings and privacy > Security > Apps and services.") + "#publish", status_code=303)
+
+    @app.post("/post-copy/game")
+    def set_post_copy_game(game: str = Form(...), item_id: str = Form("")):
+        from subscript.trends import game_names
+
+        game = game.strip()
+        if not game or len(game) > 60 or game not in game_names():
+            return RedirectResponse("/clip?err=" + quote("Choose a game in Publishing > Post writing.") + "#post-writing", status_code=303)
+        post_copy = dict(cfg.get("post_copy") or {})
+        post_copy["game"] = game
+        post_copy.setdefault("enabled", True)
+        cfg["post_copy"] = post_copy
+        save_config(cfg)
+        anchor = "#" + item_id if item_id.isalnum() else "#review"
+        return RedirectResponse("/clip?msg=" + quote(f"Game set to {game}. Use Refresh suggestions on a clip to update its drafts.") + anchor, status_code=303)
 
     @app.post("/connections/tiktok/connect")
     def connect_tiktok():

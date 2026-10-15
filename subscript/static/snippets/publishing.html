@@ -33,7 +33,7 @@
       <p class="meta">Review first is safest: you watch the clip and approve it yourself. Automatic mode skips that check for new clips and should only be used after you are comfortable with the results.</p>
     </div>
     <div class="control-panel form-grid">
-      <h3>Create titles, descriptions &amp; tags</h3>
+      <h3 id="post-writing">Create titles, descriptions &amp; tags</h3>
       <label class="check-row"><input type="checkbox" name="copy_enabled" value="1" {{COPY_ENABLED}}>Generate platform-specific titles, descriptions, and tags</label>
       <p class="meta">Supports YouTube, TikTok, Instagram, Facebook, X and Rumble. Turn on destinations below, enter your game and creator name, then generate sample drafts. For an actual clip, use Generate post drafts on its Review card.</p>
       <div class="form-grid form-grid-3">
@@ -41,6 +41,7 @@
         <label>Creator name<input name="copy_creator" type="text" maxlength="60" value="{{COPY_CREATOR}}" placeholder="Your channel name"></label>
         <label>Voice<select name="copy_tone"><option value="casual" {{TONE_CASUAL}}>Casual</option><option value="direct" {{TONE_DIRECT}}>Direct</option><option value="playful" {{TONE_PLAYFUL}}>Playful</option></select></label>
       </div>
+      {{TREND_STATUS}}
       <p id="post-copy-destinations" class="meta" aria-live="polite"></p>
       <button type="button" id="generate-post-preview">Generate sample titles, descriptions &amp; tags</button>
       <p id="post-copy-preview-status" class="meta" role="status" aria-live="polite"></p>
@@ -90,4 +91,6 @@
   </form>
   <form id="youtube-connect-form" method="post" action="/connections/youtube/connect"></form>
   <form id="tiktok-connect-form" method="post" action="/connections/tiktok/connect"></form>
+<form id="youtube-disconnect-form" method="post" action="/connections/youtube/disconnect"></form>
+<form id="tiktok-disconnect-form" method="post" action="/connections/tiktok/disconnect"></form>
 </section>
