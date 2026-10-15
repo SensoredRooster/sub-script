@@ -39,7 +39,7 @@ Repository = "https://github.com/SensoredRooster/sub-script"
 packages = ["subscript", "subscript.publish"]
 
 [tool.setuptools.package-data]
-subscript = ["static/*.js", "static/*.css", "static/snippets/*.html"]
+subscript = ["static/*.js", "static/*.css", "static/*.png", "static/*.ico", "static/snippets/*.html"]
 
 [tool.setuptools.dynamic]
 version = { attr = "subscript.__version__" }
