@@ -20,7 +20,7 @@ from subscript.publish import (
 from subscript.publish.youtube import youtube_live_enabled
 from subscript.reframe import make_social_pair
 from subscript.trim import trim_clip
-from subscript.post_metadata import PLATFORMS, generate_posts
+from subscript.post_metadata import EDITED_BASIS, PLATFORM_LIMITS, PLATFORMS, generate_posts, merge_drafts
 
 
 def _redirect_err(message: str) -> RedirectResponse:
@@ -53,6 +53,26 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
         message = "Post drafts generated. Expand a platform below to edit. Nothing was published." if missing else "All six drafts already exist. Expand a platform to edit its title, description and tags. Your edits were kept."
         return RedirectResponse("/clip?msg=" + quote(message) + "#" + item.id, status_code=303)
 
+    @app.post("/items/{item_id}/refresh-post-copy")
+    def refresh_post_copy(item_id: str):
+        item = queue.get(item_id)
+        if not item:
+            raise HTTPException(404)
+        if item.status != "pending":
+            return _redirect_err("Only pending clips can be edited.")
+        from copy import deepcopy
+
+        settings = deepcopy(cfg)
+        settings.setdefault("post_copy", {})["enabled"] = True
+        master = Path(item.edited_path or item.video_path)
+        prefix = "clip-trimmed-" if item.edited_path else "clip-branded-"
+        srt = master.with_name("clip-captions-" + master.stem.removeprefix(prefix) + ".srt")
+        item.post_metadata = merge_drafts(item.post_metadata, generate_posts(settings, srt))
+        queue.update(item)
+        kept = sum(1 for d in item.post_metadata.values() if isinstance(d, dict) and d.get("basis") == EDITED_BASIS)
+        message = "Suggestions refreshed. Nothing was published." + (f" {kept} draft(s) you edited were kept as-is." if kept else "")
+        return RedirectResponse("/clip?msg=" + quote(message) + "#" + item.id, status_code=303)
+
     @app.post("/items/{item_id}/post-copy")
     def save_post_copy(item_id: str, platform: str = Form(...), title: str = Form(...),
                        description: str = Form(""), tags: str = Form("")):
@@ -61,12 +81,15 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             raise HTTPException(404)
         if item.status != "pending":
             return _redirect_err("Only pending clips can be edited.")
-        if platform not in PLATFORMS or not title.strip() or len(title) > 95 or len(description) > (260 if platform == "twitter" else 1800):
+        limits = PLATFORM_LIMITS.get(platform)
+        if not limits or not title.strip() or len(title) > limits["title"] or len(description) > limits["description"]:
             return _redirect_err("Check the platform, title, and description lengths.")
         parsed_tags = list(dict.fromkeys(t.strip().lstrip("#") for t in tags.split(",") if t.strip().lstrip("#")))
-        if len(parsed_tags) > 15 or sum(len(t) for t in parsed_tags) > 350:
-            return _redirect_err("Use at most 15 tags and 350 tag characters.")
-        item.post_metadata[platform] = {"title": title.strip(), "description": description.strip(), "tags": parsed_tags, "basis": "Edited by you"}
+        if len(parsed_tags) > limits["tags"] or sum(len(t) for t in parsed_tags) > limits["tag_chars"]:
+            return _redirect_err(f"Use at most {limits['tags']} tags and {limits['tag_chars']} tag characters for this platform.")
+        previous = item.post_metadata.get(platform) or {}
+        item.post_metadata[platform] = {"title": title.strip(), "description": description.strip(), "tags": parsed_tags, "basis": EDITED_BASIS,
+                                        "suggestions": previous.get("suggestions") or {}}
         queue.update(item)
         return RedirectResponse("/clip?msg=Post%20draft%20saved.#review", status_code=303)
 
@@ -195,7 +218,7 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             vertical_path=str(vertical),
             vertical_captioned_path=str(captioned) if captioned else None,
             vertical_layout=item.vertical_layout or cfg.get("vertical_layout") or {},
-            post_metadata=generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt"),
+            post_metadata=merge_drafts(item.post_metadata, generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt")),
         )
         return _redirect_ok(
             "Trimmed - new horizontal + vertical (+ captioned) previews ready. "

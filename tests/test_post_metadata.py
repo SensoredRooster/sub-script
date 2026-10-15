@@ -36,7 +36,7 @@ def test_manual_pack_contains_platform_copy(tmp_path):
     assert results[0].status == "manual"
     saved = (approved / "for_tiktok" / "POST_COPY.txt").read_text(encoding="utf-8")
     assert drafts["tiktok"]["description"] in saved
-    assert json.loads((approved / "post-copy.json").read_text())["youtube"] == drafts["youtube"]
+    assert json.loads((approved / "post-copy.json").read_text(encoding="utf-8"))["youtube"] == drafts["youtube"]
 
 
 def test_youtube_receives_edited_copy_and_literal_braces(tmp_path, monkeypatch):

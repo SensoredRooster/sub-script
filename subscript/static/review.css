@@ -209,3 +209,10 @@ main{padding:1.35rem 0 4rem;gap:1rem}
 
 .support-health{display:flex;flex-wrap:wrap;gap:.5rem;margin:.9rem 0}
 .support-health span{padding:.45rem .65rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-3);color:var(--muted);font-size:.75rem}
+
+/* Post-copy suggestion chips */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; }
+.chips .meta { width: 100%; }
+.chip { border: 1px solid rgba(198, 255, 0, 0.35); background: rgba(198, 255, 0, 0.08); color: inherit; border-radius: 999px; padding: 3px 10px; font-size: 0.85em; cursor: pointer; }
+.chip:hover { background: rgba(198, 255, 0, 0.18); }
+.chip:disabled { opacity: 0.45; cursor: default; }
