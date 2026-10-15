@@ -1,4 +1,18 @@
 const MAX_BYTES = 75 * 1024 * 1024;
+// Storage caps so anonymous uploads cannot grow the R2 bucket without bound.
+// Admins free space by downloading and deleting old bundles.
+const MAX_STORED_BUNDLES = 500;
+const MAX_STORED_BYTES = 5 * 1024 * 1024 * 1024;
+
+async function bucketUsage(bucket) {
+  let count = 0, bytes = 0, cursor;
+  do {
+    const page = await bucket.list({ prefix: "bundles/", cursor, limit: 1000 });
+    for (const obj of page.objects) { count += 1; bytes += obj.size || 0; }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor && count <= MAX_STORED_BUNDLES);
+  return { count, bytes };
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -39,6 +53,11 @@ export default {
       const bytes = new Uint8Array(body);
       if (bytes.length < 2 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
         return json({ error: "Expected a ZIP support bundle" }, 415);
+      }
+
+      const usage = await bucketUsage(env.SUPPORT_BUCKET);
+      if (usage.count >= MAX_STORED_BUNDLES || usage.bytes + body.byteLength > MAX_STORED_BYTES) {
+        return json({ error: "Support inbox is full. Please try again later." }, 507);
       }
 
       const session = safeName(request.headers.get("x-subscript-session"), "unknown-session");
