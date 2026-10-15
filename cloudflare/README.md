@@ -52,7 +52,7 @@ Do not make the R2 buckets public. Browser access should always pass through the
 
 Cloudflare deployment uses the repository Actions secret `CLOUDFLARE_API_TOKEN`.
 
-Tester Share passwords are project-specific. Their plaintext values are distributed privately; Git contains only their SHA-256 hashes.
+Tester Share passwords are project-specific and distributed privately. Their SHA-256 hashes and the session-signing key live only in Worker secrets (`ADMIN_PASSWORD_HASH`, `TESTER_PASSWORD_HASH`, `SESSION_SECRET`); see `docs/TESTER_SHARE.md`. The support collector caps storage at 500 bundles / 5 GB (HTTP 507 when full).
 
 ## Redeployment
 

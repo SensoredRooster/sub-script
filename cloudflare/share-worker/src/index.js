@@ -3,8 +3,8 @@ const SESSION_SECONDS = 12 * 60 * 60;
 const FOLDERS = ["Releases","Tester Uploads","VODs","Screenshots","Bug Reports","Logs","Archived"];
 const TESTER_UPLOAD_FOLDERS = new Set(["Tester Uploads", "VODs", "Screenshots", "Bug Reports", "Logs"]);
 const META_LATEST = "__portal/latest.json";
-const ADMIN_PASSWORD_HASH = "cf30ec5e75d4ce509c309c9657be2344d54e511797fcf2008a9031afa1199a5b";
-const TESTER_PASSWORD_HASH = "e545f13b6509f26ba39ce3afdde6d4ee676e288b22d7b81df2438108a11d7081";
+// Secrets (set with `wrangler secret put`): ADMIN_PASSWORD_HASH, TESTER_PASSWORD_HASH (SHA-256 hex of each password)
+// and SESSION_SECRET (random, >= 32 chars) used to HMAC-sign expiring session cookies.
 const encoder = new TextEncoder();
 
 function baseHeaders(extra = {}) {
@@ -41,20 +41,32 @@ function constantEqual(a, b) {
   if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
   let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0;
 }
-function makeSession(role, password) {
-  return role + "." + b64url(encoder.encode(password));
+function secretsReady(env) {
+  return /^[0-9a-f]{64}$/i.test(env.ADMIN_PASSWORD_HASH || "") && /^[0-9a-f]{64}$/i.test(env.TESTER_PASSWORD_HASH || "") && String(env.SESSION_SECRET || "").length >= 32;
 }
-async function verifySession(request) {
+function expectedHash(env, role) {
+  return String(role === "admin" ? env.ADMIN_PASSWORD_HASH : env.TESTER_PASSWORD_HASH).toLowerCase();
+}
+async function hmacB64url(secret, message) {
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return b64url(new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(message))));
+}
+// Cookie: role.expiresAt.signature. Binding the role's password hash into the MAC means rotating a password revokes its sessions.
+async function makeSession(env, role) {
+  const expires = Math.floor(Date.now() / 1000) + SESSION_SECONDS;
+  const payload = `${role}.${expires}`;
+  return `${payload}.${await hmacB64url(env.SESSION_SECRET, `${payload}.${expectedHash(env, role)}`)}`;
+}
+async function verifySession(request, env) {
   const cookie = request.headers.get("cookie") || "";
   const match = cookie.match(/(?:^|;\s*)share_session=([^;]+)/);
   if (!match) return null;
   const parts = match[1].split(".");
-  if (parts.length !== 2 || !["admin","tester"].includes(parts[0])) return null;
+  if (parts.length !== 3 || !["admin","tester"].includes(parts[0]) || !/^\d{1,12}$/.test(parts[1])) return null;
+  if (Number(parts[1]) < Math.floor(Date.now() / 1000)) return null;
   try {
-    const password = new TextDecoder().decode(fromB64url(parts[1]));
-    const actual = await sha256Hex(password);
-    const expected = parts[0] === "admin" ? ADMIN_PASSWORD_HASH : TESTER_PASSWORD_HASH;
-    if (!constantEqual(actual, expected)) return null;
+    const sig = await hmacB64url(env.SESSION_SECRET, `${parts[0]}.${parts[1]}.${expectedHash(env, parts[0])}`);
+    if (!constantEqual(sig, parts[2])) return null;
     return { role: parts[0] };
   } catch { return null; }
 }
@@ -94,18 +106,19 @@ async function removeFile(key){if(!confirm("Delete this file?"))return;await api
 export default { async fetch(request, env) {
   const url = new URL(request.url); const ip = request.headers.get("cf-connecting-ip") || "unknown";
   if (request.method === "GET" && url.pathname === "/health") return json({ ok:true, service:"subscript-tester-share", storage:"r2" });
+  if (!secretsReady(env)) return json({ error:"Share portal secrets are not configured." },503);
   if (request.method === "GET" && url.pathname === "/login") return html(LOGIN);
   if (request.method === "POST" && url.pathname === "/login") {
     const rate = await env.AUTH_RATE_LIMITER.limit({key:ip}); if (!rate.success) return json({error:"Too many sign-in attempts."},429);
     let body; try { body=await request.json(); } catch { return json({error:"Invalid request."},400); }
     const role=body?.role==="admin"?"admin":"tester"; const password=String(body?.password||"");
-    const actualHash=await sha256Hex(password); const expectedHash=role==="admin"?ADMIN_PASSWORD_HASH:TESTER_PASSWORD_HASH;
-    if (!constantEqual(actualHash,expectedHash)) return json({error:"Invalid password."},401);
-    const token=makeSession(role,password);
+    const actualHash=await sha256Hex(password); const wantHash=expectedHash(env,role);
+    if (!constantEqual(actualHash,wantHash)) return json({error:"Invalid password."},401);
+    const token=await makeSession(env,role);
     return json({ok:true,role},200,{"set-cookie":`share_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_SECONDS}`});
   }
   if (request.method === "POST" && url.pathname === "/logout") return new Response(null,{status:204,headers:baseHeaders({"set-cookie":"share_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0"})});
-  const session=await verifySession(request);
+  const session=await verifySession(request,env);
   if (!session) { if (url.pathname.startsWith("/api/")||url.pathname.startsWith("/file/")) return json({error:"Unauthorized"},401); return Response.redirect(url.origin+"/login",302); }
   if (request.method==="GET"&&url.pathname==="/") return html(PORTAL);
   if (request.method==="GET"&&url.pathname==="/api/me") return json({role:session.role});
