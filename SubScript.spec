@@ -82,6 +82,7 @@ exe = EXE(
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
+    icon="subscript/static/subscript.ico",
     entitlements_file=None,
 )
 

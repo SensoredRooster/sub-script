@@ -81,3 +81,14 @@ def test_ensure_default_logo_writes_valid_png(tmp_path: Path) -> None:
     # Existing non-empty logo is left alone.
     logo.write_bytes(b"custom")
     assert ensure_default_logo(tmp_path).read_bytes() == b"custom"
+
+
+def test_ensure_default_logo_upgrades_previous_default(tmp_path: Path) -> None:
+    import base64
+    from subscript import default_brand
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "logo.png").write_bytes(base64.b64decode(default_brand._PREVIOUS_DEFAULT_LOGO_B64))
+    logo = ensure_default_logo(tmp_path)
+    assert logo.read_bytes() == base64.b64decode(default_brand._DEFAULT_LOGO_B64)

@@ -16,7 +16,8 @@ YouTube uses the saved draft during upload. Manual platform folders include POST
 
 The studio uses warm white (#f3f4ec), ink green (#101714), and lime (#b9f36b), with system sans-serif typography. Keep lime for primary actions and helpful emphasis.
 
-- `subscript/static/brand-mark.svg`: scalable studio icon and favicon.
+- `assets/tiktok/subscript-tiktok-developer-logo.png`: canonical 1024x1024 SubScript mark (source for every icon).
+- `subscript/static/` + `docs/assets/`: `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `logo-1024.png` generated from the canonical mark; `subscript/static/subscript.ico` is the exe icon.
 - `assets/logo.png`: transparent SubScript wordmark for video watermarking.
 - `subscript/default_brand.py`: bundled PNG for packaged installs. Upgrades only the exact legacy placeholder; custom logos are preserved.
 
