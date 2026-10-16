@@ -39,3 +39,11 @@ python scripts\\smoke_windows_packaging.py
 Inno Setup installer: optional later — bat + onedir folder is enough for now.
 
 **Note:** Scripts/spec are for a Windows builder to run locally. This PR does not claim a Windows PyInstaller run was executed in CI/agent.
+
+## Code signing (Azure Artifact Signing)
+
+`scripts\build_installer.bat --sign` (or `set SUBSCRIPT_SIGN=1`) signs `dist\SubScript\SubScript.exe` before Inno Setup packs it, then signs `installer\Output\SubScript-Setup-<version>.exe`. Without the flag, builds are unsigned as before.
+
+- Prerequisites: `winget install Microsoft.Azure.ArtifactSigningClientTools` (signtool x64 + `Azure.CodeSigning.Dlib.dll`), `winget install Microsoft.AzureCLI`, then `az login` as an account with the **Artifact Signing Certificate Profile Signer** role.
+- Settings: `scripts\signing\metadata.json` (endpoint `https://eus.codesigning.azure.net`, account `SensoredRooster`, profile `Sensoredrooster`; publisher **Branden Nail**).
+- `scripts\sign_windows.ps1 -Files <exe>` runs `signtool sign /v /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib <dll> /dmdf metadata.json` and then `signtool verify /pa /v`. Override with `-SignToolPath`, `-DlibPath`, `-MetadataPath` or `SUBSCRIPT_SIGNTOOL` / `SUBSCRIPT_SIGN_DLIB`.

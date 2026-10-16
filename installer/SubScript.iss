@@ -26,7 +26,7 @@
   #define MyAppVersion VerEnv
 #endif
 
-#ifndef FileExists(DistDir + "\" + MyAppExeName)
+#if !FileExists(DistDir + "\" + MyAppExeName)
   #error dist\SubScript\SubScript.exe not found - run scripts\build_windows.bat first
 #endif
 

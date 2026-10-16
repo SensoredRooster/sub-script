@@ -34,7 +34,7 @@ if errorlevel 1 exit /b 1
 if not exist "config.yaml" (
   if exist "config.example.yaml" (
     copy /Y "config.example.yaml" "config.yaml" >nul
-    echo Created config.yaml from example (for local smoke tests).
+    echo Created config.yaml from example ^(for local smoke tests^).
   )
 )
 
