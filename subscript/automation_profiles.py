@@ -141,6 +141,10 @@ def sidebar_html(cfg: dict, holder: dict, esc) -> str:
         '<a href="/automation/new" aria-label="Create automated profile">+</a></div>'
         f'<div class="profile-nav-list">{profile_list}</div>'
         '<a class="sidebar-create" href="/automation/new">+ Create automated profile</a>'
+        '<p class="sidebar-kicker">Help</p>'
+        '<nav class="sidebar-links">'
+        '<a href="/support">Support &amp; updates</a><a href="/support/report">Report an issue</a>'
+        '</nav>'
         '</aside>'
     )
 

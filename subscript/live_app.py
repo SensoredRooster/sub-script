@@ -34,6 +34,7 @@ from subscript.post_metadata import editor_html
 from subscript.production_bridge import BridgeRun, submit_bridge_job
 from subscript.runtime_paths import find_ffmpeg
 from subscript.support_routes import register_support_routes
+from subscript.update_routes import register_update_routes
 from subscript.telemetry import configure_telemetry, log_event, start_heartbeat, stop_heartbeat
 from subscript.layout import layout_from_form
 
@@ -118,6 +119,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     register_automation_routes(app, cfg, watcher_holder, _snip)
     register_publishing_routes(app, cfg)
     register_support_routes(app, cfg, watcher_holder, _snip)
+    register_update_routes(app, cfg)
 
     def _telemetry_status() -> dict[str, Any]:
         profiles = watcher_holder.get("profiles") or {}
