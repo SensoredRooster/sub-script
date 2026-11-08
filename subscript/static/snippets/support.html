@@ -6,6 +6,11 @@
   <title>SubScript — Support</title>
   <link rel="icon" href="/static/favicon.ico" sizes="any"><link rel="icon" href="/static/favicon-32.png" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/review.css?v=10">
+  <style>
+    #updateStatus.error{color:#ffadac;font-weight:650}
+    #updateStatus.ok{color:#7ee2a8}
+    #updateProgress{width:100%;height:10px;margin:14px 0 6px}
+  </style>
 </head>
 <body class="entry-page settings-page">
   <header class="entry-header">
@@ -14,6 +19,19 @@
   </header>
 
   <main class="settings-main">
+    <section class="settings-card support-card">
+      <p class="eyebrow">Software updates</p>
+      <h1>Keep SubScript current.</h1>
+      <p class="entry-lede">Check for a newer Windows build, then install it in place. Your config, clips, and sign-ins are not touched.</p>
+
+      <div class="support-actions">
+        <button type="button" class="primary" id="checkUpdate">Check for updates</button>
+        <button type="button" class="secondary" id="installUpdate" hidden>Download &amp; install</button>
+      </div>
+      <progress id="updateProgress" max="100" hidden></progress>
+      <p class="meta" id="updateStatus" aria-live="polite">You are running version {{VERSION}}.</p>
+    </section>
+
     <section class="settings-card support-card">
       <p class="eyebrow">Support & diagnostics</p>
       <h1>Give support something useful.</h1>
@@ -34,7 +52,8 @@
         <button type="button" class="secondary" data-open-support-logs>Open Logs Folder</button>
         {{UPLOAD_CONTROL}}
         <a class="quiet-button" href="/support/report" target="_blank" rel="noopener">Report Issue on GitHub</a>
-        <a class="quiet-button" href="https://subscript-share.sensoredrooster-com.workers.dev" target="_blank" rel="noopener">Open Tester Share</a>\n        <a class="quiet-button" href="/support/repository" target="_blank" rel="noopener">Open Main Repository</a>
+        <a class="quiet-button" href="https://subscript-share.sensoredrooster-com.workers.dev" target="_blank" rel="noopener">Open Tester Share</a>
+        <a class="quiet-button" href="/support/repository" target="_blank" rel="noopener">Open Main Repository</a>
       </div>
 
       <div class="choice-callout">
@@ -51,6 +70,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=10"></script>
+  <script src="/static/app.js?v=11"></script>
 </body>
 </html>
