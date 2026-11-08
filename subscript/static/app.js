@@ -115,7 +115,7 @@
       facecam_top:{gameplay:[0,0,.72,1],facecam:[.72,0,.28,.28]},
       gameplay_top:{gameplay:[0,0,.72,1],facecam:[.72,0,.28,.28]},
       gameplay_only:{gameplay:[0,0,1,1],facecam:[0,0,0,0]},
-      facecam_overlay:{gameplay:[0,0,1,1],facecam:[0,0,0,0]},
+      facecam_overlay:{gameplay:[0,0,1,1],facecam:[.72,0,.28,.28]},
       blurred_background:{gameplay:[0,0,1,1],facecam:[0,0,0,0]}
     };
     function composerField(name) { return composer && composer.querySelector('[name="' + name + '"]'); }
