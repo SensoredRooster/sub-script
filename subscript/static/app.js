@@ -115,7 +115,7 @@
       facecam_top:{gameplay:[0,0,.72,1],facecam:[.72,0,.28,.28]},
       gameplay_top:{gameplay:[0,0,.72,1],facecam:[.72,0,.28,.28]},
       gameplay_only:{gameplay:[0,0,1,1],facecam:[0,0,0,0]},
-      facecam_overlay:{gameplay:[0,0,1,1],facecam:[.72,0,.28,.28]},
+      facecam_overlay:{gameplay:[0,0,1,1],facecam:[0,0,0,0]},
       blurred_background:{gameplay:[0,0,1,1],facecam:[0,0,0,0]}
     };
     function composerField(name) { return composer && composer.querySelector('[name="' + name + '"]'); }
@@ -876,3 +876,97 @@ document.addEventListener("click", (event) => {
   box.focus();
   chip.disabled = true;
 });
+
+// Software updates: check the release feed, download, and install in place.
+(function () {
+  var checkUpdate = document.getElementById("checkUpdate");
+  var installUpdate = document.getElementById("installUpdate");
+  var updateStatus = document.getElementById("updateStatus");
+  var updateProgress = document.getElementById("updateProgress");
+  if (!checkUpdate || !installUpdate || !updateStatus || !updateProgress) return;
+
+  function showUpdate(message, isError) {
+    updateStatus.textContent = message;
+    updateStatus.classList.toggle("error", !!isError);
+    updateStatus.classList.remove("ok");
+  }
+
+  function readUpdate(response) {
+    return response.json().catch(function () {
+      throw new Error("The app returned an unexpected response. Try again.");
+    }).then(function (data) {
+      if (!response.ok) {
+        var detail = data && data.detail;
+        throw new Error(typeof detail === "string" ? detail : "Could not check for updates.");
+      }
+      return data;
+    });
+  }
+
+  function describe(data) {
+    if (data.state === "up_to_date") return data.message || "You're up to date";
+    var text = data.message || "";
+    if (data.current && data.state === "available") text = data.current + " \u00b7 " + text;
+    if (data.update_available && !data.install_supported) text += " Install updates from the Windows app.";
+    return text;
+  }
+
+  function pollUpdate() {
+    fetch("/update/job").then(readUpdate).then(function (job) {
+      updateStatus.dataset.phase = job.state;
+      if (job.total) updateProgress.value = Math.min(100, (100 * job.completed) / job.total);
+      else updateProgress.removeAttribute("value");
+      showUpdate(job.message, job.state === "error");
+      if (job.state === "downloading" || job.state === "installing") {
+        window.setTimeout(pollUpdate, 400);
+        return;
+      }
+      if (job.state === "error") {
+        checkUpdate.disabled = false;
+        installUpdate.disabled = false;
+      }
+    }).catch(function (error) {
+      if (updateStatus.dataset.phase === "installing") return;
+      showUpdate(error.message, true);
+      checkUpdate.disabled = false;
+    });
+  }
+
+  checkUpdate.addEventListener("click", function () {
+    checkUpdate.disabled = true;
+    installUpdate.hidden = true;
+    updateProgress.hidden = true;
+    showUpdate("Checking for updates\u2026");
+    fetch("/update/status").then(readUpdate).then(function (data) {
+      var failed = data.state === "offline" || data.state === "error";
+      if (data.state === "up_to_date") {
+        updateStatus.classList.add("ok");
+        showUpdate(describe(data), false);
+      } else {
+        showUpdate(describe(data), failed);
+      }
+      installUpdate.hidden = !data.update_available;
+      installUpdate.disabled = !data.can_install;
+    }).catch(function (error) {
+      showUpdate(error.message, true);
+    }).finally(function () {
+      checkUpdate.disabled = false;
+    });
+  });
+
+  installUpdate.addEventListener("click", function () {
+    installUpdate.disabled = true;
+    checkUpdate.disabled = true;
+    updateProgress.hidden = false;
+    updateProgress.removeAttribute("value");
+    showUpdate("Downloading update\u2026");
+    fetch("/update/install", {method: "POST"}).then(readUpdate).then(function () {
+      pollUpdate();
+    }).catch(function (error) {
+      showUpdate(error.message, true);
+      updateProgress.hidden = true;
+      installUpdate.disabled = false;
+      checkUpdate.disabled = false;
+    });
+  });
+})();
