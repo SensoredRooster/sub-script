@@ -126,8 +126,9 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             or item.video_path
         )
         approved_dir = out_dir / "approved" / item_id
-        folder = str(approved_dir)
-        n = len(meta.get("files") or [])
+        n = sum(
+            1 for f in (meta.get("files") or []) if str(f).lower().endswith(".mp4")
+        )
 
         # 2) Fan out to every enabled platform — fail-soft per platform.
         publish_meta = PublishMeta(
@@ -145,18 +146,19 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             (r.platform or "").lower().startswith("youtube") for r in results
         ):
             platform_banner = (
-                "YouTube: skipped (disabled) | " + platform_banner
+                "YouTube is off | " + platform_banner
                 if results
-                else "YouTube: skipped (disabled) — enable platforms.* or youtube.enabled"
+                else "YouTube is off — turn it on under Publish below whenever you're ready."
             )
 
         any_upload = any(r.ok and r.status == "uploaded" for r in results)
         any_hard_fail = any(not r.ok for r in results)
         queue.set_status(item_id, "uploaded" if any_upload else "approved")
 
+        videos_word = "video" if n == 1 else "videos"
         msg = (
-            f"Approved — social pack ({n} file(s)) saved to {folder} "
-            f"(folder opened). {platform_banner}"
+            f"Approved — your clip pack ({n} {videos_word} + posting guide) is saved "
+            f"and the folder opened for you. {platform_banner}"
         )
         # Pack always succeeds; platform failures stay in the banner (fail-soft).
         if any_hard_fail and not any_upload:

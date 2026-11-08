@@ -159,7 +159,7 @@ def _game_prompt(item, cfg) -> str:
                 f'<input type="hidden" name="game" value="{value}"><input type="hidden" name="item_id" value="{escape(item.id, quote=True)}">'
                 f'<button type="submit" class="quiet-button">Use {escape(detected)}</button>'
                 ' <a href="/clip#post-writing">Choose another game</a></form>')
-    return ('<p class="meta game-prompt">Tip: set your game in <a href="/clip#post-writing">Publishing &rarr; Post writing</a> '
+    return ('<p class="meta game-prompt">Tip: set your game in <a href="/clip?panel=publish#post-writing">Publishing &rarr; Post writing</a> '
             'to get game-specific hashtags and titles.</p>')
 
 

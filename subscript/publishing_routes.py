@@ -257,18 +257,18 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         try:
             get_youtube_credentials(cfg.get("youtube") or {}, timeout_seconds=120)
         except Exception:
-            return RedirectResponse("/clip?err=" + quote("YouTube connection was not completed. Try again and finish Google sign-in. If connection setup is missing, contact the app administrator.") + "#publish", status_code=303)
-        return RedirectResponse("/clip?msg=" + quote("YouTube account connected. Choose your upload settings in the YouTube tile.") + "#publish", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=" + quote("YouTube connection was not completed. Try again and finish Google sign-in. If connection setup is missing, contact the app administrator.") + "#publish", status_code=303)
+        return RedirectResponse("/clip?panel=publish&msg=" + quote("YouTube account connected. Choose your upload settings in the YouTube tile.") + "#publish", status_code=303)
 
     @app.post("/connections/youtube/disconnect")
     def disconnect_youtube():
         delete_token(token_path(cfg.get("youtube") or {}))
-        return RedirectResponse("/clip?msg=" + quote("YouTube disconnected. The saved sign-in was deleted from this computer. You can also remove access at myaccount.google.com/permissions.") + "#publish", status_code=303)
+        return RedirectResponse("/clip?panel=publish&msg=" + quote("YouTube disconnected. The saved sign-in was deleted from this computer. You can also remove access at myaccount.google.com/permissions.") + "#publish", status_code=303)
 
     @app.post("/connections/tiktok/disconnect")
     def disconnect_tiktok():
         delete_token(tiktok_token_path(dict((cfg.get("platforms") or {}).get("tiktok") or {})))
-        return RedirectResponse("/clip?msg=" + quote("TikTok disconnected. The saved sign-in was deleted from this computer. You can also remove SubScript in TikTok > Settings and privacy > Security > Apps and services.") + "#publish", status_code=303)
+        return RedirectResponse("/clip?panel=publish&msg=" + quote("TikTok disconnected. The saved sign-in was deleted from this computer. You can also remove SubScript in TikTok > Settings and privacy > Security > Apps and services.") + "#publish", status_code=303)
 
     @app.post("/post-copy/game")
     def set_post_copy_game(game: str = Form(...), item_id: str = Form("")):
@@ -276,14 +276,14 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
 
         game = game.strip()
         if not game or len(game) > 60 or game not in game_names():
-            return RedirectResponse("/clip?err=" + quote("Choose a game in Publishing > Post writing.") + "#post-writing", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=" + quote("Choose a game in Publishing > Post writing.") + "#post-writing", status_code=303)
         post_copy = dict(cfg.get("post_copy") or {})
         post_copy["game"] = game
         post_copy.setdefault("enabled", True)
         cfg["post_copy"] = post_copy
         save_config(cfg)
         anchor = "#" + item_id if item_id.isalnum() else "#review"
-        return RedirectResponse("/clip?msg=" + quote(f"Game set to {game}. Use Refresh suggestions on a clip to update its drafts.") + anchor, status_code=303)
+        return RedirectResponse("/clip?panel=publish&msg=" + quote(f"Game set to {game}. Use Refresh suggestions on a clip to update its drafts.") + anchor, status_code=303)
 
     @app.post("/connections/tiktok/connect")
     def connect_tiktok():
@@ -294,24 +294,24 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
             webbrowser.open(url, new=2, autoraise=True)
         except Exception as exc:  # noqa: BLE001 — the UI gets a safe next step
             message = str(exc) if isinstance(exc, (NotConfiguredError, TikTokAPIError)) else "TikTok connection could not be started. Check the local setup and try again."
-            return RedirectResponse("/clip?err=" + quote(message) + "#publish", status_code=303)
-        return RedirectResponse("/clip?msg=" + quote("TikTok sign-in opened in your browser. Finish authorization, then return here.") + "#publish", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=" + quote(message) + "#publish", status_code=303)
+        return RedirectResponse("/clip?panel=publish&msg=" + quote("TikTok sign-in opened in your browser. Finish authorization, then return here.") + "#publish", status_code=303)
 
     @app.get("/connections/tiktok/callback")
     def tiktok_callback(code: str | None = Query(None), state: str | None = Query(None), error: str | None = Query(None), error_description: str | None = Query(None)):
         if error:
             detail = error_description or error
-            return RedirectResponse("/clip?err=" + quote(f"TikTok authorization was not completed: {detail}") + "#publish", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=" + quote(f"TikTok authorization was not completed: {detail}") + "#publish", status_code=303)
         if not code or not state:
-            return RedirectResponse("/clip?err=" + quote("TikTok did not return a complete authorization response. Try Connect TikTok again.") + "#publish", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=" + quote("TikTok did not return a complete authorization response. Try Connect TikTok again.") + "#publish", status_code=303)
         try:
             tiktok_cfg = dict((cfg.get("platforms") or {}).get("tiktok") or {})
             tiktok_cfg["review"] = dict(cfg.get("review") or {})
             finish_authorization(tiktok_cfg, code=code, state=state)
         except Exception as exc:  # noqa: BLE001
             message = str(exc) if isinstance(exc, (NotConfiguredError, TikTokAPIError)) else "TikTok authorization could not be saved. Try connecting again."
-            return RedirectResponse("/clip?err=" + quote(message) + "#publish", status_code=303)
-        return RedirectResponse("/clip?msg=" + quote("TikTok connected. Save Direct post in the TikTok tile to enable live posting.") + "#publish", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=" + quote(message) + "#publish", status_code=303)
+        return RedirectResponse("/clip?panel=publish&msg=" + quote("TikTok connected. Save Direct post in the TikTok tile to enable live posting.") + "#publish", status_code=303)
 
     @app.post("/publishing")
     def save_publishing(
@@ -354,11 +354,11 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         formats = dict(youtube=youtube_format, tiktok=tiktok_format, instagram=instagram_format,
                        facebook=facebook_format, twitter=twitter_format, rumble=rumble_format)
         if any(value not in FORMATS[key] for key, value in formats.items()):
-            return RedirectResponse("/clip?err=Unsupported%20output%20format", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=Unsupported%20output%20format#publish", status_code=303)
         if publishing_mode not in {"review", "automatic"}:
-            return RedirectResponse("/clip?err=Invalid%20publishing%20mode", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=Invalid%20publishing%20mode#publish", status_code=303)
         if copy_tone not in {"casual", "direct", "playful"} or len(copy_game) > 60 or len(copy_creator) > 60:
-            return RedirectResponse("/clip?err=Invalid%20post%20writing%20settings", status_code=303)
+            return RedirectResponse("/clip?panel=publish&err=Invalid%20post%20writing%20settings#publish", status_code=303)
         privacy = youtube_privacy.strip().lower()
         if privacy not in {"private", "unlisted", "public"}:
             return RedirectResponse(
@@ -393,14 +393,14 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
             mode = raw_mode.strip().lower()
             allowed_modes = {"manual", "api", "upload"} if key == "tiktok" else {"manual"}
             if mode not in allowed_modes:
-                return RedirectResponse("/clip?err=" + quote(f"Invalid {key} delivery mode.") + "#publish", status_code=303)
+                return RedirectResponse("/clip?panel=publish&err=" + quote(f"Invalid {key} delivery mode.") + "#publish", status_code=303)
             current = dict(platforms.get(key) or {})
             current.update({"enabled": enabled is not None, "mode": mode})
             current["format"] = formats[key]
             if key == "tiktok":
                 privacy_level = tiktok_privacy.strip().upper()
                 if privacy_level not in {"SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "PUBLIC_TO_EVERYONE"}:
-                    return RedirectResponse("/clip?err=" + quote("Choose a valid TikTok privacy setting.") + "#publish", status_code=303)
+                    return RedirectResponse("/clip?panel=publish&err=" + quote("Choose a valid TikTok privacy setting.") + "#publish", status_code=303)
                 current["privacy_level"] = privacy_level
             if any(str(value or "").strip() for value in (title, description, tags)):
                 current.update({
@@ -419,6 +419,6 @@ def register_publishing_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         cfg["post_copy"] = {"enabled": copy_enabled is not None, "game": copy_game.strip(), "creator": copy_creator.strip(), "tone": copy_tone}
         save_config(cfg)
         return RedirectResponse(
-            "/clip?msg=" + quote("Publishing destinations saved.") + "#publish",
+            "/clip?panel=publish&msg=" + quote("Publishing destinations saved.") + "#publish",
             status_code=303,
         )

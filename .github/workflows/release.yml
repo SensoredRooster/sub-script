@@ -1,0 +1,142 @@
+name: Release to update feed
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: One-line release note for latest.json
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: release-feed
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-latest
+    # Tag releases authenticate to Azure as subject repo:SensoredRooster/sub-script:environment:release.
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC for Azure Artifact Signing
+    steps:
+      - name: Require upload secret
+        shell: bash
+        env:
+          HAS_UPLOAD_TOKEN: ${{ secrets.SUBSCRIPT_UPLOAD_TOKEN != '' }}
+        run: |
+          if [ "$HAS_UPLOAD_TOKEN" != "true" ]; then
+            echo "::error::Add the SUBSCRIPT_UPLOAD_TOKEN repository secret (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Check Azure signing configuration
+        shell: bash
+        env:
+          AZ_CLIENT: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          AZ_TENANT: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          AZ_SUB: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          if [ -z "$AZ_CLIENT" ] || [ -z "$AZ_TENANT" ] || [ -z "$AZ_SUB" ]; then
+            echo "::error::Releases must be code-signed. Set AZURE_CLIENT_ID, AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID (Actions secrets or variables)."
+            exit 1
+          fi
+      - name: Install Python dependencies
+        shell: pwsh
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt pyinstaller
+      - name: Build executable (PyInstaller onedir)
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean SubScript.spec
+          $dist = 'dist/SubScript'
+          Copy-Item config.example.yaml "$dist/config.example.yaml" -Force
+          if (!(Test-Path "$dist/config.yaml")) { Copy-Item config.example.yaml "$dist/config.yaml" }
+          New-Item -ItemType Directory -Force "$dist/assets" | Out-Null
+          if (Test-Path 'assets/.gitkeep') { Copy-Item 'assets/.gitkeep' "$dist/assets/.gitkeep" -Force }
+          Copy-Item scripts/FFMPEG_BESIDE_APP.txt "$dist/FFMPEG_BESIDE_APP.txt" -Force
+      - name: Bundle ffmpeg beside the app
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP/ffmpeg.zip"
+          Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile $zip
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP/ffmpeg" -Force
+          $bin = Get-ChildItem "$env:RUNNER_TEMP/ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $bin.FullName 'dist/SubScript/ffmpeg.exe' -Force
+          Copy-Item (Join-Path $bin.DirectoryName 'ffprobe.exe') 'dist/SubScript/ffprobe.exe' -Force
+      - name: Azure login (OIDC)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign SubScript.exe (before the installer packs it)
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: https://eus.codesigning.azure.net
+          signing-account-name: SensoredRooster
+          certificate-profile-name: Sensoredrooster
+          files: ${{ github.workspace }}\dist\SubScript\SubScript.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-managed-identity-credential: true
+          exclude-workload-identity-credential: true
+          exclude-interactive-browser-credential: true
+      - name: Resolve version
+        shell: pwsh
+        run: echo "SUBSCRIPT_VERSION=$(python -c 'import subscript; print(subscript.__version__)')" >> $env:GITHUB_ENV
+      - name: Build Setup installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc /Qp installer/SubScript.iss
+          if ($LASTEXITCODE -ne 0) { throw 'ISCC failed' }
+      - name: Sign Setup installer
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: https://eus.codesigning.azure.net
+          signing-account-name: SensoredRooster
+          certificate-profile-name: Sensoredrooster
+          files-folder: ${{ github.workspace }}\installer\Output
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-managed-identity-credential: true
+          exclude-workload-identity-credential: true
+          exclude-interactive-browser-credential: true
+      - name: Verify signatures (signtool verify /pa)
+        shell: pwsh
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          if (!$signtool) { throw 'signtool.exe not found' }
+          $files = @('dist/SubScript/SubScript.exe') + @(Get-ChildItem installer/Output/*.exe | ForEach-Object FullName)
+          foreach ($f in $files) {
+            & $signtool.FullName verify /pa /v $f
+            if ($LASTEXITCODE -ne 0) { throw "Signature verification failed: $f" }
+          }
+      - name: Upload installer and latest.json to the update feed
+        shell: pwsh
+        env:
+          SUBSCRIPT_UPLOAD_TOKEN: ${{ secrets.SUBSCRIPT_UPLOAD_TOKEN }}
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: |
+          $exe = Get-ChildItem installer/Output/SubScript-Setup-*.exe | Select-Object -First 1
+          if (!$exe) { throw 'Missing installer executable' }
+          python tools/publish_update.py $exe.FullName --notes "$env:RELEASE_NOTES"
+      - name: Keep installer as artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: SubScript-Windows-Installer
+          path: installer/Output/*.exe
+          if-no-files-found: error

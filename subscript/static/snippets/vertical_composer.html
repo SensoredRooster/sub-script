@@ -14,10 +14,13 @@
       <label>Border <span class="field-hint">px</span><input name="vertical_border" type="number" min="0" max="32" value="0"></label>
       <label>Caption safe zone<select name="caption_safe_zone"><option value="bottom">Bottom safe zone</option><option value="middle">Middle safe zone</option><option value="top">Top safe zone</option></select></label>
     </div>
-    <div class="composer-coordinates">
-      <fieldset><legend>Gameplay source region</legend><label>X <input name="gameplay_x" data-composer-field="gameplay.x" type="number" min="0" max="1" step="0.01" value="0"></label><label>Y <input name="gameplay_y" data-composer-field="gameplay.y" type="number" min="0" max="1" step="0.01" value="0"></label><label>Width <input name="gameplay_w" data-composer-field="gameplay.w" type="number" min="0" max="1" step="0.01" value="0.72"></label><label>Height <input name="gameplay_h" data-composer-field="gameplay.h" type="number" min="0" max="1" step="0.01" value="1"></label></fieldset>
-      <fieldset><legend>Facecam source region</legend><label>X <input name="facecam_x" data-composer-field="facecam.x" type="number" min="0" max="1" step="0.01" value="0.72"></label><label>Y <input name="facecam_y" data-composer-field="facecam.y" type="number" min="0" max="1" step="0.01" value="0"></label><label>Width <input name="facecam_w" data-composer-field="facecam.w" type="number" min="0" max="1" step="0.01" value="0.28"></label><label>Height <input name="facecam_h" data-composer-field="facecam.h" type="number" min="0" max="1" step="0.01" value="0.28"></label></fieldset>
-    </div>
+    <details class="advanced composer-advanced">
+      <summary>Fine-tune source regions by numbers (advanced — dragging the boxes above is easier)</summary>
+      <div class="composer-coordinates">
+        <fieldset><legend>Gameplay source region</legend><label>X <input name="gameplay_x" data-composer-field="gameplay.x" type="number" min="0" max="1" step="0.01" value="0"></label><label>Y <input name="gameplay_y" data-composer-field="gameplay.y" type="number" min="0" max="1" step="0.01" value="0"></label><label>Width <input name="gameplay_w" data-composer-field="gameplay.w" type="number" min="0" max="1" step="0.01" value="0.72"></label><label>Height <input name="gameplay_h" data-composer-field="gameplay.h" type="number" min="0" max="1" step="0.01" value="1"></label></fieldset>
+        <fieldset><legend>Facecam source region</legend><label>X <input name="facecam_x" data-composer-field="facecam.x" type="number" min="0" max="1" step="0.01" value="0.72"></label><label>Y <input name="facecam_y" data-composer-field="facecam.y" type="number" min="0" max="1" step="0.01" value="0"></label><label>Width <input name="facecam_w" data-composer-field="facecam.w" type="number" min="0" max="1" step="0.01" value="0.28"></label><label>Height <input name="facecam_h" data-composer-field="facecam.h" type="number" min="0" max="1" step="0.01" value="0.28"></label></fieldset>
+      </div>
+    </details>
     <p class="field-hint composer-note">The preview is a planning surface; the saved normalized regions are applied by FFmpeg during the real render. Safe tests never publish.</p>
   </div>
 </details>

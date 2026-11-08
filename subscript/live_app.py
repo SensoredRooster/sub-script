@@ -50,6 +50,19 @@ def _snip(name: str) -> str:
     return (_SNIPPETS / name).read_text(encoding="utf-8")
 
 
+def _friendly_created(iso_value: str) -> str:
+    """Render a queue timestamp as local, human time; fall back to the raw value."""
+    try:
+        from datetime import datetime
+
+        dt = datetime.fromisoformat(str(iso_value).replace("Z", "+00:00")).astimezone()
+        hour = dt.hour % 12 or 12
+        ampm = "AM" if dt.hour < 12 else "PM"
+        return f"{dt.strftime('%b')} {dt.day}, {dt.year} · {hour}:{dt.minute:02d} {ampm}"
+    except (ValueError, TypeError):
+        return str(iso_value)
+
+
 def _parse_time_field(value: str | None) -> float | None:
     if value is None:
         return None
@@ -218,7 +231,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                 card_tpl.replace("{{ID}}", _esc(item.id))
                 .replace("{{TITLE}}", _esc(item.title))
                 .replace("{{POST_COPY}}", editor_html(item, cfg))
-                .replace("{{CREATED}}", _esc(item.created_at))
+                .replace("{{CREATED}}", _esc(_friendly_created(item.created_at)))
                 .replace("{{VERT_VARIANT}}", vert_variant)
                 .replace("{{VERT_LABEL}}", vert_label)
                 .replace("{{VERT_EXTRA}}", vert_extra)
@@ -231,9 +244,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             banner = f'<p class="banner bad-banner">{_esc(err)}</p>'
         elif msg:
             visible_msg = msg
-            if msg.startswith("Approved — social pack"):
-                visible_msg = "Approved — your finished files are saved. Nothing was uploaded because YouTube is off."
-            elif msg.startswith("Trimmed - new horizontal"):
+            if msg.startswith("Trimmed - new horizontal"):
                 visible_msg = "Your trimmed clip is ready. Watch it again, then approve it when happy."
             banner = f'<p class="banner ok-banner">{_esc(visible_msg)}</p>'
             m = _YT_URL_RE.search(msg)
@@ -270,6 +281,25 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         page = (_snip("page.html")
                 .replace("{{SIDEBAR}}", sidebar_html(cfg, watcher_holder, _esc))
                 .replace("{{BODY}}", body))
+        # Guided flow: one stage at a time. Style and Publish stay out of the way
+        # until the user asks for them (or the clip is approved and ready to share).
+        panel = request.query_params.get("panel", "")
+        if pending:
+            stage = "review"
+        elif msg and msg.startswith("Approved"):
+            stage = "share"
+        else:
+            stage = "source"
+        classes = f"stage-{stage}"
+        if panel in {"style", "publish"}:
+            classes += f" panel-{panel}"
+        page = page.replace("<body>", f'<body class="{classes}">', 1)
+        active_anchor = {"source": "#source", "review": "#review", "share": "#publish"}[stage]
+        page = page.replace(
+            f'<a href="{active_anchor}">', f'<a href="{active_anchor}" class="active">', 1
+        )
+        page = page.replace('href="#style"', 'href="/clip?panel=style#style"')
+        page = page.replace('href="#publish"', 'href="/clip?panel=publish#publish"')
         if not (cfg.get("review") or {}).get("require_approval", True):
             page = page.replace("Review before publishing", "Automatic publishing on")
             page = page.replace("Review before publishing.", "Enabled destinations publish automatically.")
@@ -477,12 +507,31 @@ def _esc(value: str) -> str:
 
 
 def main() -> None:
+    import socket
+
     import uvicorn
 
     cfg = load_config()
     host = cfg.get("review", {}).get("host", "127.0.0.1")
     port = int(cfg.get("review", {}).get("port", 8787))
     url = f"http://{host}:{port}"
+
+    # Second double-click while already running: reopen the live app instead of
+    # dying on a raw "address in use" error (which looks like a crash).
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.bind((host, port))
+    except OSError:
+        print("SubScript is already running — opening it in your browser.")
+        print(f"  {url}")
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
+        return
+    finally:
+        probe.close()
+
     out_dir = Path(cfg.get("output", {}).get("dir") or "out")
     pending = ReviewQueue(out_dir / "review-queue.json").list(status="pending")
 
