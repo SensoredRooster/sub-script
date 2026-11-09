@@ -19,6 +19,16 @@ from subscript.layout import normalize_layout, probe_media
 from subscript.telemetry import log_event
 
 
+def friendly_clip_title(src: Path) -> str:
+    """Human label for the review queue: source name + local date, no timestamps."""
+    now = datetime.now().astimezone()
+    hour = now.hour % 12 or 12
+    ampm = "AM" if now.hour < 12 else "PM"
+    moment = f"{now.strftime('%b')} {now.day}, {hour}:{now.minute:02d} {ampm}"
+    stem = src.stem.replace("_", " ").replace("-", " ").strip() or "Clip"
+    return f"{stem} — {moment}"
+
+
 def run_pipeline(
     source: Path,
     cfg: dict[str, Any],
@@ -94,7 +104,8 @@ def run_pipeline(
         horizontal, vertical, out_dir, stamp, cfg
     )
 
-    # Captions after H+V (+ music): whisper when available, else demo SRT.
+    # Captions after H+V (+ music): real speech transcription when available;
+    # otherwise no captions (placeholder text is never burned in silently).
     captioned = maybe_caption_vertical(
         vertical, out_dir, stamp, cfg, duration_s=float(seconds)
     )
@@ -102,12 +113,13 @@ def run_pipeline(
 
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
     posts = generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt", hints=[str(source)])
+    clip_title = friendly_clip_title(src)
     if require_approval:
         queue = ReviewQueue(out_dir / "review-queue.json")
         item = queue.enqueue(
             branded,
             src,
-            title=f"Highlight {stamp}",
+            title=clip_title,
             horizontal_path=horizontal,
             vertical_path=vertical,
             vertical_captioned_path=captioned,
@@ -140,7 +152,7 @@ def run_pipeline(
     from subscript.publish import PublishMeta, publish_local, run_enabled_publishers, format_platform_banner
 
     queue = ReviewQueue(out_dir / "review-queue.json")
-    item = queue.enqueue(branded, src, title=f"Highlight {stamp}",
+    item = queue.enqueue(branded, src, title=clip_title,
                          horizontal_path=horizontal, vertical_path=vertical,
                          vertical_captioned_path=captioned,
                          vertical_layout=normalize_layout(cfg.get("vertical_layout")),

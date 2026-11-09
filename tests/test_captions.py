@@ -84,25 +84,27 @@ def test_resolve_srt_demo_engine_never_calls_whisper(tmp_path: Path, monkeypatch
     assert label == "demo" and path.is_file()
 
 
-def test_resolve_srt_whisper_missing_falls_back(tmp_path: Path, monkeypatch) -> None:
+def test_resolve_srt_whisper_missing_returns_none_no_demo(tmp_path: Path, monkeypatch) -> None:
+    """Whisper missing must never silently burn placeholder text into a clip."""
     monkeypatch.setattr(C, "whisper_available", lambda: False)
-    _path, label = C.resolve_srt_for_video(
+    result = C.resolve_srt_for_video(
         tmp_path / "v.mp4", tmp_path / "w.srt", 3.0, {"captions": {"engine": "whisper"}}
     )
-    assert label == "demo"
+    assert result is None
+    assert not (tmp_path / "w.srt").exists()
 
 
-def test_resolve_srt_whisper_error_falls_back(tmp_path: Path, monkeypatch) -> None:
+def test_resolve_srt_whisper_error_returns_none_no_demo(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(C, "whisper_available", lambda: True)
 
     def broken(video, srt, **_k):
         raise RuntimeError("no model")
 
     monkeypatch.setattr(C, "transcribe_whisper_srt", broken)
-    path, label = C.resolve_srt_for_video(
+    result = C.resolve_srt_for_video(
         tmp_path / "v.mp4", tmp_path / "a.srt", 3.0, {"captions": {"engine": "auto"}}
     )
-    assert label == "demo" and "Clip | SUB" in path.read_text(encoding="utf-8")
+    assert result is None
 
 
 def test_resolve_srt_whisper_success(tmp_path: Path, monkeypatch) -> None:

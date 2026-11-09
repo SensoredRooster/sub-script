@@ -235,7 +235,7 @@ def test_approve_builds_pack_and_manual_platform(app_env) -> None:
     assert r.status_code == 303
     loc = unquote(r.headers["location"])
     assert loc.startswith("/clip?msg=")
-    assert "YouTube: skipped (disabled)" in loc and "TikTok: manual" in loc
+    assert "YouTube is off" in loc and "TikTok: manual" in loc
     approved = app_env.out_dir / "approved" / item.id
     for name in ("horizontal.mp4", "vertical.mp4", "vertical_captioned.mp4", "master.mp4", "PLATFORMS.txt", "manifest.json"):
         assert (approved / name).is_file(), name
@@ -342,7 +342,7 @@ def test_brand_save_persists_to_isolated_config(app_env) -> None:
         },
         follow_redirects=False,
     )
-    assert r.status_code == 303 and r.headers["location"].startswith("/clip?msg=")
+    assert r.status_code == 303 and r.headers["location"].startswith("/clip?panel=style&msg=")
     saved = yaml.safe_load(app_env.cfg_path.read_text(encoding="utf-8"))
     assert saved["brand"]["position"] == "top_left" and saved["brand"]["opacity"] == 0.5
     assert saved["captions"] == {"enabled": True, "engine": "whisper"}
@@ -450,3 +450,34 @@ def test_vod_automatic_mode_allows_delivery(app_env, monkeypatch):
     response = app_env.client.post("/clip", data={"local_path": str(source)}, follow_redirects=False)
     assert calls[0]["dry_run"] is False
     assert "Automatic" in response.headers["location"]
+
+def test_clip_page_guided_stages(app_env) -> None:
+    """The clip workspace reveals one stage at a time via body classes."""
+    page = app_env.client.get("/clip").text
+    assert 'class="stage-source"' in page
+    item = _fake_item(app_env)
+    page = app_env.client.get("/clip").text
+    assert 'class="stage-review"' in page
+    page = app_env.client.get("/clip", params={"panel": "style"}).text
+    assert 'class="stage-review panel-style"' in page
+    page = app_env.client.get("/clip", params={"msg": "Approved - your clip pack is saved."}).text
+    # A pending clip keeps the review stage even with an approval banner.
+    assert 'class="stage-review"' in page
+    app_env.queue.set_status(item.id, "approved")
+    page = app_env.client.get("/clip", params={"msg": "Approved - your clip pack is saved."}).text
+    assert 'class="stage-share"' in page
+    page = app_env.client.get("/clip", params={"panel": "publish"}).text
+    assert 'class="stage-source panel-publish"' in page
+
+
+def test_clip_page_links_unlock_optional_sections(app_env) -> None:
+    page = app_env.client.get("/clip").text
+    assert 'href="/clip?panel=style#style"' in page
+    assert 'href="/clip?panel=publish#publish"' in page
+
+
+def test_friendly_clip_title_uses_source_name() -> None:
+    from subscript.pipeline import friendly_clip_title
+
+    title = friendly_clip_title(Path("my-epic-gameplay.mp4"))
+    assert title.startswith("my epic gameplay")

@@ -44,16 +44,16 @@
 
     </div><div class="control-panel">
     <h3 class="brand-subhead">Captions</h3>
-    <p class="meta">Add words on screen. Automatic is the easiest choice and falls back safely if speech transcription is not installed.</p>
+    <p class="meta">Add words on screen. Automatic uses real speech transcription when it is available; otherwise clips are exported without captions — placeholder text is never burned in unless you choose the demo engine yourself.</p>
     <label class="check-row">
       <input type="checkbox" name="captions_enabled" value="1" id="captions-enabled" {{CAPS_ENABLED}}>
       Add captions to both video formats
     </label>
     <label>Engine
       <select name="captions_engine" id="captions-engine">
-        <option value="auto" {{ENG_AUTO}}>Automatic (demo if unavailable)</option>
-        <option value="demo" {{ENG_DEMO}}>Demo placeholder text</option>
-        <option value="whisper" {{ENG_WHISPER}}>Speech transcription (demo fallback)</option>
+        <option value="auto" {{ENG_AUTO}}>Automatic (recommended)</option>
+        <option value="whisper" {{ENG_WHISPER}}>Speech transcription</option>
+        <option value="demo" {{ENG_DEMO}}>Demo placeholder text (testing only)</option>
       </select>
     </label>
     <p class="meta" id="whisper-hint">{{WHISPER_HINT}}</p>

@@ -1,4 +1,4 @@
-"""Burn SRT captions onto video; optional faster-whisper STT with demo fallback."""
+"""Burn SRT captions onto video; optional faster-whisper STT (demo text only on explicit request)."""
 
 from __future__ import annotations
 
@@ -189,28 +189,33 @@ def resolve_srt_for_video(
     srt: Path,
     duration_s: float,
     cfg: dict[str, Any],
-) -> tuple[Path, str]:
-    """Pick SRT source from captions.engine; always fail-soft to demo.
+) -> tuple[Path, str] | None:
+    """Pick an SRT source from captions.engine.
 
-    Returns ``(srt_path, source_label)`` where source_label is
-    ``whisper`` or ``demo``.
+    Returns ``(srt_path, source_label)`` where source_label is ``whisper`` or
+    ``demo``, or ``None`` when real captions were requested but cannot be
+    produced. Placeholder ("demo") text is only ever written when the user
+    explicitly chose the demo engine - it must never silently end up burned
+    into a clip someone is about to publish.
     """
     engine = captions_engine(cfg)
-    want_whisper = engine in ("auto", "whisper")
-    if want_whisper and whisper_available():
+    if engine == "demo":
+        write_demo_srt(srt, duration_s)
+        return srt, "demo"
+    if whisper_available():
         try:
             transcribe_whisper_srt(video, srt)
             if srt.is_file() and srt.stat().st_size > 0:
                 return srt, "whisper"
         except Exception as exc:  # noqa: BLE001
-            print(f"Whisper captions failed ({exc}); using demo SRT.")
-    elif engine == "whisper" and not whisper_available():
+            print(f"Whisper captions failed ({exc}); exporting without captions.")
+    else:
         print(
-            "captions.engine=whisper but faster-whisper is not installed; "
-            "using demo SRT. Optional: pip install -r requirements-whisper.txt"
+            "Speech captions are not available in this build "
+            "(faster-whisper missing); exporting without captions. "
+            "Choose the demo engine only for layout testing."
         )
-    write_demo_srt(srt, duration_s)
-    return srt, "demo"
+    return None
 
 
 def _ff_escape(text: str, specials: str) -> str:
@@ -346,13 +351,13 @@ def maybe_caption_vertical(
     dur = float(duration_s) if duration_s is not None else probe_duration_seconds(vertical)
     srt = out_dir / f"clip-captions-{stamp}.srt"
     try:
-        resolve_srt_for_video(vertical, srt, dur, cfg)
+        resolved = resolve_srt_for_video(vertical, srt, dur, cfg)
     except Exception as exc:  # noqa: BLE001
         print(f"Caption SRT skipped: {exc}")
-        try:
-            write_demo_srt(srt, dur)
-        except Exception:
-            return None
+        return None
+    if resolved is None:
+        srt.unlink(missing_ok=True)
+        return None
     dest = out_dir / f"clip-vertical-captioned-{stamp}.mp4"
     try:
         return burn_captions(vertical, srt, dest)

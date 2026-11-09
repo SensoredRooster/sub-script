@@ -75,11 +75,11 @@ def branding_html(brand: dict[str, Any], snip: Callable[[str], str], cfg: dict[s
         music_status = "No music file yet — upload an MP3 or drop assets/music.mp3 (mix skipped until then)."
 
     if whisper_available():
-        whisper_hint = "faster-whisper is installed — Auto / Whisper can generate real timed captions."
+        whisper_hint = "Speech transcription is installed — captions will use your real audio."
     else:
         whisper_hint = (
-            "faster-whisper not installed — Auto/Whisper fall back to demo SRT. "
-            "Optional: pip install -r requirements-whisper.txt"
+            "Speech transcription is not in this build, so clips are exported without captions. "
+            "Nothing fake is ever burned in — the demo engine is only for trying the look."
         )
 
     def sel(key: str) -> str:
@@ -304,10 +304,11 @@ def register_branding_routes(app: FastAPI, cfg: dict[str, Any]) -> None:
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/?err={quote(str(exc), safe='')}", status_code=303)
         return RedirectResponse(
-            "/clip?msg="
+            "/clip?panel=style&msg="
             + quote(
                 "Saved — logo, captions, and music settings apply to new clips.",
                 safe="",
-            ),
+            )
+            + "#style",
             status_code=303,
         )
