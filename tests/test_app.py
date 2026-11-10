@@ -62,6 +62,23 @@ def test_entry_screen_is_only_two_clear_choices(app_env) -> None:
     assert "drop-zone" not in page
 
 
+def test_home_shows_update_checker(app_env) -> None:
+    page = app_env.client.get("/").text
+    assert 'id="checkUpdate"' in page
+    assert 'id="installUpdate"' in page
+    assert 'id="updateStatus"' in page
+    assert "data-autocheck" in page
+    assert "/static/app.js?v=12" in page
+
+
+def test_clip_form_offers_edit_presets(app_env) -> None:
+    page = app_env.client.get("/clip").text
+    assert 'name="edit_preset"' in page
+    assert "Hype moments" in page
+    assert "Balanced" in page
+    assert "Story / talking" in page
+
+
 def test_local_login_boundary_is_explicit_and_reversible(app_env) -> None:
     app_env.cfg["auth"] = {"required": True}
     blocked = app_env.client.get("/", follow_redirects=False)
@@ -83,7 +100,48 @@ def test_automatic_clip_uses_highlight(app_env, monkeypatch) -> None:
                         lambda *args, **kwargs: calls.append(kwargs))
     result = app_env.client.post("/clip", data={"local_path": str(source), "mode": "auto"}, follow_redirects=False)
     assert result.status_code == 303
-    assert calls == [{"dry_run": True, "start": 42, "duration": 18.0}]
+    assert calls == [{"dry_run": True, "start": 42, "duration": 18.0, "title_suffix": ""}]
+
+
+def test_automatic_clip_enqueues_top_moments(app_env, monkeypatch) -> None:
+    source = app_env.tmp / "multi.mp4"
+    source.write_bytes(b"video")
+    calls = []
+    monkeypatch.setattr(
+        "subscript.live_app.suggest_highlights_or_fallback",
+        lambda *args, **kwargs: {"suggestions": [
+            {"start": 100, "duration": 30},
+            {"start": 500, "duration": 30},
+            {"start": 900, "duration": 30},
+        ]},
+    )
+    monkeypatch.setattr("subscript.live_app.run_pipeline",
+                        lambda *args, **kwargs: calls.append(kwargs))
+    result = app_env.client.post("/clip", data={"local_path": str(source), "mode": "auto"}, follow_redirects=False)
+    assert result.status_code == 303
+    assert [c["start"] for c in calls] == [100, 500, 900]
+    assert [c["title_suffix"] for c in calls] == [
+        " · moment 1 of 3", " · moment 2 of 3", " · moment 3 of 3",
+    ]
+    assert "3 moments worth clipping" in unquote(result.headers["location"])
+
+
+def test_automatic_clip_preset_overrides_window_and_weights(app_env, monkeypatch) -> None:
+    source = app_env.tmp / "preset.mp4"
+    source.write_bytes(b"video")
+    seen = {}
+    monkeypatch.setattr(
+        "subscript.live_app.suggest_highlights_or_fallback",
+        lambda *args, **kwargs: seen.update(kwargs) or {"suggestions": []},
+    )
+    monkeypatch.setattr("subscript.live_app.run_pipeline", lambda *args, **kwargs: None)
+    app_env.client.post(
+        "/clip", data={"local_path": str(source), "mode": "auto", "edit_preset": "hype"},
+        follow_redirects=False,
+    )
+    assert seen["buffer_seconds"] == 20.0
+    assert seen["top_n"] == 3
+    assert seen["weights"] == (0.65, 0.20, 0.15)
 
 
 def test_automatic_clip_falls_back_when_no_highlights(app_env, monkeypatch) -> None:

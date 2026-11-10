@@ -17,6 +17,38 @@ def test_rms() -> None:
     assert H._rms([0.5, -0.5]) == pytest.approx(0.5)
 
 
+def test_median_and_percentile() -> None:
+    assert H._median([]) == 0.0
+    assert H._median([1.0, 3.0, 2.0]) == 2.0
+    assert H._median([1.0, 2.0, 3.0, 4.0]) == pytest.approx(2.5)
+    assert H._percentile([0.1, 0.5, 0.9], 95.0) == pytest.approx(0.9)
+    assert H._percentile([], 95.0) == 0.0
+
+
+def test_window_score_prefers_spike_over_flat_music_bed() -> None:
+    # VOD baseline is quiet (0.1); a constant loud bed (0.6) must lose to a
+    # genuine excitement spike (0.9 burst over quiet context).
+    baseline = 0.1
+    buckets_flat = [0.6] * 30
+    buckets_spike = [0.1] * 20 + [0.9] * 6 + [0.3] * 4
+    flat, _ = H._window_score(buckets_flat, 1.0, 0.0, 30.0, baseline, (0.55, 0.25, 0.20))
+    spiky, ratio = H._window_score(buckets_spike, 1.0, 0.0, 30.0, baseline, (0.55, 0.25, 0.20))
+    assert spiky > flat
+    assert ratio == pytest.approx(9.0)
+
+
+def test_window_score_silent_window_scores_zero() -> None:
+    score, _ = H._window_score([0.0] * 10, 1.0, 0.0, 10.0, 0.1, (0.55, 0.25, 0.20))
+    assert score == 0.0
+
+
+def test_reason_strings_scale_with_ratio() -> None:
+    assert "spike" in H._reason(6.0)
+    assert "excitement" in H._reason(2.5)
+    assert "energetic" in H._reason(1.5)
+    assert "Steady" in H._reason(1.0)
+
+
 def test_fallback_payload_for_missing_source(tmp_path: Path) -> None:
     payload = H.suggest_highlights_or_fallback(tmp_path / "nope.mp4", buffer_seconds=30.0, top_n=3)
     assert payload["fallback"] is True

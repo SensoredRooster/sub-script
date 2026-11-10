@@ -22,6 +22,7 @@ from subscript.auth import SESSION_COOKIE, is_authenticated, login_redirect
 from subscript.automation_profiles import register_automation_routes, sidebar_html
 from subscript.capture_setup import register_capture_setup
 from subscript.config import dry_run_forced, load_config
+from subscript.edit_presets import get_preset
 from subscript.highlights import suggest_highlights_or_fallback
 from subscript.hotkey import HotkeyWatcher
 from subscript.live_app_actions import register_item_routes
@@ -311,6 +312,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         file: UploadFile | None = File(None),
         local_path: str = Form(""),
         mode: str = Form("last30"),
+        edit_preset: str = Form("balanced"),
         start: str = Form(""),
         duration: str = Form(""),
         vertical_layout_mode: str = Form("center_crop"),
@@ -327,17 +329,25 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     ) -> RedirectResponse:
         try:
             source = await _resolve_source(file, local_path, uploads_dir)
+            moments: list[tuple[float | None, float | None]] = []
+            preset_label = ""
             if mode == "auto":
+                preset = get_preset(edit_preset)
+                preset_label = preset["label"]
                 highlights = suggest_highlights_or_fallback(
-                    source, buffer_seconds=float(default_seconds), top_n=1, cfg=cfg
+                    source,
+                    buffer_seconds=float(preset["clip_seconds"]),
+                    top_n=int(preset["top_n"]),
+                    cfg=cfg,
+                    weights=preset["weights"],
                 )
                 suggestions = highlights.get("suggestions") or []
-                best = suggestions[0] if suggestions else {}
-                clip_start = best.get("start")
-                clip_duration = float(best.get("duration") or default_seconds)
+                for sug in suggestions[: int(preset["top_n"])]:
+                    moments.append((sug.get("start"), float(sug.get("duration") or preset["clip_seconds"])))
+                if not moments:
+                    moments = [(None, float(preset["clip_seconds"]))]
             elif mode == "last30":
-                clip_start: float | None = None
-                clip_duration: float | None = float(default_seconds)
+                moments = [(None, float(default_seconds))]
             else:
                 clip_start = _parse_time_field(start)
                 clip_duration = _parse_time_field(duration)
@@ -345,6 +355,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                     raise ValueError("Start time is required for a custom clip.")
                 if clip_duration is None or clip_duration <= 0:
                     raise ValueError("Duration must be greater than zero.")
+                moments = [(clip_start, clip_duration)]
             layout_values = {
                 "vertical_layout_mode": vertical_layout_mode, "vertical_preset": vertical_preset,
                 "vertical_background": vertical_background, "vertical_gap": vertical_gap,
@@ -354,20 +365,35 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             }
             pipeline_cfg = dict(cfg)
             pipeline_cfg["vertical_layout"] = layout_from_form(layout_values)
-            run_pipeline(
-                source, pipeline_cfg, dry_run=bool((cfg.get("review") or {}).get("require_approval", True)), start=clip_start, duration=clip_duration
-            )
+            require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
+            for i, (m_start, m_dur) in enumerate(moments):
+                suffix = f" · moment {i + 1} of {len(moments)}" if len(moments) > 1 else ""
+                run_pipeline(
+                    source, pipeline_cfg, dry_run=require_approval,
+                    start=m_start, duration=m_dur, title_suffix=suffix,
+                )
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/clip?err={quote(str(exc), safe='')}", status_code=303)
+        require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
+        if require_approval:
+            if len(moments) > 1:
+                msg = (
+                    f"Found {len(moments)} moments worth clipping ({preset_label} style). "
+                    "Watch the previews in Review and approve your favorite — "
+                    "nothing is published yet."
+                )
+            else:
+                msg = (
+                    "Your clip is ready. Watch the previews below, then approve it when you like it. "
+                    "Nothing is published before approval."
+                )
+        else:
+            msg = (
+                "Automatic processing complete. Export pack and publishing results are saved in out/approved. "
+                "Only enabled live destinations upload; manual destinations create packs."
+            )
         return RedirectResponse(
-            "/clip?msg="
-            + quote(
-                ("Your clip is ready. Watch the previews below, then approve it when you like it. "
-                 "Nothing is published before approval.")
-                if (cfg.get("review") or {}).get("require_approval", True) else
-                "Automatic processing complete. Export pack and publishing results are saved in out/approved. Only enabled live destinations upload; manual destinations create packs.",
-                safe="",
-            ) + ("#review" if (cfg.get("review") or {}).get("require_approval", True) else ""),
+            "/clip?msg=" + quote(msg, safe="") + ("#review" if require_approval else ""),
             status_code=303,
         )
 
@@ -407,6 +433,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         local_path: str = Form(""),
         top_n: str = Form("5"),
         buffer_seconds: str = Form(""),
+        edit_preset: str = Form(""),
     ) -> JSONResponse:
         """Analyze VOD loudness (+ optional kill-feed); return peak windows (fail-soft)."""
         try:
@@ -430,15 +457,21 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             n = int(float(top_n)) if str(top_n).strip() else 5
         except ValueError:
             n = 5
+        weights = None
+        if str(edit_preset).strip():
+            preset = get_preset(edit_preset)
+            weights = preset["weights"]
+            if not str(buffer_seconds).strip():
+                buf = float(preset["clip_seconds"])
         if str(buffer_seconds).strip():
             try:
                 buf = float(buffer_seconds)
             except ValueError:
                 buf = float(default_seconds)
-        else:
+        elif not str(edit_preset).strip():
             buf = float(default_seconds)
         payload = suggest_highlights_or_fallback(
-            source, buffer_seconds=buf, top_n=max(1, n), cfg=cfg
+            source, buffer_seconds=buf, top_n=max(1, n), cfg=cfg, weights=weights
         )
         return JSONResponse(payload)
 

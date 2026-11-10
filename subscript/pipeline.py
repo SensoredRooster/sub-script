@@ -36,6 +36,7 @@ def run_pipeline(
     dry_run: bool = True,
     start: float | None = None,
     duration: float | None = None,
+    title_suffix: str = "",
 ) -> Path:
     default_seconds = int(cfg.get("buffer_seconds") or 30)
     seconds = (
@@ -113,7 +114,7 @@ def run_pipeline(
 
     require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
     posts = generate_posts(cfg, out_dir / f"clip-captions-{stamp}.srt", hints=[str(source)])
-    clip_title = friendly_clip_title(src)
+    clip_title = friendly_clip_title(src) + title_suffix
     if require_approval:
         queue = ReviewQueue(out_dir / "review-queue.json")
         item = queue.enqueue(

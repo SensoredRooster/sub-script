@@ -969,4 +969,9 @@ document.addEventListener("click", (event) => {
       checkUpdate.disabled = false;
     });
   });
+
+  // Pages that opt in (data-autocheck) check the feed as soon as they load.
+  if (checkUpdate.closest("[data-autocheck]")) {
+    checkUpdate.click();
+  }
 })();

@@ -1,8 +1,12 @@
-"""Suggest highlight windows from VOD audio loudness (no ML).
+"""Suggest highlight windows from VOD audio dynamics (no ML).
 
-Uses ffmpeg to sample mono PCM, scores sliding windows of ``buffer_seconds``
-by RMS energy, and returns the top non-overlapping peaks. Fail-soft callers
-should catch errors and fall back to last-N seconds.
+Uses ffmpeg to sample mono PCM, builds a per-bucket loudness curve, then scores
+sliding windows of ``buffer_seconds`` by *excitement relative to the VOD's own
+baseline* — spikes above the channel's normal level, dynamics within the
+window, and how much of the window stays engaged — instead of raw loudness.
+Raw loudness alone picks constant music beds and menu noise; relative spikes
+match what viewers actually react to. Fail-soft callers should catch errors
+and fall back to last-N seconds.
 """
 
 from __future__ import annotations
@@ -20,6 +24,9 @@ _SAMPLE_RATE = 8000
 _SAMPLE_FMT = "f32le"
 _BYTES_PER_SAMPLE = 4
 
+# Default scoring weights: excitement spike / within-window dynamics / sustain.
+_DEFAULT_WEIGHTS = (0.55, 0.25, 0.20)
+
 
 def suggest_highlights(
     source: Path,
@@ -27,10 +34,12 @@ def suggest_highlights(
     buffer_seconds: float = 30.0,
     top_n: int = 5,
     hop_seconds: float | None = None,
+    weights: tuple[float, float, float] | None = None,
 ) -> list[dict[str, Any]]:
-    """Return top-N peak segments as ``{start, duration, score}``.
+    """Return top-N peak segments as ``{start, duration, score, reason}``.
 
-    ``score`` is normalized 0..1 relative to the loudest window (1.0 = loudest).
+    ``score`` is normalized 0..1 relative to the best window (1.0 = best).
+    ``reason`` is a short human explanation of why the moment was picked.
     Windows do not overlap (greedy by score, then by start).
     """
     source = Path(source)
@@ -43,6 +52,7 @@ def suggest_highlights(
 
     top_n = max(1, int(top_n))
     hop = float(hop_seconds) if hop_seconds is not None else max(1.0, duration / 3.0)
+    w = weights or _DEFAULT_WEIGHTS
 
     samples = _decode_mono_pcm(source)
     if not samples:
@@ -57,31 +67,35 @@ def suggest_highlights(
     win_samples = max(1, int(round(win_sec * _SAMPLE_RATE)))
     hop_samples = max(1, int(round(hop * _SAMPLE_RATE)))
 
-    windows: list[tuple[float, float, float]] = []  # (score_raw, start, duration)
+    buckets, bucket_sec = _rms_buckets(samples, win_sec)
+    baseline = _median(buckets)
+
+    windows: list[tuple[float, float, float, float]] = []  # (score, start, duration, peak_ratio)
+
+    def _add_window(start_s: float, n_samples: int) -> None:
+        dur = n_samples / float(_SAMPLE_RATE)
+        score, ratio = _window_score(buckets, bucket_sec, start_s, dur, baseline, w)
+        windows.append((score, start_s, dur, ratio))
+
     if len(samples) <= win_samples:
-        rms = _rms(samples)
-        windows.append((rms, 0.0, float(len(samples)) / _SAMPLE_RATE))
+        _add_window(0.0, len(samples))
     else:
         i = 0
         while i + win_samples <= len(samples):
-            chunk = samples[i : i + win_samples]
-            rms = _rms(chunk)
-            start = i / float(_SAMPLE_RATE)
-            windows.append((rms, start, win_sec))
+            _add_window(i / float(_SAMPLE_RATE), win_samples)
             i += hop_samples
         # Ensure the final window that ends at EOF is considered.
         last_start_i = len(samples) - win_samples
         if last_start_i > 0 and (not windows or windows[-1][1] < last_start_i / _SAMPLE_RATE - 0.01):
-            chunk = samples[last_start_i:]
-            windows.append((_rms(chunk), last_start_i / float(_SAMPLE_RATE), win_sec))
+            _add_window(last_start_i / _SAMPLE_RATE, win_samples)
 
     if not windows:
         raise RuntimeError("No analysis windows produced")
 
-    # Prefer loud over quiet; break ties earlier in the VOD.
-    windows.sort(key=lambda w: (-w[0], w[1]))
-    peak = windows[0][0]
-    if peak <= 0 or math.isclose(peak, 0.0):
+    # Best score first; break ties earlier in the VOD.
+    windows.sort(key=lambda w_: (-w_[0], w_[1]))
+    top = windows[0][0]
+    if top <= 0 or math.isclose(top, 0.0):
         # Flat silence — still return evenly spaced suggestions so UI has chips.
         span = max(0.0, total_sec - win_sec)
         step = span / max(1, top_n - 1) if top_n > 1 and span > 0 else 0.0
@@ -93,12 +107,13 @@ def suggest_highlights(
                     "start": round(start, 3),
                     "duration": round(win_sec, 3),
                     "score": 0.0,
+                    "reason": "Evenly spaced guess (no clear audio peaks)",
                 }
             )
         return out
 
     picked: list[dict[str, Any]] = []
-    for rms, start, dur in windows:
+    for score, start, dur, ratio in windows:
         if len(picked) >= top_n:
             break
         end = start + dur
@@ -115,7 +130,8 @@ def suggest_highlights(
             {
                 "start": round(start, 3),
                 "duration": round(dur, 3),
-                "score": round(min(1.0, max(0.0, rms / peak)), 4),
+                "score": round(min(1.0, max(0.0, score / top)), 4),
+                "reason": _reason(ratio),
             }
         )
 
@@ -129,6 +145,7 @@ def suggest_highlights_or_fallback(
     buffer_seconds: float = 30.0,
     top_n: int = 5,
     cfg: dict[str, Any] | None = None,
+    weights: tuple[float, float, float] | None = None,
 ) -> dict[str, Any]:
     """Analyze with fail-soft fallback to last ``buffer_seconds``.
 
@@ -150,7 +167,7 @@ def suggest_highlights_or_fallback(
     detect_note = ""
     try:
         suggestions = suggest_highlights(
-            source, buffer_seconds=buf, top_n=top_n
+            source, buffer_seconds=buf, top_n=top_n, weights=weights
         )
         for s in suggestions:
             s.setdefault("source", "loudness")
@@ -279,3 +296,75 @@ def _rms(samples: list[float]) -> float:
     for s in samples:
         acc += s * s
     return math.sqrt(acc / len(samples))
+
+
+def _rms_buckets(samples: list[float], win_sec: float) -> tuple[list[float], float]:
+    """Per-bucket RMS loudness curve. Bucket ~1s, finer for short windows."""
+    bucket_sec = max(0.25, min(1.0, win_sec / 4.0))
+    step = max(1, int(round(bucket_sec * _SAMPLE_RATE)))
+    buckets = [_rms(samples[i : i + step]) for i in range(0, len(samples), step)]
+    return buckets, step / float(_SAMPLE_RATE)
+
+
+def _median(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    mid = len(s) // 2
+    if len(s) % 2:
+        return s[mid]
+    return (s[mid - 1] + s[mid]) / 2.0
+
+
+def _percentile(values: list[float], pct: float) -> float:
+    """Nearest-rank percentile; good enough for bucket curves."""
+    if not values:
+        return 0.0
+    s = sorted(values)
+    rank = max(1, math.ceil(pct / 100.0 * len(s)))
+    return s[min(len(s) - 1, rank - 1)]
+
+
+def _window_score(
+    buckets: list[float],
+    bucket_sec: float,
+    start_s: float,
+    dur_s: float,
+    baseline: float,
+    weights: tuple[float, float, float],
+) -> tuple[float, float]:
+    """Score a window 0..1 by excitement relative to the VOD baseline.
+
+    Components: spike (peak vs. the VOD's median loudness), dynamics (energy
+    variation inside the window — constant music beds score low), sustain
+    (share of the window above baseline). Returns (score, peak_ratio).
+    """
+    n = len(buckets)
+    lo = max(0, int(start_s / bucket_sec))
+    hi = min(n, max(lo + 1, int(round((start_s + dur_s) / bucket_sec))))
+    wb = buckets[lo:hi]
+    if not wb:
+        return 0.0, 1.0
+    mean_w = sum(wb) / len(wb)
+    if mean_w <= 0:
+        return 0.0, 1.0
+    peak = _percentile(wb, 95.0)
+    base = max(baseline, 1e-4)
+    ratio = peak / base if base > 0 else 1.0
+    spike = min(1.0, math.log2(max(1.0, ratio)) / 4.0)
+    var = math.sqrt(sum((b - mean_w) ** 2 for b in wb) / len(wb))
+    dyn = min(1.0, (var / mean_w) / 1.5)
+    sustain = sum(1 for b in wb if b > base) / len(wb)
+    w1, w2, w3 = weights
+    return w1 * spike + w2 * dyn + w3 * sustain, ratio
+
+
+def _reason(ratio: float) -> str:
+    """Plain-language explanation of why a moment scored well."""
+    if ratio >= 4.0:
+        return f"Big energy spike — about {ratio:.0f}× your video's usual level"
+    if ratio >= 2.0:
+        return f"Clear excitement jump — about {ratio:.1f}× your video's usual level"
+    if ratio >= 1.3:
+        return "Noticeably more energetic than the rest of the video"
+    return "Steady, consistent moment"
