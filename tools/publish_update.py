@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -28,24 +29,79 @@ FEED = os.getenv(
 ).rstrip("/")
 USER_AGENT = f"SubScript-Release/{__version__}"  # a bare urllib UA is blocked at the edge
 
+# The edge rejects single requests above ~100 MB, so big installers go up in parts.
+PART_SIZE = 16 * 1024 * 1024  # R2 multipart requires >=5 MiB per part except the last
+PLAIN_PUT_LIMIT = 80 * 1024 * 1024
 
-def _put(key: str, data: bytes, content_type: str, token: str) -> None:
+
+def _request(req: urllib.request.Request, timeout: int = 280) -> str:
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        raise SystemExit(
+            f"{req.method} {req.full_url} failed: HTTP {exc.code} {exc.read()[:300]!r}"
+        ) from exc
+
+
+def _call(
+    key: str,
+    method: str,
+    token: str,
+    data: bytes | None = None,
+    params: str = "",
+    content_type: str = "application/octet-stream",
+) -> str:
     req = urllib.request.Request(
-        f"{FEED}/{key}",
+        f"{FEED}/{key}{params}",
         data=data,
-        method="PUT",
+        method=method,
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": content_type,
             "User-Agent": USER_AGENT,
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=280) as resp:
-            body = resp.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        raise SystemExit(f"PUT {key} failed: HTTP {exc.code} {exc.read()[:300]!r}") from exc
+    return _request(req)
+
+
+def _put(key: str, data: bytes, content_type: str, token: str) -> None:
+    body = _call(key, "PUT", token, data=data, content_type=content_type)
     print(f"PUT {key}: {body}")
+
+
+def _put_large(key: str, path: Path, content_type: str, token: str) -> None:
+    """Chunked upload through the worker's R2 multipart endpoints."""
+    created = json.loads(_call(key, "POST", token, params="?action=mpu-create", content_type=content_type))
+    upload_id = created["uploadId"]
+    qid = urllib.parse.quote(upload_id, safe="")
+    parts: list[dict] = []
+    try:
+        with path.open("rb") as fh:
+            num = 0
+            while True:
+                chunk = fh.read(PART_SIZE)
+                if not chunk:
+                    break
+                num += 1
+                info = json.loads(
+                    _call(key, "PUT", token, data=chunk,
+                          params=f"?action=mpu-part&uploadId={qid}&part={num}",
+                          content_type=content_type)
+                )
+                parts.append({"partNumber": num, "etag": info["etag"]})
+                print(f"  part {num}: {len(chunk)} bytes")
+        body = _call(key, "POST", token,
+                     data=json.dumps({"parts": parts}).encode("utf-8"),
+                     params=f"?action=mpu-complete&uploadId={qid}",
+                     content_type="application/json")
+        print(f"PUT {key} (multipart, {len(parts)} parts): {body}")
+    except BaseException:
+        try:
+            _call(key, "DELETE", token, params=f"?action=mpu-abort&uploadId={qid}")
+        except SystemExit:
+            pass
+        raise
 
 
 def main() -> None:
@@ -68,7 +124,10 @@ def main() -> None:
     sha = digest.hexdigest()
     print(f"sha256: {sha}")
 
-    _put(f"releases/{exe.name}", exe.read_bytes(), "application/octet-stream", token)
+    if exe.stat().st_size > PLAIN_PUT_LIMIT:
+        _put_large(f"releases/{exe.name}", exe, "application/octet-stream", token)
+    else:
+        _put(f"releases/{exe.name}", exe.read_bytes(), "application/octet-stream", token)
 
     latest = {
         "version": __version__,
