@@ -42,13 +42,16 @@ def make_vertical(
     width: int = 1080,
     height: int = 1920,
     layout: dict | None = None,
+    smart: bool = True,
 ) -> Path:
     """Render a true 9:16 output, optionally using a normalized composer template."""
     if layout:
-        return make_vertical_with_layout(source, dest, width=width, height=height, layout=layout)
+        return make_vertical_with_layout(source, dest, width=width, height=height, layout=layout, smart=smart)
+    from subscript.layout import smart_vertical_filter
+
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
+    vf = smart_vertical_filter(source, width, height, smart=smart)
     cmd = [ffmpeg, "-y", "-i", str(source), "-vf", vf, *COMPAT_VIDEO, *COMPAT_AUDIO, *COMPAT_MOVFLAGS, str(dest)]
     _run(cmd)
     return dest
@@ -64,9 +67,10 @@ def make_social_pair(
     landscape_w: int = 1920,
     landscape_h: int = 1080,
     vertical_layout: dict | None = None,
+    smart_crop: bool = True,
 ) -> tuple[Path, Path]:
     horizontal = out_dir / f"clip-horizontal-{stamp}.mp4"
     vertical = out_dir / f"clip-vertical-{stamp}.mp4"
     make_horizontal(source, horizontal, width=landscape_w, height=landscape_h)
-    make_vertical(source, vertical, width=shorts_w, height=shorts_h, layout=vertical_layout)
+    make_vertical(source, vertical, width=shorts_w, height=shorts_h, layout=vertical_layout, smart=smart_crop)
     return horizontal, vertical

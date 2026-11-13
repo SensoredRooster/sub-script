@@ -1,6 +1,9 @@
-# Optional speech-to-text captions (not required to run sub-script).
-# Demo SRT still works without this. Install into the same venv:
+# Speech-to-text captions. Bundled into the Windows installer so captions
+# work out of the box; also installable into a dev venv:
 #   pip install -r requirements-whisper.txt
 #
 # Uses faster-whisper (CTranslate2). First run downloads a small model.
+# av 19 removed metadata_errors= which faster-whisper 1.2 still passes —
+# pin below 19 until faster-whisper catches up.
 faster-whisper>=1.0.0
+av>=15,<19

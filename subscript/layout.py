@@ -162,11 +162,12 @@ def make_vertical_with_layout(
     width: int,
     height: int,
     layout: Any,
+    smart: bool = True,
 ) -> Path:
     """Render a true WxH vertical output from normalized source regions."""
     normalized = normalize_layout(layout)
     if normalized["mode"] != "composer":
-        return _center_crop(source, dest, width, height)
+        return _center_crop(source, dest, width, height, smart=smart)
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
     regions = normalized["regions"]
@@ -227,12 +228,36 @@ def make_vertical_with_layout(
     return dest
 
 
-def _center_crop(source: Path, dest: Path, width: int, height: int) -> Path:
+def _center_crop(source: Path, dest: Path, width: int, height: int, smart: bool = True) -> Path:
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
+    vf = smart_vertical_filter(source, width, height, smart=smart)
     run_ffmpeg([ffmpeg, "-y", "-i", str(source), "-vf", vf, *COMPAT_VIDEO, *COMPAT_AUDIO, *COMPAT_MOVFLAGS, str(dest)], what="ffmpeg vertical")
     return dest
+
+
+def smart_vertical_filter(source: Path, width: int, height: int, smart: bool = True) -> str:
+    """Scale+crop to WxH, anchoring the crop on the action when detectable.
+
+    Falls back to ffmpeg's centered crop on any uncertainty — identical to the
+    long-standing behavior.
+    """
+    x = None
+    if smart:
+        try:
+            from subscript.smart_crop import smart_crop_x
+
+            meta = probe_media(source)
+            src_w, src_h = int(meta.get("width") or 0), int(meta.get("height") or 0)
+            x = smart_crop_x(source, src_w, src_h, width, height)
+        except Exception:  # noqa: BLE001 — reframing must never break exports
+            x = None
+    if x is None:
+        return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
+    # Crop in source space first (keeps HUD/subject intact), then scale down.
+    crop_w = int(round(src_h * width / height))
+    crop_w -= crop_w % 2
+    return f"crop={crop_w}:{src_h}:{x}:0,scale={width}:{height},setsar=1"
 
 
 def probe_media(path: Path) -> dict[str, Any]:

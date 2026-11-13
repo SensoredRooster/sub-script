@@ -49,20 +49,33 @@ for pkg in ("uvicorn", "fastapi", "starlette"):
     except Exception:
         pass
 
+# faster-whisper ships in the installer so speech captions work out of the box.
+# ctranslate2/tokenizers/onnxruntime carry native binaries and data files that
+# PyInstaller's import analysis cannot discover on its own.
+extra_binaries = []
+for pkg in ("faster_whisper", "ctranslate2", "tokenizers", "onnxruntime", "av"):
+    try:
+        d, b, h = collect_all(pkg)
+        datas += d
+        extra_binaries += b
+        hiddenimports += h
+    except Exception:
+        pass
+
 # Every subscript module (routes are registered via imports the analyser cannot see).
 hiddenimports += collect_submodules("subscript")
 
 a = Analysis(
     ["scripts/run_exe.py"],
     pathex=[],
-    binaries=[],
+    binaries=extra_binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    # Optional heavy extras are never bundled; users pip-install them into a venv build.
-    excludes=["faster_whisper", "easyocr", "pytesseract", "torch", "PIL", "tkinter"],
+    # Heavy OCR/torch extras stay optional; faster-whisper IS bundled (captions).
+    excludes=["easyocr", "pytesseract", "torch", "PIL", "tkinter"],
     noarchive=False,
 )
 
