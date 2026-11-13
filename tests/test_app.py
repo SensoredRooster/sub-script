@@ -148,7 +148,7 @@ def test_automatic_clip_uses_highlight(app_env, monkeypatch) -> None:
     assert result.status_code == 303
     assert calls == [{
         "dry_run": True, "start": 42, "duration": 18.0, "title_suffix": "",
-        "dna": {"preset": "balanced", "moment_score": None, "moment_start": 42},
+        "dna": {"preset": "balanced", "moment_score": None, "moment_start": 42, "reason": None},
     }]
 
 
@@ -316,6 +316,53 @@ def test_home_card_without_captioned_uses_plain_vertical(app_env) -> None:
     r = app_env.client.get("/clip")
     assert f"/media/{item.id}?variant=vertical" in r.text
     assert "variant=captioned" not in r.text
+
+
+def test_home_card_shows_dna_line(app_env) -> None:
+    item = _fake_item(app_env)
+    item.dna = {"preset": "hype", "package_name": "Neon", "reason": "biggest spike of the video"}
+    app_env.queue.update(item)
+    r = app_env.client.get("/clip")
+    assert "Hype moments style" in r.text
+    assert "“Neon” package" in r.text
+    assert "biggest spike of the video" in r.text
+
+
+def test_home_card_dna_line_omitted_when_empty(app_env) -> None:
+    item = _fake_item(app_env)
+    item.dna = {"preset": "manual"}
+    app_env.queue.update(item)
+    r = app_env.client.get("/clip")
+    assert "dna-line" in r.text  # element exists but holds no text
+    assert " style ·" not in r.text
+
+
+def test_home_shows_performance_line(app_env) -> None:
+    from subscript import analytics as A
+
+    A.record_publication(app_env.out_dir, video_id="v1", item_id="i1",
+                         dna={"package_id": "Neon"})
+    data = A._load(app_env.out_dir)
+    data["clips"]["v1"]["stats"] = {"views": 120, "likes": 9, "comments": 1}
+    A._save(app_env.out_dir, data)
+
+    page = app_env.client.get("/").text
+    assert "Learning from 1 published clip" in page
+    assert "Neon" in page
+
+
+def test_home_performance_line_escapes_package_name(app_env) -> None:
+    from subscript import analytics as A
+
+    A.record_publication(app_env.out_dir, video_id="v1", item_id="i1",
+                         dna={"package_id": "<b>x</b>"})
+    data = A._load(app_env.out_dir)
+    data["clips"]["v1"]["stats"] = {"views": 5, "likes": 0, "comments": 0}
+    A._save(app_env.out_dir, data)
+
+    page = app_env.client.get("/").text
+    assert "<b>x</b>" not in page
+    assert "&lt;b&gt;x&lt;/b&gt;" in page
 
 
 def test_media_variants_and_404(app_env) -> None:

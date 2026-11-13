@@ -175,6 +175,25 @@ def performance_by(out_dir: Path, key: str) -> dict[str, dict[str, Any]]:
     return out
 
 
+def maybe_refresh(cfg: dict[str, Any], out_dir: Path, max_age_s: float = 6 * 3600) -> bool:
+    """Refresh stats when the newest fetch is older than ``max_age_s``.
+
+    Fail-soft and cheap: does nothing when no clips are tracked or stats are
+    fresh. Never raises — analytics must never slow or break a page.
+    """
+    try:
+        data = _load(out_dir)
+        if not data["clips"]:
+            return False
+        newest = max((c.get("stats_fetched_at") or 0) for c in data["clips"].values())
+        if time.time() - newest < max_age_s:
+            return False
+        refresh_stats(cfg, out_dir)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def performance_summary(out_dir: Path) -> str:
     """One plain-language line about what's working, or '' when no data."""
     by_pkg = performance_by(out_dir, "package_id")

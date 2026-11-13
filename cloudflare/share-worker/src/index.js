@@ -87,6 +87,27 @@ async function readLatest(env) {
   const obj = await env.SHARE_BUCKET.get(META_LATEST); if (!obj) return null;
   try { return JSON.parse(await obj.text()); } catch { return null; }
 }
+const UPDATE_FEED_URL = "https://subscript-updates.sensoredrooster-com.workers.dev/latest.json";
+async function feedLatest() {
+  // The release pipeline publishes every signed build to the update feed, so
+  // prefer it over the manually-marked R2 object — testers always get newest.
+  try {
+    const resp = await fetch(UPDATE_FEED_URL, {
+      headers: { "user-agent": "SubScript-TesterShare/1.0" },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data || !data.version || !data.url) return null;
+    return {
+      key: "SubScript-Setup-" + data.version + ".exe",
+      url: data.url,
+      version: data.version,
+      feed: true,
+      marked_at: new Date().toISOString(),
+    };
+  } catch { return null; }
+}
 
 const LOGIN = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SubScript Tester Share</title>
 <style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:#080b12;color:#f5f7ff;min-height:100vh;display:grid;place-items:center}.card{width:min(92vw,460px);padding:28px;border-radius:22px;background:linear-gradient(180deg,#151b2a,#0e1320);border:1px solid #293246;box-shadow:0 24px 70px #0008}.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#7dd3fc;font-weight:800}h1{margin:8px 0 6px;font-size:28px}.muted{color:#9da8bc;line-height:1.5}input,select,button{width:100%;margin-top:12px;border-radius:12px;border:1px solid #30394e;background:#0a0f19;color:#fff;padding:12px 14px;font:inherit}button{background:#2563eb;border-color:#3b82f6;font-weight:800;cursor:pointer}.error{min-height:22px;color:#fca5a5;margin-top:10px}</style></head>
@@ -101,7 +122,7 @@ async function init(){const me=await api("/api/me");role=me.role;document.getEle
 async function selectFolder(f){folder=f;document.querySelectorAll("[data-folder]").forEach(b=>b.classList.toggle("active",b.dataset.folder===f));const can=role==="admin"||["Tester Uploads","VODs","Screenshots","Bug Reports","Logs"].includes(f);document.getElementById("file").disabled=!can;document.getElementById("desc").disabled=!can;document.getElementById("upload").disabled=!can;const d=await api("/api/list?prefix="+encodeURIComponent(f+"/"));const rows=document.getElementById("rows");rows.innerHTML="";d.objects.forEach(o=>{const tr=document.createElement("tr");const name=o.key.slice((f+"/").length);const actions=['<a href="/file/'+encodeURIComponent(o.key)+'">Download</a>'];if(role==="admin"){if(f==="Releases")actions.push('<button data-latest="'+encodeURIComponent(o.key)+'">Latest</button>');actions.push('<button class="danger" data-delete="'+encodeURIComponent(o.key)+'">Delete</button>')}tr.innerHTML='<td>'+escapeHtml(name)+'</td><td>'+fmt(o.size)+'</td><td>'+new Date(o.uploaded).toLocaleString()+'</td><td>'+escapeHtml(o.description||"")+'</td><td>'+actions.join(" ")+'</td>';rows.appendChild(tr)});rows.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>removeFile(decodeURIComponent(b.dataset.delete)));rows.querySelectorAll("[data-latest]").forEach(b=>b.onclick=()=>markLatest(decodeURIComponent(b.dataset.latest)))}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 document.getElementById("upload").onclick=async()=>{const input=document.getElementById("file"),file=input.files[0];if(!file)return;const key=folder+"/"+file.name;const p=document.getElementById("progress"),bar=p.querySelector("i");p.classList.remove("hidden");bar.style.width="15%";try{const r=await fetch("/api/upload",{method:"POST",headers:{"x-file-path":encodeURIComponent(key),"x-description":encodeURIComponent(document.getElementById("desc").value||""),"content-type":file.type||"application/octet-stream"},body:file});bar.style.width="100%";if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||"Upload failed")}document.getElementById("status").textContent="Uploaded "+file.name;input.value="";await selectFolder(folder)}catch(e){document.getElementById("status").textContent=e.message}finally{setTimeout(()=>p.classList.add("hidden"),600)}};
-async function removeFile(key){if(!confirm("Delete this file?"))return;await api("/api/file?key="+encodeURIComponent(key),{method:"DELETE"});await selectFolder(folder);await loadLatest()}async function markLatest(key){await api("/api/latest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({key})});await loadLatest()}async function loadLatest(){const d=await api("/api/latest");const box=document.getElementById("latest");if(!d.latest){box.classList.add("hidden");return}box.classList.remove("hidden");box.innerHTML='<strong>Latest test build</strong><br><a href="/file/'+encodeURIComponent(d.latest.key)+'">'+escapeHtml(d.latest.key.replace("Releases/",""))+'</a><span class="muted"> · marked '+new Date(d.latest.marked_at).toLocaleString()+'</span>'}document.getElementById("logout").onclick=async()=>{await fetch("/logout",{method:"POST"});location.href="/login"};init().catch(e=>document.getElementById("status").textContent=e.message);</script></body></html>`;
+async function removeFile(key){if(!confirm("Delete this file?"))return;await api("/api/file?key="+encodeURIComponent(key),{method:"DELETE"});await selectFolder(folder);await loadLatest()}async function markLatest(key){await api("/api/latest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({key})});await loadLatest()}async function loadLatest(){const d=await api("/api/latest");const box=document.getElementById("latest");if(!d.latest){box.classList.add("hidden");return}box.classList.remove("hidden");if(d.latest.feed&&d.latest.url){box.innerHTML='<strong>Latest release · v'+escapeHtml(d.latest.version||"")+'</strong><br><a href="'+d.latest.url+'">'+escapeHtml(d.latest.key)+'</a><span class="muted"> · always the newest signed build</span>';return}box.innerHTML='<strong>Latest test build</strong><br><a href="/file/'+encodeURIComponent(d.latest.key)+'">'+escapeHtml(d.latest.key.replace("Releases/",""))+'</a><span class="muted"> · marked '+new Date(d.latest.marked_at).toLocaleString()+'</span>'}document.getElementById("logout").onclick=async()=>{await fetch("/logout",{method:"POST"});location.href="/login"};init().catch(e=>document.getElementById("status").textContent=e.message);</script></body></html>`;
 
 export default { async fetch(request, env) {
   const url = new URL(request.url); const ip = request.headers.get("cf-connecting-ip") || "unknown";
@@ -145,7 +166,7 @@ export default { async fetch(request, env) {
     if(session.role!=="admin")return json({error:"Admin access required."},403); const key=normalizeKey(url.searchParams.get("key")||""); if(!key||!FOLDERS.includes(topFolder(key)))return json({error:"Invalid file."},400);
     await env.SHARE_BUCKET.delete(key); const latest=await readLatest(env); if(latest?.key===key)await env.SHARE_BUCKET.delete(META_LATEST); return json({ok:true});
   }
-  if (request.method==="GET"&&url.pathname==="/api/latest") return json({latest:await readLatest(env)});
+  if (request.method==="GET"&&url.pathname==="/api/latest") return json({latest:(await feedLatest())||await readLatest(env)});
   if (request.method==="POST"&&url.pathname==="/api/latest") {
     if(session.role!=="admin")return json({error:"Admin access required."},403); let body;try{body=await request.json()}catch{return json({error:"Invalid request."},400)}
     const key=normalizeKey(body?.key||""); if(!key||topFolder(key)!=="Releases")return json({error:"Latest build must be in Releases."},400); const existing=await env.SHARE_BUCKET.head(key);if(!existing)return json({error:"Release not found."},404);

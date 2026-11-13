@@ -83,3 +83,43 @@ def test_refresh_stats_with_fake_service(tmp_path: Path, monkeypatch) -> None:
     assert result == {"updated": 1, "clips": 1, "error": None}
     clip = A._load(tmp_path)["clips"]["v1"]
     assert clip["stats"] == {"views": 1234, "likes": 56, "comments": 7}
+
+
+def test_maybe_refresh_empty_store_does_nothing(tmp_path: Path, monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(A, "refresh_stats", lambda *a, **k: calls.append(1))
+    assert A.maybe_refresh({}, tmp_path) is False
+    assert calls == []
+
+
+def test_maybe_refresh_fresh_stats_does_nothing(tmp_path: Path, monkeypatch) -> None:
+    import time
+
+    A.record_publication(tmp_path, video_id="v1", item_id="i1", dna={})
+    data = A._load(tmp_path)
+    data["clips"]["v1"]["stats_fetched_at"] = time.time()
+    A._save(tmp_path, data)
+
+    calls = []
+    monkeypatch.setattr(A, "refresh_stats", lambda *a, **k: calls.append(1))
+    assert A.maybe_refresh({}, tmp_path) is False
+    assert calls == []
+
+
+def test_maybe_refresh_stale_stats_triggers_refresh(tmp_path: Path, monkeypatch) -> None:
+    import time
+
+    A.record_publication(tmp_path, video_id="v1", item_id="i1", dna={})
+    data = A._load(tmp_path)
+    data["clips"]["v1"]["stats_fetched_at"] = time.time() - 7 * 3600
+    A._save(tmp_path, data)
+
+    calls = []
+    monkeypatch.setattr(A, "refresh_stats", lambda *a, **k: calls.append(1))
+    assert A.maybe_refresh({}, tmp_path) is True
+    assert calls == [1]
+
+
+def test_maybe_refresh_never_raises(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(A, "_load", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert A.maybe_refresh({}, tmp_path) is False

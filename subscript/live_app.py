@@ -64,6 +64,22 @@ def _friendly_created(iso_value: str) -> str:
         return str(iso_value)
 
 
+def _dna_line(item) -> str:
+    """Human 'why this clip' line from the recorded clip DNA."""
+    dna = getattr(item, "dna", None) or {}
+    bits = []
+    preset = str(dna.get("preset") or "")
+    if preset and preset != "manual":
+        bits.append(get_preset(preset)["label"] + " style")
+    package = str(dna.get("package_name") or "")
+    if package:
+        bits.append(f"“{package}” package")
+    reason = str(dna.get("reason") or "")
+    if reason:
+        bits.append(reason)
+    return " · ".join(bits)
+
+
 def _parse_time_field(value: str | None) -> float | None:
     if value is None:
         return None
@@ -177,9 +193,16 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         if not is_authenticated(request, cfg):
             return login_redirect(request)
         message, error = _entry_message(msg, err)
+        try:
+            from subscript.analytics import performance_summary
+
+            perf_line = performance_summary(out_dir)
+        except Exception:  # noqa: BLE001
+            perf_line = ""
         return (_snip("home.html")
                 .replace("{{MESSAGE}}", message)
-                .replace("{{ERROR}}", error))
+                .replace("{{ERROR}}", error)
+                .replace("{{PERF_LINE}}", _esc(perf_line)))
 
     @app.get("/login", response_class=HTMLResponse)
     def login(next: str = "/") -> str:
@@ -238,6 +261,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                 .replace("{{TITLE}}", _esc(item.title))
                 .replace("{{POST_COPY}}", editor_html(item, cfg))
                 .replace("{{CREATED}}", _esc(_friendly_created(item.created_at)))
+                .replace("{{DNA}}", _esc(_dna_line(item)))
                 .replace("{{VERT_VARIANT}}", vert_variant)
                 .replace("{{VERT_LABEL}}", vert_label)
                 .replace("{{VERT_EXTRA}}", vert_extra)
@@ -273,6 +297,12 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             edit_id=(edit or "").strip(),
             out_dir=out_dir,
         )
+        try:
+            from subscript.analytics import maybe_refresh
+
+            maybe_refresh(cfg, out_dir)
+        except Exception:  # noqa: BLE001
+            pass
         publishing = publishing_html(cfg, _snip)
         review_heading = "Your clip is ready" if pending else "Preview and approve"
         review_intro = (
@@ -338,7 +368,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     ) -> RedirectResponse:
         try:
             source = await _resolve_source(file, local_path, uploads_dir)
-            moments: list[tuple[float | None, float | None, float | None]] = []
+            moments: list[tuple[float | None, float | None, float | None, str | None]] = []
             preset_label = ""
             preset_key = "manual"
             if mode == "auto":
@@ -358,11 +388,12 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                         sug.get("start"),
                         float(sug.get("duration") or preset["clip_seconds"]),
                         sug.get("score"),
+                        sug.get("reason"),
                     ))
                 if not moments:
-                    moments = [(None, float(preset["clip_seconds"]), None)]
+                    moments = [(None, float(preset["clip_seconds"]), None, None)]
             elif mode == "last30":
-                moments = [(None, float(default_seconds), None)]
+                moments = [(None, float(default_seconds), None, None)]
             else:
                 clip_start = _parse_time_field(start)
                 clip_duration = _parse_time_field(duration)
@@ -370,7 +401,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                     raise ValueError("Start time is required for a custom clip.")
                 if clip_duration is None or clip_duration <= 0:
                     raise ValueError("Duration must be greater than zero.")
-                moments = [(clip_start, clip_duration, None)]
+                moments = [(clip_start, clip_duration, None, None)]
             layout_values = {
                 "vertical_layout_mode": vertical_layout_mode, "vertical_preset": vertical_preset,
                 "vertical_background": vertical_background, "vertical_gap": vertical_gap,
@@ -381,12 +412,17 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             pipeline_cfg = dict(cfg)
             pipeline_cfg["vertical_layout"] = layout_from_form(layout_values)
             require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
-            for i, (m_start, m_dur, m_score) in enumerate(moments):
+            for i, (m_start, m_dur, m_score, m_reason) in enumerate(moments):
                 suffix = f" · moment {i + 1} of {len(moments)}" if len(moments) > 1 else ""
                 run_pipeline(
                     source, pipeline_cfg, dry_run=require_approval,
                     start=m_start, duration=m_dur, title_suffix=suffix,
-                    dna={"preset": preset_key, "moment_score": m_score, "moment_start": m_start},
+                    dna={
+                        "preset": preset_key,
+                        "moment_score": m_score,
+                        "moment_start": m_start,
+                        "reason": m_reason,
+                    },
                 )
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/clip?err={quote(str(exc), safe='')}", status_code=303)

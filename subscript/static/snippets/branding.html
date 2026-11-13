@@ -8,6 +8,10 @@
       <label class="radio"><input type="radio" name="mode" value="pinned" {{MODE_PINNED}}><span><strong>Always use one</strong> <select name="pinned_id">{{PINNED_OPTIONS}}</select></span></label>
       <div class="action-bar"><span class="meta" id="perf-summary">{{PERF_SUMMARY}}</span><button type="submit" class="primary">Save preference</button></div>
     </form>
+    <form method="post" action="/brand/refresh-stats" class="inline-form">
+      <button type="submit" class="secondary">Refresh stats now</button>
+      <span class="meta">Pulls the latest YouTube views and likes for your published clips.</span>
+    </form>
   </div>
 
   <div class="package-grid">{{PACKAGE_CARDS}}</div>
