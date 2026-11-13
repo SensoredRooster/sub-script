@@ -200,7 +200,12 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
         return _snip("settings.html")
 
     @app.get("/clip", response_class=HTMLResponse)
-    def clip_workspace(request: Request, msg: str | None = None, err: str | None = None) -> str:
+    def clip_workspace(
+        request: Request,
+        msg: str | None = None,
+        err: str | None = None,
+        edit: str = Query(""),
+    ) -> str:
         if not is_authenticated(request, cfg):
             return login_redirect(request)
         pending = queue.list(status="pending")
@@ -263,7 +268,11 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             .replace("{{LIVE_CARD}}", live)
             .replace("{{VERTICAL_COMPOSER}}", _snip("vertical_composer.html"))
         )
-        branding = branding_html(cfg.get("brand") or {}, _snip, cfg)
+        branding = branding_html(
+            cfg.get("brand") or {}, _snip, cfg,
+            edit_id=(edit or "").strip(),
+            out_dir=out_dir,
+        )
         publishing = publishing_html(cfg, _snip)
         review_heading = "Your clip is ready" if pending else "Preview and approve"
         review_intro = (
@@ -329,11 +338,13 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
     ) -> RedirectResponse:
         try:
             source = await _resolve_source(file, local_path, uploads_dir)
-            moments: list[tuple[float | None, float | None]] = []
+            moments: list[tuple[float | None, float | None, float | None]] = []
             preset_label = ""
+            preset_key = "manual"
             if mode == "auto":
                 preset = get_preset(edit_preset)
                 preset_label = preset["label"]
+                preset_key = preset["key"]
                 highlights = suggest_highlights_or_fallback(
                     source,
                     buffer_seconds=float(preset["clip_seconds"]),
@@ -343,11 +354,15 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                 )
                 suggestions = highlights.get("suggestions") or []
                 for sug in suggestions[: int(preset["top_n"])]:
-                    moments.append((sug.get("start"), float(sug.get("duration") or preset["clip_seconds"])))
+                    moments.append((
+                        sug.get("start"),
+                        float(sug.get("duration") or preset["clip_seconds"]),
+                        sug.get("score"),
+                    ))
                 if not moments:
-                    moments = [(None, float(preset["clip_seconds"]))]
+                    moments = [(None, float(preset["clip_seconds"]), None)]
             elif mode == "last30":
-                moments = [(None, float(default_seconds))]
+                moments = [(None, float(default_seconds), None)]
             else:
                 clip_start = _parse_time_field(start)
                 clip_duration = _parse_time_field(duration)
@@ -355,7 +370,7 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
                     raise ValueError("Start time is required for a custom clip.")
                 if clip_duration is None or clip_duration <= 0:
                     raise ValueError("Duration must be greater than zero.")
-                moments = [(clip_start, clip_duration)]
+                moments = [(clip_start, clip_duration, None)]
             layout_values = {
                 "vertical_layout_mode": vertical_layout_mode, "vertical_preset": vertical_preset,
                 "vertical_background": vertical_background, "vertical_gap": vertical_gap,
@@ -366,11 +381,12 @@ def create_app(cfg: dict[str, Any] | None = None) -> FastAPI:
             pipeline_cfg = dict(cfg)
             pipeline_cfg["vertical_layout"] = layout_from_form(layout_values)
             require_approval = bool((cfg.get("review") or {}).get("require_approval", True))
-            for i, (m_start, m_dur) in enumerate(moments):
+            for i, (m_start, m_dur, m_score) in enumerate(moments):
                 suffix = f" · moment {i + 1} of {len(moments)}" if len(moments) > 1 else ""
                 run_pipeline(
                     source, pipeline_cfg, dry_run=require_approval,
                     start=m_start, duration=m_dur, title_suffix=suffix,
+                    dna={"preset": preset_key, "moment_score": m_score, "moment_start": m_start},
                 )
         except Exception as exc:  # noqa: BLE001
             return RedirectResponse(f"/clip?err={quote(str(exc), safe='')}", status_code=303)

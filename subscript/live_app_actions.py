@@ -141,6 +141,21 @@ def register_item_routes(app, cfg: dict[str, Any], queue, out_dir: Path) -> None
             extra={"post_metadata": item.post_metadata},
         )
         results = run_enabled_publishers(upload_src, publish_meta, cfg, out_dir)
+        # Link published YouTube videos to this clip's DNA so the app can
+        # learn which presets and brand packages perform best.
+        try:
+            from subscript.analytics import extract_video_id, record_publication
+
+            for r in results:
+                if r.ok and (r.platform or "").lower().startswith("youtube"):
+                    vid = extract_video_id(r.url)
+                    if vid:
+                        record_publication(
+                            out_dir, video_id=vid, item_id=item_id,
+                            title=item.title, dna=item.dna,
+                        )
+        except Exception:  # noqa: BLE001 — analytics must never block approve
+            pass
         platform_banner = format_platform_banner(results)
         if not youtube_live_enabled(cfg) and not any(
             (r.platform or "").lower().startswith("youtube") for r in results

@@ -37,6 +37,7 @@ def run_pipeline(
     start: float | None = None,
     duration: float | None = None,
     title_suffix: str = "",
+    dna: dict[str, Any] | None = None,
 ) -> Path:
     default_seconds = int(cfg.get("buffer_seconds") or 30)
     seconds = (
@@ -44,6 +45,21 @@ def run_pipeline(
     )
     out_cfg = cfg.get("output") or {}
     out_dir = Path(out_cfg.get("dir") or "out")
+
+    # Brand packages: pick this clip's package (pinned / rotate / performance)
+    # and overlay its logo, captions, music, intro/outro onto the config.
+    try:
+        from subscript.analytics import performance_by
+        from subscript.brand_packages import package_overlay, select_package
+
+        perf = performance_by(out_dir, "package_id")
+        package = select_package(cfg, out_dir=out_dir, perf=perf)
+        cfg = package_overlay(cfg, package)
+        clip_dna = dict(dna or {})
+        clip_dna.setdefault("package_id", package.get("id"))
+        clip_dna.setdefault("package_name", package.get("name"))
+    except Exception:  # noqa: BLE001 — packages must never break clipping
+        clip_dna = dict(dna or {})
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     raw = out_dir / f"clip-raw-{stamp}.mp4"
     branded = out_dir / f"clip-branded-{stamp}.mp4"
@@ -126,6 +142,7 @@ def run_pipeline(
             vertical_captioned_path=captioned,
             post_metadata=posts,
             vertical_layout=normalize_layout(cfg.get("vertical_layout")),
+            dna=clip_dna,
         )
         host = (cfg.get("review") or {}).get("host", "127.0.0.1")
         port = int((cfg.get("review") or {}).get("port", 8787))

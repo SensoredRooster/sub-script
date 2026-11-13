@@ -71,6 +71,52 @@ def test_home_shows_update_checker(app_env) -> None:
     assert "/static/app.js?v=12" in page
 
 
+def test_branding_panel_is_a_package_library(app_env) -> None:
+    page = app_env.client.get("/clip?panel=style").text
+    assert "Your branding packages" in page
+    assert 'action="/brand/selection"' in page
+    assert 'action="/brand/packages"' in page
+    assert "Default" in page  # migrated legacy package card
+    assert "Create package" in page
+
+
+def test_create_and_select_brand_package(app_env) -> None:
+    created = app_env.client.post(
+        "/brand/packages",
+        data={"package_name": "Neon", "position": "top_left", "captions_enabled": "1"},
+        follow_redirects=False,
+    )
+    assert created.status_code == 303
+    assert "/clip?panel=style&msg=" in created.headers["location"]
+    pkgs = app_env.cfg.get("brand_packages") or []
+    neon = [p for p in pkgs if p["name"] == "Neon"]
+    assert len(neon) == 1
+    assert neon[0]["brand"]["position"] == "top_left"
+
+    sel = app_env.client.post(
+        "/brand/selection", data={"mode": "auto", "pinned_id": neon[0]["id"]},
+        follow_redirects=False,
+    )
+    assert sel.status_code == 303
+    assert app_env.cfg["brand_selection"] == {"mode": "auto", "pinned_id": neon[0]["id"]}
+
+    # Deleting the last remaining extra package then default must be refused.
+    app_env.client.post("/brand/packages/delete", data={"package_id": neon[0]["id"]})
+    refused = app_env.client.post(
+        "/brand/packages/delete", data={"package_id": "default"}, follow_redirects=False
+    )
+    assert "err=" in refused.headers["location"]
+
+
+def test_package_editor_prefills_on_edit(app_env) -> None:
+    app_env.client.post("/brand/packages", data={"package_name": "Retro"}, follow_redirects=False)
+    pid = [p for p in app_env.cfg["brand_packages"] if p["name"] == "Retro"][0]["id"]
+    page = app_env.client.get(f"/clip?panel=style&edit={pid}").text
+    assert f'value="{pid}"' in page
+    assert 'value="Retro"' in page
+    assert "Edit package: Retro" in page
+
+
 def test_clip_form_offers_edit_presets(app_env) -> None:
     page = app_env.client.get("/clip").text
     assert 'name="edit_preset"' in page
@@ -100,7 +146,10 @@ def test_automatic_clip_uses_highlight(app_env, monkeypatch) -> None:
                         lambda *args, **kwargs: calls.append(kwargs))
     result = app_env.client.post("/clip", data={"local_path": str(source), "mode": "auto"}, follow_redirects=False)
     assert result.status_code == 303
-    assert calls == [{"dry_run": True, "start": 42, "duration": 18.0, "title_suffix": ""}]
+    assert calls == [{
+        "dry_run": True, "start": 42, "duration": 18.0, "title_suffix": "",
+        "dna": {"preset": "balanced", "moment_score": None, "moment_start": 42},
+    }]
 
 
 def test_automatic_clip_enqueues_top_moments(app_env, monkeypatch) -> None:

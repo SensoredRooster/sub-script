@@ -30,6 +30,8 @@ class QueueItem:
     # Normalized composer template used for this render; legacy queue files omit it.
     vertical_layout: dict[str, Any] = field(default_factory=dict)
     post_metadata: dict[str, Any] = field(default_factory=dict)
+    # Clip "DNA": which preset / brand package / moment produced this clip.
+    dna: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -78,6 +80,7 @@ class ReviewQueue:
         vertical_captioned_path: Path | None = None,
         vertical_layout: dict[str, Any] | None = None,
         post_metadata: dict[str, Any] | None = None,
+        dna: dict[str, Any] | None = None,
     ) -> QueueItem:
         data = self._read()
         item = QueueItem(
@@ -93,6 +96,7 @@ class ReviewQueue:
                 str(vertical_captioned_path) if vertical_captioned_path else None
             ),
             vertical_layout=vertical_layout or {},
+            dna=dna or {},
         )
         data.setdefault("items", []).append(item.to_dict())
         self._write(data)

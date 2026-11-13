@@ -230,3 +230,15 @@ body.stage-share .workflow-nav a[href$='#publish']{color:var(--text);background:
 .update-strip progress{flex:1;height:8px;margin:0}
 #updateStatus.error{color:#ffadac;font-weight:650}
 #updateStatus.ok{color:#7ee2a8}
+
+/* Brand package library */
+.package-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:0 0 18px}
+.package-card h3{margin:0 0 6px}
+.package-card .perf{opacity:.8}
+.package-actions{display:flex;gap:10px;align-items:center;margin-top:10px}
+.package-actions form.inline-form{margin:0}
+.package-actions .secondary,.package-actions .primary{padding:6px 12px;border-radius:8px;text-decoration:none}
+.link-danger{background:none;border:none;color:#ffadac;cursor:pointer;text-decoration:underline;padding:0}
+.package-card-new{border-style:dashed}
+.selection-form label.radio{display:flex;gap:10px;margin:8px 0}
+.selection-form select{margin-left:8px}
