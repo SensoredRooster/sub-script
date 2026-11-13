@@ -8,7 +8,7 @@ from pathlib import Path
 from subscript.runtime_paths import ffmpeg_install_hint, find_ffmpeg
 
 # Compatible with Windows Media Player / most editors
-COMPAT_VIDEO = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]
+COMPAT_VIDEO = ["-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p"]
 COMPAT_AUDIO = ["-c:a", "aac", "-b:a", "192k"]
 COMPAT_MOVFLAGS = ["-movflags", "+faststart"]
 

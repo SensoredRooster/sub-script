@@ -162,7 +162,7 @@ def make_vertical_with_layout(
     width: int,
     height: int,
     layout: Any,
-    smart: bool = True,
+    smart: bool = False,
 ) -> Path:
     """Render a true WxH vertical output from normalized source regions."""
     normalized = normalize_layout(layout)
@@ -183,12 +183,12 @@ def make_vertical_with_layout(
     bx, by, bw, bh = (game_box[k] for k in REGION_KEYS)
     filters = ["[0:v]split=3[base][game][face]"]
     if background == "blurred":
-        filters.append(f"[base]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},boxblur=18:2[bg]")
+        filters.append(f"[base]scale={width}:{height}:force_original_aspect_ratio=increase:flags=lanczos,crop={width}:{height},boxblur=18:2[bg]")
     else:
         filters.append(f"color=c=0x111713:s={width}x{height}[bg]")
     game_w, game_h, game_x, game_y = max(2, int(width * bw)), max(2, int(height * bh)), int(width * bx), int(height * by)
     game_crop = f"crop=iw*{gw}:ih*{gh}:iw*{gx}:ih*{gy}"
-    game_tile = f"[game]{game_crop},scale={game_w}:{game_h}:force_original_aspect_ratio=increase,crop={game_w}:{game_h}"
+    game_tile = f"[game]{game_crop},scale={game_w}:{game_h}:force_original_aspect_ratio=increase:flags=lanczos,crop={game_w}:{game_h}"
     if style["border"]:
         game_tile += f",drawbox=x=0:y=0:w=iw:h=ih:color={style['border_color']}:t={style['border']}"
     filters.append(game_tile + "[game_tile]")
@@ -207,7 +207,7 @@ def make_vertical_with_layout(
             game_h = max(2, game_h - gap // 2)
             face_y += gap // 2
             face_h = max(2, face_h - gap // 2)
-        face_tile = f"[face]crop=iw*{fw}:ih*{fh}:iw*{fx}:ih*{fy},scale={face_w}:{face_h}:force_original_aspect_ratio=increase,crop={face_w}:{face_h}"
+        face_tile = f"[face]crop=iw*{fw}:ih*{fh}:iw*{fx}:ih*{fy},scale={face_w}:{face_h}:force_original_aspect_ratio=increase:flags=lanczos,crop={face_w}:{face_h}"
         if style["border"]:
             face_tile += f",drawbox=x=0:y=0:w=iw:h=ih:color={style['border_color']}:t={style['border']}"
         filters.append(face_tile + "[face_tile]")
@@ -228,7 +228,7 @@ def make_vertical_with_layout(
     return dest
 
 
-def _center_crop(source: Path, dest: Path, width: int, height: int, smart: bool = True) -> Path:
+def _center_crop(source: Path, dest: Path, width: int, height: int, smart: bool = False) -> Path:
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
     vf = smart_vertical_filter(source, width, height, smart=smart)
@@ -236,11 +236,12 @@ def _center_crop(source: Path, dest: Path, width: int, height: int, smart: bool 
     return dest
 
 
-def smart_vertical_filter(source: Path, width: int, height: int, smart: bool = True) -> str:
-    """Scale+crop to WxH, anchoring the crop on the action when detectable.
+def smart_vertical_filter(source: Path, width: int, height: int, smart: bool = False) -> str:
+    """Scale+crop to WxH. Centered by default — for gameplay the crosshair and
+    HUD live around the center, so an off-center crop loses the action.
 
-    Falls back to ffmpeg's centered crop on any uncertainty — identical to the
-    long-standing behavior.
+    With smart=True, a motion-energy pass may anchor the crop on the action;
+    any uncertainty falls back to the centered crop.
     """
     x = None
     if smart:
@@ -253,11 +254,11 @@ def smart_vertical_filter(source: Path, width: int, height: int, smart: bool = T
         except Exception:  # noqa: BLE001 — reframing must never break exports
             x = None
     if x is None:
-        return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
+        return f"scale={width}:{height}:force_original_aspect_ratio=increase:flags=lanczos,crop={width}:{height},setsar=1"
     # Crop in source space first (keeps HUD/subject intact), then scale down.
     crop_w = int(round(src_h * width / height))
     crop_w -= crop_w % 2
-    return f"crop={crop_w}:{src_h}:{x}:0,scale={width}:{height},setsar=1"
+    return f"crop={crop_w}:{src_h}:{x}:0,scale={width}:{height}:flags=lanczos,setsar=1"
 
 
 def probe_media(path: Path) -> dict[str, Any]:

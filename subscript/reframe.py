@@ -23,7 +23,7 @@ def make_horizontal(source: Path, dest: Path, width: int = 1920, height: int = 1
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
     vf = (
-        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"scale={width}:{height}:force_original_aspect_ratio=increase:flags=lanczos,"
         f"crop={width}:{height},setsar=1"
     )
     cmd = [
@@ -42,7 +42,7 @@ def make_vertical(
     width: int = 1080,
     height: int = 1920,
     layout: dict | None = None,
-    smart: bool = True,
+    smart: bool = False,
 ) -> Path:
     """Render a true 9:16 output, optionally using a normalized composer template."""
     if layout:
@@ -67,7 +67,7 @@ def make_social_pair(
     landscape_w: int = 1920,
     landscape_h: int = 1080,
     vertical_layout: dict | None = None,
-    smart_crop: bool = True,
+    smart_crop: bool = False,
 ) -> tuple[Path, Path]:
     horizontal = out_dir / f"clip-horizontal-{stamp}.mp4"
     vertical = out_dir / f"clip-vertical-{stamp}.mp4"

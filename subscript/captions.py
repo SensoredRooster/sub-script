@@ -268,7 +268,7 @@ def burn_captions(video: Path, srt: Path, dest: Path) -> Path:
     style = (
         "FontName=Arial,FontSize=13,PrimaryColour=&H00FFFFFF,"
         "OutlineColour=&H00000000,BorderStyle=3,Outline=2,Shadow=0,"
-        "Alignment=2,MarginV=160,MarginL=40,MarginR=40"
+        "Alignment=2,MarginV=22,MarginL=40,MarginR=40"
     )
     vf = f"subtitles={sub_path}:force_style='{style}'"
     cmd = [

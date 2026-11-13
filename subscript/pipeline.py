@@ -114,7 +114,7 @@ def run_pipeline(
         landscape_w=land_w,
         landscape_h=land_h,
         vertical_layout=normalize_layout(cfg.get("vertical_layout")),
-        smart_crop=bool(out_cfg.get("smart_crop", True)),
+        smart_crop=bool(out_cfg.get("smart_crop", False)),
     )
 
     # Optional music bed under both social exports (skip if missing / disabled).
