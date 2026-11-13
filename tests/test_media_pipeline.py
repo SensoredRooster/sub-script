@@ -89,6 +89,19 @@ def test_vertical_composer_normalizes_regions_and_keeps_true_ratio(synth_video: 
     assert aspect_ratio(metadata) == pytest.approx(9 / 16, rel=0.001)
 
 
+def test_vertical_composer_solid_background_presets_render(synth_video: Path, tmp_path: Path) -> None:
+    # Presets with a solid background must not leave the split's background
+    # branch dangling — ffmpeg rejects graphs with unconnected outputs.
+    for preset in ("gameplay_facecam", "facecam_top", "gameplay_top"):
+        layout = normalize_layout({"mode": "composer", "preset": preset})
+        _h, vertical = make_social_pair(
+            synth_video, tmp_path, preset, shorts_w=270, shorts_h=480,
+            landscape_w=320, landscape_h=180, vertical_layout=layout,
+        )
+        metadata = probe_media(vertical)
+        assert (metadata["width"], metadata["height"]) == (270, 480), preset
+
+
 def test_trim_clip_validation_and_output(synth_video: Path, tmp_path: Path) -> None:
     out = trim_clip(synth_video, tmp_path / "trim.mp4", 0.2, 1.2)
     assert out.is_file() and out.stat().st_size > 0

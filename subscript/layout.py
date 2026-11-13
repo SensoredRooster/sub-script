@@ -181,10 +181,13 @@ def make_vertical_with_layout(
     # Keep every crop inside the source and make each tile fit without stretching.
     gx, gy, gw, gh = (gameplay[k] for k in REGION_KEYS)
     bx, by, bw, bh = (game_box[k] for k in REGION_KEYS)
-    filters = ["[0:v]split=3[base][game][face]"]
+    # Split off a background copy only when it is actually consumed; a dangling
+    # split output makes ffmpeg reject the whole graph ("output unconnected").
     if background == "blurred":
+        filters = ["[0:v]split=3[base][game][face]"]
         filters.append(f"[base]scale={width}:{height}:force_original_aspect_ratio=increase:flags=lanczos,crop={width}:{height},boxblur=18:2[bg]")
     else:
+        filters = ["[0:v]split=2[game][face]"]
         filters.append(f"color=c=0x111713:s={width}x{height}[bg]")
     game_w, game_h, game_x, game_y = max(2, int(width * bw)), max(2, int(height * bh)), int(width * bx), int(height * by)
     game_crop = f"crop=iw*{gw}:ih*{gh}:iw*{gx}:ih*{gy}"
