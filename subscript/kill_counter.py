@@ -49,6 +49,21 @@ _ICON_TEMPLATE_B64 = (
 _TEMPLATE_SIZE = 28
 _ICON_NCC_MIN = 0.85  # skull present: ~0.97+; spectate/countdown HUD: ~0.6-0.8; menus: <0.5
 _OCR_ARGS = ("--psm", "7", "-c", "tessedit_char_whitelist=0123456789")
+# While dead you spectate a teammate: their HUD (with skull + counter) is on
+# screen, so the icon check passes — but those are THEIR kills, not yours.
+# The "SPECTATING" banner at top-center marks those frames; candidates whose
+# window is covered by it are dropped.
+_BANNER_ROI = {"x": 0.38, "y": 0.010, "w": 0.30, "h": 0.061}
+_BANNER_SCALE = 2
+# Dead-time banners at top-center: KILLCAM (replay of your death) then
+# SPECTATING (watching a teammate). Both mean the HUD belongs to someone
+# else. "PECTAT"/"PEGIAT" substrings survive first-letter OCR slips.
+_DEAD_WORDS = ("KILLCAM", "K1LLCAM", "PECTAT", "PEGIAT")
+
+
+def banner_is_spectate(text: str) -> bool:
+    up = (text or "").upper().replace(" ", "")
+    return any(w in up for w in _DEAD_WORDS)
 
 LogFn = Callable[[str], None]
 
@@ -65,6 +80,15 @@ def kill_counter_enabled(cfg: dict[str, Any] | None) -> bool:
     """On by default; ``detect.kill_counter: false`` turns it off."""
     if cfg and isinstance(cfg.get("detect"), dict):
         val = cfg["detect"].get("kill_counter")
+        if val is not None:
+            return bool(val)
+    return True
+
+
+def spectate_filter_enabled(cfg: dict[str, Any] | None) -> bool:
+    """On by default; ``detect.spectate_filter: false`` keeps teammate kills."""
+    if cfg and isinstance(cfg.get("detect"), dict):
+        val = cfg["detect"].get("spectate_filter")
         if val is not None:
             return bool(val)
     return True
@@ -193,7 +217,8 @@ def _ocr_digits(tesseract: str, tessdata: str | None, pgm: Path) -> int | None:
         env = dict(os.environ)
         env["TESSDATA_PREFIX"] = tessdata
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=20, env=env)
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=20, env=env)
     except Exception:
         return None
     digits = re.sub(r"\D", "", r.stdout or "")
@@ -360,6 +385,58 @@ def _find_increments(series: list[tuple[float, int | None]]) -> list[dict[str, A
         if not dedup or k["t"] - dedup[-1]["t"] > 3:
             dedup.append(k)
     return dedup
+
+
+def _is_spectating(
+    ffmpeg: str,
+    tesseract: str,
+    tessdata: str | None,
+    source: Path,
+    t: float,
+    fw: int,
+    fh: int,
+    tmp_root: Path,
+) -> bool | None:
+    """True if the top-center banner reads SPECTATING; None if unreadable."""
+    bx = int(fw * _BANNER_ROI["x"])
+    by = int(fh * _BANNER_ROI["y"])
+    bw = max(16, int(fw * _BANNER_ROI["w"]))
+    bh = max(8, int(fh * _BANNER_ROI["h"]))
+    sw, sh = bw * _BANNER_SCALE, bh * _BANNER_SCALE
+    cmd = [
+        ffmpeg, "-v", "error", "-ss", "%.2f" % max(0.0, t), "-i", str(source),
+        "-frames:v", "1",
+        "-vf", "crop=%d:%d:%d:%d,scale=%d:%d:flags=lanczos,format=gray" % (bw, bh, bx, by, sw, sh),
+        "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=30)
+    except Exception:
+        return None
+    if len(r.stdout) < sw * sh:
+        return None
+    pgm = tmp_root / "banner.pgm"
+    try:
+        _write_pgm(pgm, sw, sh, r.stdout[: sw * sh])
+        env = None
+        cmd2 = [tesseract, str(pgm), "stdout", "--psm", "7"]
+        if tessdata:
+            cmd2 += ["--tessdata-dir", tessdata]
+            env = dict(os.environ)
+            env["TESSDATA_PREFIX"] = tessdata
+        r2 = subprocess.run(cmd2, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", timeout=20, env=env)
+    except Exception:
+        return None
+    finally:
+        try:
+            pgm.unlink()
+        except OSError:
+            pass
+    text = (r2.stdout or "").strip()
+    if not text:
+        return None  # no banner text at all = normal gameplay HUD
+    return banner_is_spectate(text)
 
 
 def detect_counter_kills(
@@ -563,6 +640,29 @@ def detect_counter_kills(
                     if s > best:
                         best = s
                 cand["icon"] = round(best, 3)
+
+        # Drop kills that belong to someone else's HUD (you were dead:
+        # KILLCAM replay, then SPECTATING a teammate). Two dead-state reads
+        # in the ±6s window convict; gameplay frames read nothing there, so
+        # real kills are never at risk from this check.
+        if candidates and spectate_filter_enabled(cfg):
+            kept: list[dict[str, Any]] = []
+            for cand in candidates:
+                t = float(cand["t"])
+                yes = 0
+                for dt in (-6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0):
+                    res = _is_spectating(
+                        ffmpeg, tesseract, tessdata, source, t + dt, fw, fh, tmp_root
+                    )
+                    if res is True:
+                        yes += 1
+                if yes >= 2:
+                    continue  # dead time — someone else's kill
+                kept.append(cand)
+            dropped = len(candidates) - len(kept)
+            if dropped:
+                _log(on_log, "kill-counter: dropped %d spectated-teammate hit(s)" % dropped)
+            candidates = kept
 
         note = "Kill counter: %d frame(s), %d read, %d kill(s)." % (len(series), read_ok, len(candidates))
         return {"kills": candidates, "engine": True, "note": note}

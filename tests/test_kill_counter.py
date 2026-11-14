@@ -71,6 +71,24 @@ def test_icon_present_self_match() -> None:
     assert KC.icon_present(bytes(28 * 28), tmpl) == 0.0  # black patch: no icon
 
 
+def test_banner_is_spectate_matching() -> None:
+    assert KC.banner_is_spectate("SPECTATING")
+    assert KC.banner_is_spectate("  spectating\n")
+    assert KC.banner_is_spectate("SPECTAT1NG")  # common OCR slip
+    assert KC.banner_is_spectate("OPECTATING")  # clipped first letter
+    assert KC.banner_is_spectate("aS SPEGIATING =")  # G/T confusion
+    assert KC.banner_is_spectate("KILLCAM")  # death replay = dead time too
+    assert not KC.banner_is_spectate("")
+    assert not KC.banner_is_spectate("TRACKLINE")
+    assert not KC.banner_is_spectate("NE 57 Admin")  # compass text
+    assert not KC.banner_is_spectate(None)
+
+
+def test_spectate_filter_default_and_override() -> None:
+    assert KC.spectate_filter_enabled(None) is True
+    assert KC.spectate_filter_enabled({"detect": {"spectate_filter": False}}) is False
+
+
 def test_bundled_icon_template_integrity() -> None:
     # The skull template ships base64-embedded so line endings can't corrupt it.
     tmpl = KC._load_icon_template()
