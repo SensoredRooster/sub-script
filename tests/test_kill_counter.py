@@ -71,6 +71,14 @@ def test_icon_present_self_match() -> None:
     assert KC.icon_present(bytes(28 * 28), tmpl) == 0.0  # black patch: no icon
 
 
+def test_bundled_icon_template_integrity() -> None:
+    # The skull template ships base64-embedded so line endings can't corrupt it.
+    tmpl = KC._load_icon_template()
+    assert tmpl is not None and len(tmpl) == 28 * 28
+    assert len(set(tmpl)) > 8  # real image data, not a constant
+    assert KC.icon_present(tmpl, tmpl) == pytest.approx(1.0)
+
+
 def test_find_increments_basic_and_reset() -> None:
     series = [
         (0.0, 2), (2.0, 2), (4.0, 3), (6.0, 3),   # kill at 4

@@ -79,24 +79,11 @@ jobs:
           if (!(Test-Path "$src/tesseract.exe")) { throw "tesseract not installed at $src" }
           $dst = 'dist/SubScript/tesseract'
           New-Item -ItemType Directory -Force "$dst/tessdata" | Out-Null
-          # Minimal runtime closure (verified against UB Mannheim 5.x build).
-          $files = @(
-            'tesseract.exe',
-            'libtesseract-5.dll', 'libleptonica-6.dll',
-            'libarchive-13.dll', 'libpng16-16.dll', 'libjpeg-8.dll', 'libtiff-6.dll',
-            'libgif-7.dll', 'libwebp-7.dll', 'libwebpmux-3.dll', 'libopenjp2-7.dll',
-            'zlib1.dll', 'liblzma-5.dll', 'libzstd.dll', 'libbz2-1.dll', 'libLerc.dll',
-            'libjbig-0.dll', 'libdeflate.dll', 'liblz4.dll', 'libsharpyuv-0.dll',
-            'libcurl-4.dll', 'libcrypto-3-x64.dll', 'libssh2-1.dll',
-            'libbrotlidec.dll', 'libbrotlicommon.dll', 'libpsl-5.dll',
-            'libidn2-0.dll', 'libiconv-2.dll', 'libunistring-5.dll', 'libintl-8.dll',
-            'libexpat-1.dll', 'libgcc_s_seh-1.dll', 'libstdc++-6.dll',
-            'libwinpthread-1.dll', 'libb2-1.dll'
-          )
-          foreach ($f in $files) {
-            $p = Join-Path $src $f
-            if (!(Test-Path $p)) { throw "missing tesseract runtime file: $f" }
-            Copy-Item $p (Join-Path $dst $f) -Force
+          # Copy the exe + every runtime DLL (DLL names drift between tesseract
+          # builds; taking them all keeps this step version-proof).
+          Copy-Item "$src/tesseract.exe" "$dst/tesseract.exe" -Force
+          Get-ChildItem "$src/*.dll" | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $dst $_.Name) -Force
           }
           Copy-Item "$src/tessdata/eng.traineddata" "$dst/tessdata/eng.traineddata" -Force
       - name: Verify bundled tesseract loads engine + language data

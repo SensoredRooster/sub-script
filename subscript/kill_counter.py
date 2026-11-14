@@ -42,7 +42,10 @@ _DEFAULT_ROI = {"x": 1810 / 1920, "y": 50 / 1080, "w": 70 / 1920, "h": 65 / 1080
 _ICON_BOX = (22 / 70, 0 / 65, 28 / 70, 28 / 65)   # x, y, w, h
 _DIGIT_BOX = (0 / 70, 18 / 65, 55 / 70, 45 / 65)
 _SCALE = 4  # lanczos upscale before OCR (matches the proven offline scan)
-_TEMPLATE_NAME = "kill_icon_warzone.pgm"
+# 28x28 skull icon (Warzone 1080p HUD), base64 so git/editor encodings can never mangle it.
+_ICON_TEMPLATE_B64 = (
+    "NTU1NTU1NTU1NTU1NTU1NTY2NjY2NjY2ODg4ODU1NTU1NTU1NTU1NTU1NTU2NjY2NjY2Njg4ODg1NTU1NTU1NTU1NTU1NTU1NjY2NjY2NjY4ODg4NTU1NTU1NTU1NTU1NTU1NTY2NjY2NjY2ODg4ODU1NTU1NTU1NTU1NTU1NTU2NjY2NjY2Njg4ODg1NTU1NTU1NTU1NTU1NTU1NjY2NjY2NjY4ODg4LTg6Lys0Ojg3VHeEclI9Ni88Lyg8PTM8ODg4OC4uNTcmI1CJ0+Du+fvckEo3NzEyOjczOzg4ODg9Nzo+O1GZ5Pn9/fz9/fPFVjoyOzcxNjo4ODg4QkE3N2Ou6fvn+v708v39/JJQMzs1Mzs3ODg4ODQ0KjqK6fzx/f39/f389O7Ocjc0NTs/Mzg4ODg1LDFdrPD8+fr19Pr9/fj25Y1ALDVAPjI4ODg4PzE+dbPd9v3w+/3+/f3x5NKYSyk2PjYyODg4OD4wOmmex+j9+/7+8vX858S1mFQqNjovMzg4ODg3NDlYZW2y/Pr4/fr1++q/p2gzLzgzMDc4ODg4LjFCXZqwo8/9/Pn9/d2tjJRcLi05OTlBODg4OEQ2Oj2AiDtboNj88qxPQoSDVTAvOTg5QDg4ODgsMjg7hZ1NPF+y4+GvVlCteFU4MzYyMTU4ODg4KzwpJW7ByKbYypir+vS+w2BMOjU1MjE0ODg4OC00LDM2PGB5zadZWq6tXjhAOzc1Njg6PTg4ODg8LzM9Nxw9pNX4+fLpo042MDU4NzY4Oz04ODg4PTg5JEREG1rE6/396JdINTE6PzozMjIyODg4ODY2NjY2NjY2frnv5J1UMi82NjY2NjY2Njg4ODg2NjY2NjY2NiwhGiM1PjgtNjY2NjY2NjY4ODg4NjY2NjY2NjYtMDM1NztBRzY2NjY2NjY2ODg4ODY2NjY2NjY2Ojw9OTQzNz02NjY2NjY2Njg4ODg2NjY2NjY2NjYvKiw1PT89NjY2NjY2NjY4ODg4NjY2NjY2NjYqNUFCOjEtLjY2NjY2NjY2ODg4OA=="
+)
 _TEMPLATE_SIZE = 28
 _ICON_NCC_MIN = 0.85  # skull present: ~0.97+; spectate/countdown HUD: ~0.6-0.8; menus: <0.5
 _OCR_ARGS = ("--psm", "7", "-c", "tessedit_char_whitelist=0123456789")
@@ -229,14 +232,15 @@ def _read_pgm(path: Path) -> tuple[int, int, bytes] | None:
 
 
 def _load_icon_template() -> bytes | None:
-    cand = resource_dir() / "subscript" / "data" / _TEMPLATE_NAME
-    got = _read_pgm(cand)
-    if not got:
+    try:
+        import base64
+
+        data = base64.b64decode(_ICON_TEMPLATE_B64)
+        if len(data) != _TEMPLATE_SIZE * _TEMPLATE_SIZE:
+            return None
+        return data
+    except Exception:
         return None
-    w, h, data = got
-    if w != _TEMPLATE_SIZE or h != _TEMPLATE_SIZE or len(data) < w * h:
-        return None
-    return data[: w * h]
 
 
 def _resize_gray_box_avg(data: bytes, w: int, h: int, tw: int, th: int) -> bytes:
