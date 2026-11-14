@@ -208,9 +208,12 @@ def _maybe_merge_killfeed(
     top_n: int,
     cfg: dict[str, Any] | None,
 ) -> tuple[list[dict[str, Any]], str]:
-    """If detect.enabled + player_name, merge kill timestamps; else unchanged."""
-    if not cfg:
-        return loudness, ""
+    """Kill-counter scan (default on) + optional kill-feed OCR; else unchanged.
+
+    Kills always outrank loudness: counter hits get score 1.0 and sort first.
+    Everything is fail-soft — missing engine or any error leaves loudness
+    suggestions untouched and just adds a human-readable note.
+    """
     try:
         from subscript.detect_killfeed import (
             detect_enabled,
@@ -220,25 +223,9 @@ def _maybe_merge_killfeed(
             resolve_player_name,
         )
     except Exception as exc:  # noqa: BLE001
-        return loudness, f"Kill-feed module unavailable ({exc})."
+        return loudness, f"Kill-detect module unavailable ({exc})."
 
-    if not detect_enabled(cfg):
-        return loudness, ""
-    name = resolve_player_name(cfg)
-    if not name:
-        return loudness, "detect.enabled but player_name empty — loudness-only."
-
-    try:
-        result = detect_kills(source, player_name=name, cfg=cfg)
-    except Exception as exc:  # noqa: BLE001
-        return loudness, f"Kill-feed skipped ({exc}); loudness-only."
-
-    note = str(result.get("note") or "")
-    kills = list(result.get("kills") or [])
-    if not kills:
-        return loudness, note or "No kill-feed hits (OCR missing or no exact name match)."
-
-    det = cfg.get("detect") if isinstance(cfg.get("detect"), dict) else {}
+    det = cfg.get("detect") if isinstance(cfg, dict) and isinstance(cfg.get("detect"), dict) else {}
     mode = str(det.get("merge") or "merge").strip().lower()
     pre_roll = 8.0
     try:
@@ -246,14 +233,60 @@ def _maybe_merge_killfeed(
     except (TypeError, ValueError):
         pre_roll = 8.0
 
+    notes: list[str] = []
+
+    # 1) Kill-counter scan — on by default, uses the bundled OCR engine,
+    #    needs no player name. This is the primary "kills over everything" path.
+    try:
+        from subscript.kill_counter import detect_counter_kills, kill_counter_enabled
+
+        if kill_counter_enabled(cfg):
+            result = detect_counter_kills(source, cfg=cfg)
+            kc_note = str(result.get("note") or "")
+            if kc_note:
+                notes.append(kc_note)
+            kc_kills = list(result.get("kills") or [])
+            if kc_kills:
+                kc_sugs = kills_to_suggestions(
+                    kc_kills, buffer_seconds=buffer_seconds, pre_roll=pre_roll
+                )
+                for s in kc_sugs:
+                    s["source"] = "killcounter"
+                loudness = merge_highlight_suggestions(
+                    loudness, kc_sugs, top_n=top_n, mode=mode
+                )
+                notes.append(f"Kills first: merged {len(kc_kills)} kill-counter hit(s) ({mode}).")
+    except Exception as exc:  # noqa: BLE001
+        notes.append(f"Kill-counter skipped ({exc}); loudness-only.")
+
+    # 2) Optional kill-feed name OCR (detect.enabled + player_name).
+    if not detect_enabled(cfg):
+        return loudness, " ".join(notes)
+    name = resolve_player_name(cfg)
+    if not name:
+        notes.append("detect.enabled but player_name empty — kill-feed skipped.")
+        return loudness, " ".join(notes)
+
+    try:
+        result = detect_kills(source, player_name=name, cfg=cfg)
+    except Exception as exc:  # noqa: BLE001
+        notes.append(f"Kill-feed skipped ({exc}); loudness-only.")
+        return loudness, " ".join(notes)
+
+    note = str(result.get("note") or "")
+    kills = list(result.get("kills") or [])
+    if not kills:
+        notes.append(note or "No kill-feed hits (OCR missing or no exact name match).")
+        return loudness, " ".join(notes)
+
     kill_sugs = kills_to_suggestions(
         kills, buffer_seconds=buffer_seconds, pre_roll=pre_roll
     )
     merged = merge_highlight_suggestions(
         loudness, kill_sugs, top_n=top_n, mode=mode
     )
-    extra = f"Merged {len(kills)} kill-feed hit(s) ({mode})."
-    return merged, (note + " " + extra).strip() if note else extra
+    notes.append(f"Merged {len(kills)} kill-feed hit(s) ({mode}).")
+    return merged, " ".join(n for n in notes if n)
 
 
 def _decode_mono_pcm(source: Path) -> list[float]:

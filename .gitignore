@@ -44,3 +44,8 @@ installer/Output/
 # Tests / tooling
 .pytest_cache/
 .kilo/
+
+# Local tool mirrors (CI bundles these; never commit)
+tesseract/
+ffmpeg.exe
+ffprobe.exe

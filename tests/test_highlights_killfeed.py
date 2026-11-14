@@ -130,10 +130,21 @@ def test_detect_kills_without_name_or_ocr(tmp_path: Path) -> None:
 
 def test_merge_killfeed_skipped_when_disabled() -> None:
     loud = [{"start": 0.0, "duration": 5.0, "score": 1.0, "source": "loudness"}]
-    out, note = H._maybe_merge_killfeed(Path("x.mp4"), loud, buffer_seconds=5.0, top_n=3, cfg={"detect": {"enabled": False}})
+    off = {"detect": {"enabled": False, "kill_counter": False}}
+    out, note = H._maybe_merge_killfeed(Path("x.mp4"), loud, buffer_seconds=5.0, top_n=3, cfg=off)
     assert out == loud and note == ""
-    out, note = H._maybe_merge_killfeed(Path("x.mp4"), loud, buffer_seconds=5.0, top_n=3, cfg={"detect": {"enabled": True}})
+    on = {"detect": {"enabled": True, "kill_counter": False}}
+    out, note = H._maybe_merge_killfeed(Path("x.mp4"), loud, buffer_seconds=5.0, top_n=3, cfg=on)
     assert out == loud and "player_name empty" in note
+
+
+def test_kill_counter_runs_by_default_but_fails_soft(tmp_path: Path) -> None:
+    # No config at all: kill-counter scan is attempted, missing source →
+    # loudness suggestions untouched, human note explains what happened.
+    loud = [{"start": 0.0, "duration": 5.0, "score": 1.0, "source": "loudness"}]
+    out, note = H._maybe_merge_killfeed(tmp_path / "nope.mp4", loud, buffer_seconds=5.0, top_n=3, cfg=None)
+    assert out == loud
+    assert "source missing" in note or "tesseract" in note.lower()
 
 
 @needs_ffmpeg

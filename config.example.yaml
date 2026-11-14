@@ -42,6 +42,22 @@ detect:
   # merge = combine with loudness peaks; replace = kill-feed only when hits exist
   merge: merge
   pre_roll: 8.0
+  # Kill-counter watch (DEFAULT ON): reads your in-game kill count with the
+  # bundled OCR engine — no player name or extra installs needed. Confirmed
+  # increments = your kills, and they always outrank loudness highlights.
+  # Frames without the skull icon (spectate / gulag / menus) are ignored, so
+  # players-remaining countdowns never fake kills.
+  kill_counter: true
+  counter_sample_fps: 0.5
+  # Where the skull + kill count sits, as fractions of the frame.
+  # Default is the Warzone top-right HUD stack; adjust for other games/layouts.
+  counter_roi:
+    x: 0.9427
+    y: 0.0463
+    w: 0.0365
+    h: 0.0602
+  # Explicit OCR engine path (rarely needed — the installer bundles one).
+  tesseract_path: ""
   roi:
     # Fractions of frame (0..1). Default ≈ top-right kill feed on 16:9 HUD.
     x: 0.62

@@ -286,7 +286,7 @@ def merge_highlight_suggestions(
         combined = [dict(s) for s in loudness] + [dict(s) for s in killfeed]
         for s in combined:
             s.setdefault("source", "loudness")
-    combined.sort(key=lambda s: (-float(s.get("score") or 0.0), 0 if s.get("source") == "killfeed" else 1, float(s.get("start") or 0.0)))
+    combined.sort(key=lambda s: (-float(s.get("score") or 0.0), 0 if s.get("source") in ("killfeed", "killcounter") else 1, float(s.get("start") or 0.0)))
     picked: list[dict[str, Any]] = []
     for s in combined:
         start = float(s.get("start") if s.get("start") is not None else 0.0)

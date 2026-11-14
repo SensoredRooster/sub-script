@@ -88,12 +88,12 @@ def test_smart_crop_x_clamps_to_frame(tmp_path: Path) -> None:
 def test_smart_vertical_filter_falls_back_without_signal(tmp_path: Path) -> None:
     src = _synth_video(tmp_path / "flat.mp4", moving="none")
     vf = smart_vertical_filter(src, 1080, 1920)
-    assert vf == "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1"
+    assert vf == "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1"
 
 
 def test_smart_vertical_filter_disabled() -> None:
     vf = smart_vertical_filter(Path("nonexistent.mp4"), 1080, 1920, smart=False)
-    assert vf == "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1"
+    assert vf == "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1"
 
 
 def test_smart_vertical_filter_smart_path(tmp_path: Path) -> None:
